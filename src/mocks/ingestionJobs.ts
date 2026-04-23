@@ -43,6 +43,12 @@ export const ingestionJobs: readonly IngestionJob[] = [
   j('job_0030', 'org_aranya', 'eml_0030', 'skipped',     '2026-04-19T16:00:02.000Z', '2026-04-19T16:00:02.000Z',
     'skipped: disclaimer-only, no ticker payload'),
 
+  // Aranya · extra coverage
+  j('job_0039', 'org_aranya', 'eml_0039', 'ready', '2026-04-23T07:30:05.000Z', '2026-04-23T07:34:11.000Z'),
+  j('job_0040', 'org_aranya', 'eml_0040', 'ready', '2026-04-23T08:30:04.000Z', '2026-04-23T08:33:58.000Z'),
+  j('job_0041', 'org_aranya', 'eml_0041', 'ready', '2026-04-23T09:00:04.000Z', '2026-04-23T09:03:17.000Z'),
+  j('job_0042', 'org_aranya', 'eml_0042', 'ready', '2026-04-23T06:30:04.000Z', '2026-04-23T06:34:40.000Z'),
+
   // Sahyadri
   j('job_0031', 'org_sahyadri', 'eml_0031', 'ready',  '2026-04-22T11:14:26.000Z', '2026-04-22T11:18:49.000Z'),
   j('job_0032', 'org_sahyadri', 'eml_0032', 'ready',  '2026-04-22T09:42:22.000Z', '2026-04-22T09:46:17.000Z'),

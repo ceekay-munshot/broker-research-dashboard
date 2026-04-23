@@ -1,7 +1,8 @@
 import type {
-  Broker, BrokerStockOpinion, ConsensusView, Stock,
+  Broker, BrokerStockOpinion, Stock,
   BrokerId, StockTicker, Rating, Stance, ReportId,
 } from '../domain'
+import type { ConflictClosure, ResultantState, StrengthBand } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
@@ -28,8 +29,13 @@ export interface ByStockRowViewModel {
   readonly currency: string
   readonly spotPrice: number | null
   readonly avgTarget: number | null
-  readonly spreadSigma: number | null
+  readonly medianTarget: number | null
+  readonly spreadPct: number | null
   readonly consensusUpsidePct: number | null
+  readonly brokerCount: number
+  readonly resultantState: ResultantState
+  readonly resultantStrength: StrengthBand
+  readonly outlierBrokerIds: readonly BrokerId[]
   readonly opinionsByBroker: Readonly<Record<BrokerId, OpinionCell | undefined>>
 }
 
@@ -42,22 +48,13 @@ interface Inputs {
   readonly stocks: readonly Stock[]
   readonly brokers: readonly Broker[]
   readonly opinions: readonly BrokerStockOpinion[]
-  readonly consensus: readonly ConsensusView[]
+  readonly closures: readonly ConflictClosure[]
   readonly sectorNameById: ReadonlyMap<string, string>
   readonly filters: FiltersState
 }
 
-const OUTLIER_SIGMA = 1.25
-
-function stdev(nums: readonly number[]): number {
-  if (nums.length < 2) return 0
-  const mean = nums.reduce((a, b) => a + b, 0) / nums.length
-  const variance = nums.map((n) => (n - mean) ** 2).reduce((a, b) => a + b, 0) / nums.length
-  return Math.sqrt(variance)
-}
-
 export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
-  const consensusByTicker = indexBy(inputs.consensus, (c) => c.ticker as string)
+  const closureByTicker = indexBy(inputs.closures, (c) => c.ticker as string)
   const tickerFilter = new Set<string>(inputs.filters.tickers as readonly string[])
   const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
 
@@ -70,16 +67,11 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
 
   const rows = filtered.map<ByStockRowViewModel>((stock) => {
     const tickerOpinions = inputs.opinions.filter((o) => o.ticker === stock.ticker)
-    const targets = tickerOpinions
-      .map((o) => o.targetPrice)
-      .filter((t): t is number => t !== null)
-    const sd = stdev(targets)
-    const mean = targets.length ? targets.reduce((a, b) => a + b, 0) / targets.length : null
+    const closure = closureByTicker.get(stock.ticker as string)
+    const outlierIds = new Set((closure?.outliers ?? []).map((o) => o.brokerId as string))
 
     const opinionsByBroker: Record<string, OpinionCell | undefined> = {}
     for (const o of tickerOpinions) {
-      const outlier = sd > 0 && o.targetPrice !== null && mean !== null
-        && Math.abs(o.targetPrice - mean) / sd > OUTLIER_SIGMA
       opinionsByBroker[o.brokerId as string] = {
         brokerId: o.brokerId,
         rating: o.rating,
@@ -93,13 +85,15 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
         impliedUpsidePct: o.impliedUpsidePct,
         lastUpdatedAt: o.lastUpdatedAt,
         lastReportId: o.lastReportId,
-        outlier,
+        outlier: outlierIds.has(o.brokerId as string),
       }
     }
 
-    const consensus = consensusByTicker.get(stock.ticker as string)
-    const consensusUpsidePct = mean !== null && stock.lastPrice !== null
-      ? ((mean / stock.lastPrice) - 1) * 100
+    const avgTarget = closure?.targetStats.mean ?? null
+    const medianTarget = closure?.targetStats.median ?? null
+    const spreadPct = closure?.targetStats.spreadPct ?? null
+    const consensusUpsidePct = avgTarget !== null && stock.lastPrice !== null
+      ? ((avgTarget / stock.lastPrice) - 1) * 100
       : null
 
     return {
@@ -108,14 +102,19 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       sectorName: inputs.sectorNameById.get(stock.sectorId as string) ?? '—',
       currency: stock.currency,
       spotPrice: stock.lastPrice,
-      avgTarget: consensus?.avgTargetPrice ?? mean,
-      spreadSigma: sd > 0 ? sd : null,
+      avgTarget,
+      medianTarget,
+      spreadPct,
       consensusUpsidePct,
+      brokerCount: closure?.brokerCount ?? tickerOpinions.length,
+      resultantState: closure?.resultant.state ?? 'unresolved',
+      resultantStrength: closure?.resultant.strength ?? 'weak',
+      outlierBrokerIds: closure?.outliers.map((o) => o.brokerId) ?? [],
       opinionsByBroker: opinionsByBroker as Readonly<Record<BrokerId, OpinionCell | undefined>>,
     }
   })
 
-  // Column set: only brokers that appear in at least one opinion on screen.
+  // Column set: brokers with at least one opinion on screen.
   const shownBrokerIds = new Set<string>()
   for (const row of rows) {
     for (const bid of Object.keys(row.opinionsByBroker)) shownBrokerIds.add(bid)
@@ -138,18 +137,14 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
     }),
     [fp],
   )
-  const consensus = useAdapterQuery(async (a, s) => {
-    const stockList = await a.listStocks(s)
-    const views = await Promise.all(stockList.map((st) => a.getConsensusView(s, st.ticker)))
-    return views.filter((v): v is NonNullable<typeof v> => v !== null)
-  }, [])
+  const closures = useAdapterQuery((a, s) => a.listConflictClosures(s), [])
 
-  const loading = stocks.loading || brokers.loading || sectors.loading || opinions.loading || consensus.loading
-  const error = stocks.error ?? brokers.error ?? sectors.error ?? opinions.error ?? consensus.error
+  const loading = stocks.loading || brokers.loading || sectors.loading || opinions.loading || closures.loading
+  const error = stocks.error ?? brokers.error ?? sectors.error ?? opinions.error ?? closures.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!stocks.data || !brokers.data || !sectors.data || !opinions.data || !consensus.data) {
+  if (!stocks.data || !brokers.data || !sectors.data || !opinions.data || !closures.data) {
     return { data: null, loading: true, error: null }
   }
 
@@ -158,7 +153,7 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
     stocks: stocks.data,
     brokers: brokers.data,
     opinions: opinions.data,
-    consensus: consensus.data,
+    closures: closures.data,
     sectorNameById,
     filters,
   })

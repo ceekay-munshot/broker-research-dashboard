@@ -20,9 +20,9 @@ export interface Stock {
 // ready ResearchReport by that broker that mentions the ticker. Org-scoped
 // because "most recent" depends on which reports the org actually received.
 //
-// This is the primary object the `By Broker` and `By Stock` UI reads from.
-// In the mock adapter it is served from a fixture; in the real adapter it
-// will be computed server-side and cached.
+// This is the primary object the `By Broker` and `By Stock` UI reads from,
+// and the input to the conflict-closure engine (src/engine/conflictClosure.ts)
+// that produces consensus/disagreement/outlier/resultant output.
 export interface BrokerStockOpinion {
   readonly orgId: OrgId
   readonly brokerId: BrokerId
@@ -35,20 +35,4 @@ export interface BrokerStockOpinion {
   readonly lastReportId: ReportId
   readonly lastUpdatedAt: Iso8601
   readonly impliedUpsidePct: number | null
-}
-
-// Derived: aggregate of all active BrokerStockOpinions for one ticker in one
-// org. Drives the `By Stock` consensus header and the divergence detector.
-export interface ConsensusView {
-  readonly orgId: OrgId
-  readonly ticker: StockTicker
-  readonly brokerCount: number
-  readonly avgTargetPrice: number | null
-  readonly medianTargetPrice: number | null
-  readonly highTargetPrice: number | null
-  readonly lowTargetPrice: number | null
-  readonly spreadPct: number | null
-  readonly stanceDistribution: Readonly<Record<Stance, number>>
-  readonly ratingDistribution: Readonly<Partial<Record<Rating, number>>>
-  readonly asOf: Iso8601
 }

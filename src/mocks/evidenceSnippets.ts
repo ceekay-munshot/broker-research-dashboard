@@ -123,6 +123,27 @@ export const evidenceSnippets: readonly EvidenceSnippet[] = [
   e('ev_0065','sum_0022','rpt_0022','att_0022', 5, 'keyPoint', '0','Retail loan growth of plus sixteen percent year-over-year is being achieved with underwriting quality intact.'),
   e('ev_0066','sum_0022','rpt_0022','att_0022', 9, 'keyPoint', '1','Corporate credit revival is underway on our tracking, supported by industrial capex momentum.'),
 
+  // ── Aranya · extra-coverage evidence (ev_0082..0093) ────────────────
+  // sum_0028 — MOSL TCS bullish
+  e('ev_0082','sum_0028','rpt_0028','att_0036', 2, 'thesis',   '', 'GenAI attach rate continues to exceed our prior and margin cadence is intact; we reiterate Buy at \u20b94,650.'),
+  e('ev_0083','sum_0028','rpt_0028','att_0036', 5, 'keyPoint', '0','GenAI attach rate on new deals is approximately 22% on our latest channel-check work.'),
+  e('ev_0084','sum_0028','rpt_0028','att_0036',10, 'keyPoint', '1','Operating margin is holding at the approximately 25% mid-point, with wage-hike effects contained.'),
+
+  // sum_0029 — Kotak ICICIBANK bullish
+  e('ev_0085','sum_0029','rpt_0029','att_0037', 2, 'thesis',   '', 'Deposit franchise resilience and benign retail credit costs support NII outperformance; Buy, PT \u20b91,480.'),
+  e('ev_0086','sum_0029','rpt_0029','att_0037', 5, 'keyPoint', '0','Overall deposit growth of plus sixteen percent year-over-year with granular mix across retail and SA.'),
+  e('ev_0087','sum_0029','rpt_0029','att_0037', 9, 'keyPoint', '1','Credit costs are stable at approximately 50 basis points through 4QFY26, tracking ahead of our prior.'),
+
+  // sum_0030 — HDFC Sec TATAMOTORS neutral
+  e('ev_0088','sum_0030','rpt_0030','att_0038', 2, 'thesis',   '', 'JLR margin recovery is progressing at a measured pace; risk/reward is balanced, we retain Hold with PT \u20b9880.'),
+  e('ev_0089','sum_0030','rpt_0030','att_0038', 5, 'keyPoint', '0','JLR EBIT margin recovery is tracking for FY27 on product mix and Range Rover pricing discipline.'),
+  e('ev_0090','sum_0030','rpt_0030','att_0038', 8, 'keyPoint', '1','India PV market share gains are continuing on Punch/Nexon EV/Harrier momentum.'),
+
+  // sum_0031 — MOSL RELIANCE bullish
+  e('ev_0091','sum_0031','rpt_0031','att_0039', 2, 'thesis',   '', 'Jio ARPU momentum combined with retail EBITDA expansion supports sustained re-rating; Buy, PT \u20b93,150.'),
+  e('ev_0092','sum_0031','rpt_0031','att_0039', 6, 'keyPoint', '0','Jio ARPU growth is sustaining at 8-10% year-over-year on the current tariff structure.'),
+  e('ev_0093','sum_0031','rpt_0031','att_0039',10, 'keyPoint', '1','Retail EBITDA margin is expanding on operating leverage with premium-category contribution rising.'),
+
   // ── Sahyadri summaries ──────────────────────────────────────────────
   e('ev_0067','sum_0023','rpt_0023','att_0029', 2, 'thesis',   '', 'We lift our 12-month PT to \u20b93,200 driven by Jio ARPU discipline and retail EBITDA step-up.',                                                   undefined, 'org_sahyadri'),
   e('ev_0068','sum_0023','rpt_0023','att_0029', 5, 'keyPoint', '0','Reported Jio ARPU implies 8-10% y/y growth is sustainable at current tariff discipline.',                                                       undefined, 'org_sahyadri'),

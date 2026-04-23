@@ -32,6 +32,14 @@ export const brokerStockOpinions: readonly BrokerStockOpinion[] = [
   o('org_aranya', 'brk_iifl',       'HINDUNILVR', 'Sell',        'bearish', 2100, 2250, 'rpt_0021', '2026-04-15T13:40:00.000Z',-11.88),
   o('org_aranya', 'brk_plilladher', 'SBIN',       'Buy',         'bullish',  980,  920, 'rpt_0022', '2026-04-19T10:00:00.000Z', 18.73),
 
+  // Extra coverage rows pushing 4 tickers to 3+ broker depth so the engine's
+  // outlier statistics (z-score, rating-contrary, stance-contrary) are
+  // meaningful. See docs/closure-logic.md for thresholds.
+  o('org_aranya', 'brk_mosl',       'TCS',        'Buy',         'bullish', 4650, 4400, 'rpt_0028', '2026-04-23T07:30:00.000Z', 13.35),
+  o('org_aranya', 'brk_kotak',      'ICICIBANK',  'Buy',         'bullish', 1480, 1420, 'rpt_0029', '2026-04-23T08:30:00.000Z', 15.69),
+  o('org_aranya', 'brk_hdfc',       'TATAMOTORS', 'Hold',        'neutral',  880,  900, 'rpt_0030', '2026-04-23T09:00:00.000Z', -1.63),
+  o('org_aranya', 'brk_mosl',       'RELIANCE',   'Buy',         'bullish', 3150, 3000, 'rpt_0031', '2026-04-23T06:30:00.000Z',  5.54),
+
   // ── Sahyadri Investment Management ──────────────────────────────────
   o('org_sahyadri', 'brk_kotak',  'RELIANCE',   'Buy',         'bullish', 3200, 3050, 'rpt_0023', '2026-04-22T09:00:00.000Z',  7.20),
   o('org_sahyadri', 'brk_mosl',   'TCS',        'Buy',         'bullish', 4650, 4400, 'rpt_0024', '2026-04-22T07:40:00.000Z', 13.35),

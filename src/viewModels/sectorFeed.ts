@@ -1,7 +1,11 @@
 import type {
-  Broker, ResearchReport, ReportSummary, Sector, SectorKnowledgeItem,
-  SectorId, Stance,
+  Broker, ResearchReport, ReportSummary, Sector,
+  SectorId, Stance, StockTicker, BrokerId,
 } from '../domain'
+import type {
+  SectorIntelligence, SectorSignal, SectorSignalClassification, ResultantState,
+  StrengthBand,
+} from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import {
   buildFeedItem, indexBy, type FeedItemViewModel,
@@ -9,14 +13,38 @@ import {
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint, resolveSince } from '../app/filters'
 
+export interface SectorSignalVM {
+  readonly theme: string
+  readonly classification: SectorSignalClassification
+  readonly classificationLabel: string
+  readonly tickers: readonly StockTicker[]
+  readonly brokerNames: readonly string[]
+  readonly stanceLean: Stance
+  readonly mentionCount: number
+  readonly firstSeen: string
+  readonly lastSeen: string
+  readonly citationCount: number
+}
+
+export interface SectorResultantEntryVM {
+  readonly ticker: StockTicker
+  readonly state: ResultantState
+  readonly strength: StrengthBand
+}
+
 export interface SectorTileViewModel {
   readonly sectorId: SectorId
   readonly name: string
   readonly reportCount: number
+  readonly tickerCount: number
+  readonly brokerCount: number
   readonly aggregateStance: Stance
-  readonly sentimentScore: number  // −1..+1
-  readonly topThemes: readonly { readonly theme: string; readonly mentions: number; readonly stanceLean: Stance }[]
+  readonly sentimentScore: number
+  readonly signals: readonly SectorSignalVM[]
+  readonly resultantStates: readonly SectorResultantEntryVM[]
   readonly recentReports: readonly FeedItemViewModel[]
+  readonly periodStart: string
+  readonly periodEnd: string
 }
 
 export interface SectorFeedViewModel {
@@ -25,27 +53,31 @@ export interface SectorFeedViewModel {
 
 interface Inputs {
   readonly sectors: readonly Sector[]
-  readonly knowledge: readonly SectorKnowledgeItem[]
+  readonly intelligence: readonly SectorIntelligence[]
   readonly reports: readonly ResearchReport[]
   readonly summaries: readonly ReportSummary[]
   readonly brokers: readonly Broker[]
   readonly filters: FiltersState
 }
 
-function stanceToScore(s: Stance): number {
-  return s === 'bullish' ? 1 : s === 'bearish' ? -1 : 0
+const CLASSIFICATION_LABELS: Readonly<Record<SectorSignalClassification, string>> = {
+  repeated_sector:   'Repeated · multiple names',
+  unresolved_debate: 'Unresolved · bulls vs bears',
+  broker_specific:   'Single broker',
+  single_name:       'Single name',
 }
 
 export function buildSectorFeedViewModel(inputs: Inputs): SectorFeedViewModel {
-  const knowledgeBySector = indexBy(inputs.knowledge, (k) => k.sectorId as string)
+  const intelligenceBySector = indexBy(inputs.intelligence, (i) => i.sectorId as string)
   const brokerById = indexBy(inputs.brokers, (b) => b.id as string)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
   const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
+  const name = (id: BrokerId) => brokerById.get(id as unknown as string)?.shortName ?? (id as unknown as string).toUpperCase()
 
   const sectors = inputs.sectors.filter((s) => sectorFilter.size === 0 || sectorFilter.has(s.id as string))
 
   const tiles = sectors.map<SectorTileViewModel>((sector) => {
-    const knowledge = knowledgeBySector.get(sector.id as string)
+    const si = intelligenceBySector.get(sector.id as string)
     const tickerSet = new Set(sector.tickers as readonly string[])
 
     const sectorReports = inputs.reports
@@ -58,22 +90,36 @@ export function buildSectorFeedViewModel(inputs: Inputs): SectorFeedViewModel {
       brokerById.get(r.brokerId as string) ?? null,
     ))
 
-    const stanceValues = sectorReports
-      .map((r) => summaryByReport.get(r.id as string))
-      .filter((s): s is ReportSummary => s !== undefined)
-      .map((s) => stanceToScore(s.stance))
-    const sentimentScore = stanceValues.length
-      ? stanceValues.reduce((a, b) => a + b, 0) / stanceValues.length
-      : 0
+    const signals: SectorSignalVM[] = (si?.signals ?? []).slice(0, 6).map((s: SectorSignal) => ({
+      theme: s.theme,
+      classification: s.classification,
+      classificationLabel: CLASSIFICATION_LABELS[s.classification],
+      tickers: s.tickers,
+      brokerNames: s.brokerIds.map((b) => name(b)),
+      stanceLean: s.stanceLean,
+      mentionCount: s.mentionCount,
+      firstSeen: s.firstSeen,
+      lastSeen: s.lastSeen,
+      citationCount: s.evidenceIds.length,
+    }))
 
     return {
       sectorId: sector.id,
       name: sector.name,
-      reportCount: knowledge?.reportCount ?? sectorReports.length,
-      aggregateStance: knowledge?.aggregateStance ?? 'neutral',
-      sentimentScore,
-      topThemes: knowledge?.topThemes ?? [],
+      reportCount: si?.reportCount ?? sectorReports.length,
+      tickerCount: si?.tickerCount ?? 0,
+      brokerCount: si?.brokerCount ?? 0,
+      aggregateStance: si?.aggregateStance ?? 'neutral',
+      sentimentScore: si?.aggregateStanceScore ?? 0,
+      signals,
+      resultantStates: (si?.resultantStates ?? []).map((r) => ({
+        ticker: r.ticker,
+        state: r.state,
+        strength: r.strength,
+      })),
       recentReports,
+      periodStart: si?.periodStart ?? '',
+      periodEnd: si?.periodEnd ?? '',
     }
   })
 
@@ -86,16 +132,11 @@ export function useSectorFeedViewModel(filters: FiltersState): QueryResult<Secto
 
   const sectors = useAdapterQuery((a, s) => a.listSectors(s), [])
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
+  const intelligence = useAdapterQuery((a, s) => a.listSectorIntelligence(s), [])
   const reportsPage = useAdapterQuery(
     (a, s) => a.listResearchReports(s, { since, limit: 200 }),
     [fp],
   )
-
-  const visibleSectors = sectors.data ?? []
-  const knowledgeQuery = useAdapterQuery(async (a, s) => {
-    const results = await Promise.all(visibleSectors.map((sec) => a.getSectorKnowledge(s, sec.id)))
-    return results.filter((r): r is NonNullable<typeof r> => r !== null)
-  }, [visibleSectors.map((v) => v.id).join(',')])
 
   const needsSummaries = reportsPage.data?.items.map((r) => r.id) ?? []
   const summariesQuery = useAdapterQuery(async (a, s) => {
@@ -103,18 +144,20 @@ export function useSectorFeedViewModel(filters: FiltersState): QueryResult<Secto
       .then((rs) => rs.filter((x): x is NonNullable<typeof x> => x !== null))
   }, [needsSummaries.join(',')])
 
-  const loading = sectors.loading || brokers.loading || reportsPage.loading || knowledgeQuery.loading || summariesQuery.loading
-  const error = sectors.error ?? brokers.error ?? reportsPage.error ?? knowledgeQuery.error ?? summariesQuery.error
+  const loading = sectors.loading || brokers.loading || intelligence.loading
+    || reportsPage.loading || summariesQuery.loading
+  const error = sectors.error ?? brokers.error ?? intelligence.error
+    ?? reportsPage.error ?? summariesQuery.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!sectors.data || !brokers.data || !reportsPage.data || !knowledgeQuery.data || !summariesQuery.data) {
+  if (!sectors.data || !brokers.data || !intelligence.data || !reportsPage.data || !summariesQuery.data) {
     return { data: null, loading: true, error: null }
   }
 
   const vm = buildSectorFeedViewModel({
     sectors: sectors.data,
-    knowledge: knowledgeQuery.data,
+    intelligence: intelligence.data,
     reports: reportsPage.data.items,
     summaries: summariesQuery.data,
     brokers: brokers.data,

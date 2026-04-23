@@ -2,17 +2,18 @@ import type {
   Organization, User,
   Broker, BrokerEmail, Attachment,
   ResearchReport, ReportSummary, EvidenceSnippet,
-  Stock, BrokerStockOpinion, ConsensusView,
-  Sector, SectorKnowledgeItem,
-  DivergenceCase,
+  Stock, BrokerStockOpinion,
+  Sector,
   KpiSnapshot,
   IngestionStatus,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
+import type { ConflictClosure, SectorIntelligence } from '../engine/types'
+import { buildConflictClosure, buildSectorIntelligence } from '../engine'
 import type { ResearchAdapter } from './ResearchAdapter'
 import type {
-  ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListDivergencesQuery,
+  ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListClosuresQuery,
 } from './queries'
 import { NotFoundError, OrgScopeViolationError } from './errors'
 import { paginate } from '../lib/paginate'
@@ -23,14 +24,14 @@ import {
   brokers, sectors, stocks,
   brokerEmails, attachments,
   reports, summaries, evidenceSnippets,
-  brokerStockOpinions, consensusViews,
-  divergenceCases, sectorKnowledgeItems,
+  brokerStockOpinions,
   ingestionJobs, kpiSnapshots, ingestionStatuses,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
 
-// In-memory adapter that serves fixtures from src/mocks/*. Every call filters
-// by scope.orgId; a fixture row that doesn't belong to the scope's org is
+// In-memory adapter that serves fixtures from src/mocks/* plus runs the
+// deterministic src/engine/ analysis layer on demand. Every call filters by
+// scope.orgId; a fixture row that doesn't belong to the scope's org is
 // never returned.
 //
 // Latency is simulated lightly so the UI's loading states behave the way
@@ -205,25 +206,106 @@ export class MockResearchAdapter implements ResearchAdapter {
       .filter((o) => !tickerSet || tickerSet.has(o.ticker))
   }
 
-  async getConsensusView(scope: OrgScope, ticker: StockTicker): Promise<ConsensusView | null> {
+  async getConflictClosure(scope: OrgScope, ticker: StockTicker): Promise<ConflictClosure | null> {
     await this.delay()
-    return consensusViews.find((c) => c.orgId === scope.orgId && c.ticker === ticker) ?? null
+    const opinions = brokerStockOpinions.filter(
+      (o) => o.orgId === scope.orgId && o.ticker === ticker,
+    )
+    if (opinions.length === 0) return null
+    const reportIds = new Set(opinions.map((o) => o.lastReportId as unknown as string))
+    const scopeSummaries = summaries.filter(
+      (s) => s.orgId === scope.orgId && reportIds.has(s.reportId as unknown as string),
+    )
+    const scopeEvidence = evidenceSnippets.filter(
+      (e) => e.orgId === scope.orgId && reportIds.has(e.reportId as unknown as string),
+    )
+    const scopeBrokers = await this.listBrokers(scope)
+    return buildConflictClosure({
+      ticker,
+      opinions,
+      summaries: scopeSummaries,
+      evidence: scopeEvidence,
+      brokers: scopeBrokers,
+    })
   }
 
-  async listDivergenceCases(scope: OrgScope, query: ListDivergencesQuery = {}): Promise<readonly DivergenceCase[]> {
+  async listConflictClosures(scope: OrgScope, query: ListClosuresQuery = {}): Promise<readonly ConflictClosure[]> {
     await this.delay()
+    const scopeStocks = await this.listStocks(scope)
     const tickerSet = query.tickers ? new Set(query.tickers) : null
-    return divergenceCases
-      .filter((d) => d.orgId === scope.orgId)
-      .filter((d) => query.minSpreadPct === undefined || d.spreadPct >= query.minSpreadPct)
-      .filter((d) => !tickerSet || tickerSet.has(d.ticker))
-      .slice()
-      .sort((a, b) => b.spreadPct - a.spreadPct)
+    const sectorSet = query.sectorIds ? new Set(query.sectorIds) : null
+    const stateSet  = query.states ? new Set(query.states) : null
+
+    const candidates = scopeStocks
+      .filter((s) => !tickerSet || tickerSet.has(s.ticker))
+      .filter((s) => !sectorSet || sectorSet.has(s.sectorId))
+
+    const closures: ConflictClosure[] = []
+    for (const stock of candidates) {
+      const closure = await this.getConflictClosure(scope, stock.ticker)
+      if (!closure) continue
+      if (query.minSpreadPct !== undefined) {
+        const spread = closure.targetStats.spreadPct
+        if (spread === null || spread < query.minSpreadPct) continue
+      }
+      if (query.mustHaveDisagreements && closure.disagreements.length === 0) continue
+      if (query.mustHaveOutliers && closure.outliers.length === 0) continue
+      if (stateSet && !stateSet.has(closure.resultant.state)) continue
+      closures.push(closure)
+    }
+
+    // Sort by target spread desc so the most-divergent names surface first.
+    closures.sort((a, b) =>
+      (b.targetStats.spreadPct ?? 0) - (a.targetStats.spreadPct ?? 0))
+    return closures
   }
 
-  async getSectorKnowledge(scope: OrgScope, sectorId: SectorId): Promise<SectorKnowledgeItem | null> {
+  async getSectorIntelligence(scope: OrgScope, sectorId: SectorId): Promise<SectorIntelligence | null> {
     await this.delay()
-    return sectorKnowledgeItems.find((s) => s.orgId === scope.orgId && s.sectorId === sectorId) ?? null
+    const sector = sectors.find((s) => s.id === sectorId)
+    if (!sector) return null
+
+    const scopeReports = reports.filter(
+      (r) => r.orgId === scope.orgId
+        && (r.sectorIds.includes(sectorId)
+            || r.tickers.some((t) => sector.tickers.includes(t))),
+    )
+    const scopeReportIds = new Set(scopeReports.map((r) => r.id as unknown as string))
+    const scopeSummaries = summaries.filter(
+      (s) => s.orgId === scope.orgId && scopeReportIds.has(s.reportId as unknown as string),
+    )
+
+    // Closures for every ticker this sector covers (that actually has
+    // opinions in scope).
+    const closures: ConflictClosure[] = []
+    for (const ticker of sector.tickers) {
+      const c = await this.getConflictClosure(scope, ticker)
+      if (c) closures.push(c)
+    }
+
+    // Period: widest window covered by the sector's reports.
+    const dates = scopeReports.map((r) => r.publishedAt).sort()
+    const periodStart = dates[0] ?? new Date().toISOString()
+    const periodEnd   = dates[dates.length - 1] ?? new Date().toISOString()
+
+    return buildSectorIntelligence({
+      sector,
+      reports: scopeReports,
+      summaries: scopeSummaries,
+      closures,
+      periodStart,
+      periodEnd,
+    })
+  }
+
+  async listSectorIntelligence(scope: OrgScope): Promise<readonly SectorIntelligence[]> {
+    await this.delay()
+    const out: SectorIntelligence[] = []
+    for (const sector of sectors) {
+      const si = await this.getSectorIntelligence(scope, sector.id)
+      if (si) out.push(si)
+    }
+    return out
   }
 
   // ── Dashboard + ops ─────────────────────────────────────────────────

@@ -1,89 +1,187 @@
 import type {
-  Broker, DivergenceCase, DivergenceId, StockTicker, Stock,
+  Broker, StockTicker, Stock, Sector,
 } from '../domain'
+import type {
+  ConflictClosure, ConsensusPoint, DisagreementPoint, OutlierClassification,
+  ResultantLogic, StrengthBand, ConfidenceDetail, TargetStats,
+} from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint } from '../app/filters'
 
-export interface ConflictViewModel {
-  readonly topic: string
-  readonly bullThesis: string
-  readonly bearThesis: string
-  readonly bullBrokerNames: readonly string[]
-  readonly bearBrokerNames: readonly string[]
-  readonly citationCount: number
+export interface DivergenceCardViewModel {
+  readonly ticker: StockTicker
+  readonly stockName: string
+  readonly sectorName: string
+  readonly currency: string
+  readonly brokerCount: number
+  readonly stanceDistribution: ConflictClosure['stanceDistribution']
+  readonly targetStats: TargetStats
+  readonly resultant: ResultantLogic
+  readonly confidence: ConfidenceDetail
+  readonly strength: StrengthBand
+  readonly consensus: readonly ConsensusPointVM[]
+  readonly disagreements: readonly DisagreementPointVM[]
+  readonly outliers: readonly OutlierVM[]
 }
 
-export interface DivergenceCardViewModel {
-  readonly id: DivergenceId
-  readonly ticker: StockTicker
-  readonly spreadPct: number
-  readonly highBrokerName: string
-  readonly lowBrokerName: string
-  readonly highTargetPrice: number
-  readonly lowTargetPrice: number
-  readonly currency: string
-  readonly conflicts: readonly ConflictViewModel[]
-  readonly aiConclusion: string | null
+export interface ConsensusPointVM {
+  readonly dimension: ConsensusPoint['dimension']
+  readonly topic: string
+  readonly claim: string
+  readonly polarity: ConsensusPoint['polarity']
+  readonly brokerNames: readonly string[]
+  readonly supportingClaims: readonly string[]
+  readonly evidenceCount: number
+}
+
+export interface DisagreementPointVM {
+  readonly dimension: DisagreementPoint['dimension']
+  readonly topic: string
+  readonly bullClaims: readonly string[]
+  readonly bearClaims: readonly string[]
+  readonly bullBrokerNames: readonly string[]
+  readonly bearBrokerNames: readonly string[]
+  readonly bullCitationCount: number
+  readonly bearCitationCount: number
+}
+
+export interface OutlierVM {
+  readonly brokerName: string
+  readonly direction: OutlierClassification['direction']
+  readonly reasons: readonly string[]
+  readonly targetZScore: number | null
+  readonly notes: string
 }
 
 export interface DivergenceViewModel {
   readonly cases: readonly DivergenceCardViewModel[]
+  readonly totalStocks: number
 }
 
 interface Inputs {
-  readonly cases: readonly DivergenceCase[]
+  readonly closures: readonly ConflictClosure[]
   readonly brokers: readonly Broker[]
   readonly stocks: readonly Stock[]
+  readonly sectors: readonly Sector[]
+  readonly filters: FiltersState
+}
+
+const REASON_LABELS: Readonly<Record<OutlierClassification['reasons'][number], string>> = {
+  target_price_z:  'Target outside ±1.25σ',
+  rating_contrary: 'Rating contradicts majority',
+  stance_contrary: 'Stance contradicts majority',
+}
+
+// A closure surfaces on the divergence screen when either:
+//  • the Street's target spread is ≥25% (material valuation divergence),
+//  • there is at least one explicit DisagreementPoint, or
+//  • at least one broker qualifies as an outlier.
+function isMaterialDisagreement(c: ConflictClosure): boolean {
+  const spread = c.targetStats.spreadPct
+  if (spread !== null && spread >= 25) return true
+  if (c.disagreements.length > 0) return true
+  if (c.outliers.length > 0) return true
+  return false
 }
 
 export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
   const brokerById = indexBy(inputs.brokers, (b) => b.id as string)
   const stockByTicker = indexBy(inputs.stocks, (s) => s.ticker as string)
-  const brokerName = (id: string | null) => id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
+  const sectorById = indexBy(inputs.sectors, (s) => s.id as string)
+  const tickerFilter = new Set<string>(inputs.filters.tickers as readonly string[])
+  const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
+  const name = (id: string | null | undefined) =>
+    id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
 
-  const cases = inputs.cases.map<DivergenceCardViewModel>((d) => ({
-    id: d.id,
-    ticker: d.ticker,
-    spreadPct: d.spreadPct,
-    highBrokerName: brokerName(d.highBrokerId as string),
-    lowBrokerName: brokerName(d.lowBrokerId as string),
-    highTargetPrice: d.highTargetPrice,
-    lowTargetPrice: d.lowTargetPrice,
-    currency: stockByTicker.get(d.ticker as string)?.currency ?? 'INR',
-    aiConclusion: d.aiConclusion,
-    conflicts: d.conflicts.map<ConflictViewModel>((c) => ({
-      topic: c.topic,
-      bullThesis: c.bullThesis,
-      bearThesis: c.bearThesis,
-      bullBrokerNames: c.bullBrokerIds.map((id) => brokerName(id as string)),
-      bearBrokerNames: c.bearBrokerIds.map((id) => brokerName(id as string)),
-      citationCount: c.evidenceIds.length,
-    })),
-  }))
+  const cases = inputs.closures
+    .filter((c) => tickerFilter.size === 0 || tickerFilter.has(c.ticker as string))
+    .filter((c) => {
+      if (sectorFilter.size === 0) return true
+      const stock = stockByTicker.get(c.ticker as string)
+      return stock !== undefined && sectorFilter.has(stock.sectorId as string)
+    })
+    .filter(isMaterialDisagreement)
+    .sort((a, b) =>
+      (b.targetStats.spreadPct ?? 0) - (a.targetStats.spreadPct ?? 0)
+      || b.disagreements.length - a.disagreements.length)
+    .map<DivergenceCardViewModel>((c) => {
+      const stock = stockByTicker.get(c.ticker as string)
+      const sectorId = stock?.sectorId as string | undefined
+      const sectorName = sectorId ? (sectorById.get(sectorId)?.name ?? '—') : '—'
 
-  return { cases }
+      return {
+        ticker: c.ticker,
+        stockName: stock?.name ?? (c.ticker as unknown as string),
+        sectorName,
+        currency: stock?.currency ?? 'INR',
+        brokerCount: c.brokerCount,
+        stanceDistribution: c.stanceDistribution,
+        targetStats: c.targetStats,
+        resultant: c.resultant,
+        confidence: c.confidence,
+        strength: c.resultant.strength,
+        consensus: c.consensus.map<ConsensusPointVM>((p) => ({
+          dimension: p.dimension,
+          topic: p.topic,
+          claim: p.claim,
+          polarity: p.polarity,
+          brokerNames: p.supportingBrokerIds.map((b) => name(b as unknown as string)),
+          supportingClaims: p.supportingClaims,
+          evidenceCount: p.evidenceIds.length,
+        })),
+        disagreements: c.disagreements.map<DisagreementPointVM>((d) => ({
+          dimension: d.dimension,
+          topic: d.topic,
+          bullClaims: d.bullClaims,
+          bearClaims: d.bearClaims,
+          bullBrokerNames: d.bullBrokerIds.map((b) => name(b as unknown as string)),
+          bearBrokerNames: d.bearBrokerIds.map((b) => name(b as unknown as string)),
+          bullCitationCount: d.bullEvidenceIds.length,
+          bearCitationCount: d.bearEvidenceIds.length,
+        })),
+        outliers: c.outliers.map<OutlierVM>((o) => ({
+          brokerName: name(o.brokerId as unknown as string),
+          direction: o.direction,
+          reasons: o.reasons.map((r) => REASON_LABELS[r]),
+          targetZScore: o.targetZScore,
+          notes: o.notes,
+        })),
+      }
+    })
+
+  return { cases, totalStocks: inputs.closures.length }
 }
 
 export function useDivergenceViewModel(filters: FiltersState): QueryResult<DivergenceViewModel> {
   const fp = filtersFingerprint(filters)
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
   const stocks = useAdapterQuery((a, s) => a.listStocks(s), [])
-  const cases = useAdapterQuery(
-    (a, s) => a.listDivergenceCases(s, {
+  const sectors = useAdapterQuery((a, s) => a.listSectors(s), [])
+  const closures = useAdapterQuery(
+    (a, s) => a.listConflictClosures(s, {
       tickers: filters.tickers.length ? filters.tickers : undefined,
+      sectorIds: filters.sectorIds.length ? filters.sectorIds : undefined,
     }),
     [fp],
   )
 
-  const loading = brokers.loading || stocks.loading || cases.loading
-  const error = brokers.error ?? stocks.error ?? cases.error
+  const loading = brokers.loading || stocks.loading || sectors.loading || closures.loading
+  const error = brokers.error ?? stocks.error ?? sectors.error ?? closures.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!brokers.data || !stocks.data || !cases.data) return { data: null, loading: true, error: null }
+  if (!brokers.data || !stocks.data || !sectors.data || !closures.data) {
+    return { data: null, loading: true, error: null }
+  }
 
-  const vm = buildDivergenceViewModel({ cases: cases.data, brokers: brokers.data, stocks: stocks.data })
+  const vm = buildDivergenceViewModel({
+    closures: closures.data,
+    brokers: brokers.data,
+    stocks: stocks.data,
+    sectors: sectors.data,
+    filters,
+  })
   return { data: vm, loading: false, error: null }
 }

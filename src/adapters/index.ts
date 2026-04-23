@@ -19,7 +19,7 @@ export type { ResearchAdapter } from './ResearchAdapter'
 export { MockResearchAdapter } from './MockResearchAdapter'
 export type {
   ListEmailsQuery, ListReportsQuery,
-  ListOpinionsQuery, ListDivergencesQuery,
+  ListOpinionsQuery, ListClosuresQuery,
 } from './queries'
 export {
   AdapterError, OrgScopeViolationError, NotFoundError, InvalidQueryError,

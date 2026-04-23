@@ -31,6 +31,12 @@ export const reports: readonly ResearchReport[] = [
   r('rpt_0021', 'org_aranya', 'brk_iifl',       'eml_0021', 'att_0021', 'HUL: Premium skincare disappointment; FY27 volume growth at risk',           '2026-04-15T13:40:00.000Z', '2026-04-15T15:50:00.000Z', 'flash',  ['HINDUNILVR'], ['sec_consumer'],   12, 'sum_0021'),
   r('rpt_0022', 'org_aranya', 'brk_plilladher', 'eml_0022', 'att_0022', 'SBIN: Retail credit growth + asset quality benign; raising PT',             '2026-04-19T10:00:00.000Z', '2026-04-19T12:00:00.000Z', 'update', ['SBIN'],       ['sec_fin'],        16, 'sum_0022'),
 
+  // ── Aranya · extra-coverage reports (back opinions rpt_0028..0031) ──
+  r('rpt_0028', 'org_aranya', 'brk_mosl',       'eml_0039', 'att_0036', 'TCS: GenAI attach running ahead of plan; reiterate Buy',                      '2026-04-23T05:30:00.000Z', '2026-04-23T07:30:00.000Z', 'update', ['TCS'],        ['sec_it'],         18, 'sum_0028'),
+  r('rpt_0029', 'org_aranya', 'brk_kotak',      'eml_0040', 'att_0037', 'ICICIBANK: Deposit franchise resilient; retail credit quality intact',        '2026-04-23T06:30:00.000Z', '2026-04-23T08:30:00.000Z', 'update', ['ICICIBANK'],  ['sec_fin'],        14, 'sum_0029'),
+  r('rpt_0030', 'org_aranya', 'brk_hdfc',       'eml_0041', 'att_0038', 'TATAMOTORS: JLR margin recovery measured; balanced risk/reward',               '2026-04-23T07:00:00.000Z', '2026-04-23T09:00:00.000Z', 'update', ['TATAMOTORS'], ['sec_consumer'],   12, 'sum_0030'),
+  r('rpt_0031', 'org_aranya', 'brk_mosl',       'eml_0042', 'att_0039', 'RELIANCE: Jio ARPU momentum + retail margin expansion supports re-rating',    '2026-04-23T04:30:00.000Z', '2026-04-23T06:30:00.000Z', 'update', ['RELIANCE'],   ['sec_energy'],     16, 'sum_0031'),
+
   // ── Sahyadri ─────────────────────────────────────────────────────────
   r('rpt_0023', 'org_sahyadri', 'brk_kotak',  'eml_0031', 'att_0029', 'RELIANCE: Jio ARPU discipline + retail EBITDA step-up into FY27',          '2026-04-22T09:00:00.000Z', '2026-04-22T11:14:22.000Z', 'update', ['RELIANCE'],  ['sec_energy'],   18, 'sum_0023'),
   r('rpt_0024', 'org_sahyadri', 'brk_mosl',   'eml_0032', 'att_0030', 'TCS: GenAI attach rate ahead of plan; margin cadence intact',              '2026-04-22T07:40:00.000Z', '2026-04-22T09:42:18.000Z', 'update', ['TCS'],       ['sec_it'],       24, 'sum_0024'),

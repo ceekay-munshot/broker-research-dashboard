@@ -1,6 +1,6 @@
 import type {
   OrgId, UserId, BrokerId, EmailId, AttachmentId,
-  ReportId, SummaryId, EvidenceId, SectorId, DivergenceId,
+  ReportId, SummaryId, EvidenceId, SectorId,
   IngestionJobId, StockTicker,
 } from '../domain/ids'
 
@@ -17,6 +17,5 @@ export const asReportId       = (s: string): ReportId       => s as ReportId
 export const asSummaryId      = (s: string): SummaryId      => s as SummaryId
 export const asEvidenceId     = (s: string): EvidenceId     => s as EvidenceId
 export const asSectorId       = (s: string): SectorId       => s as SectorId
-export const asDivergenceId   = (s: string): DivergenceId   => s as DivergenceId
 export const asIngestionJobId = (s: string): IngestionJobId => s as IngestionJobId
 export const asTicker         = (s: string): StockTicker    => s as StockTicker

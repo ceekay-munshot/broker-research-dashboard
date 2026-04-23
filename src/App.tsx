@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ReportId, Organization } from './domain'
+import type { ReportId, StockTicker, Organization } from './domain'
 import { useAdapterQuery } from './hooks/useAdapterQuery'
 import { useScope } from './app/ScopeContext'
 import type { FiltersState } from './app/filters'
@@ -10,6 +10,7 @@ import Header from './components/Header'
 import Sidebar from './components/Sidebar'
 import Tabs from './components/Tabs'
 import ReportDrawer from './components/ReportDrawer'
+import StockDrawer from './components/StockDrawer'
 
 import Dashboard from './components/views/Dashboard'
 import ByBroker from './components/views/ByBroker'
@@ -21,6 +22,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('dashboard')
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [selectedReportId, setSelectedReportId] = useState<ReportId | null>(null)
+  const [selectedTicker, setSelectedTicker] = useState<StockTicker | null>(null)
 
   // Sidebar + header depend on tenant-catalog data. Fetch once per scope.
   const org = useAdapterQuery((a, s) => a.getOrganization(s), [])
@@ -47,6 +49,18 @@ export default function App() {
     )
   }
 
+  // Drawer invariant: only one drawer open at a time. Opening one closes the
+  // other. That keeps the UI easy to reason about and avoids overlapping
+  // fixed overlays.
+  const onSelectReport = (id: ReportId) => {
+    setSelectedTicker(null)
+    setSelectedReportId(id)
+  }
+  const onSelectTicker = (t: StockTicker) => {
+    setSelectedReportId(null)
+    setSelectedTicker(t)
+  }
+
   return (
     <div className="h-full flex flex-col">
       <Header
@@ -71,7 +85,8 @@ export default function App() {
                 <ViewRouter
                   tab={activeTab}
                   filters={filters}
-                  onSelectReport={setSelectedReportId}
+                  onSelectReport={onSelectReport}
+                  onSelectTicker={onSelectTicker}
                 />
               </div>
             </div>
@@ -85,21 +100,27 @@ export default function App() {
         reportId={selectedReportId}
         onClose={() => setSelectedReportId(null)}
       />
+      <StockDrawer
+        ticker={selectedTicker}
+        onClose={() => setSelectedTicker(null)}
+        onSelectReport={onSelectReport}
+      />
     </div>
   )
 }
 
-function ViewRouter({ tab, filters, onSelectReport }: {
+function ViewRouter({ tab, filters, onSelectReport, onSelectTicker }: {
   tab: TabId;
   filters: FiltersState;
   onSelectReport: (id: ReportId) => void;
+  onSelectTicker: (t: StockTicker) => void;
 }) {
   switch (tab) {
     case 'dashboard':  return <Dashboard  filters={filters} onSelectReport={onSelectReport}/>
     case 'broker':     return <ByBroker   filters={filters} onSelectReport={onSelectReport}/>
-    case 'stock':      return <ByStock    filters={filters} onSelectReport={onSelectReport}/>
-    case 'divergence': return <Divergence filters={filters}/>
-    case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport}/>
+    case 'stock':      return <ByStock    filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
+    case 'divergence': return <Divergence filters={filters} onSelectTicker={onSelectTicker}/>
+    case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
   }
 }
 
@@ -107,7 +128,7 @@ function Footer({ org }: { org: Organization | null }) {
   const scope = useScope()
   return (
     <footer className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-white/5">
-      <span>Broker Research OS · Module 03 · Adapter-backed UI</span>
+      <span>Broker Research OS · Module 04 · Conflict-closure engine</span>
       <span>
         Scope <span className="kbd">{scope.orgId}</span> / <span className="kbd">{scope.actingUserId}</span>
         {org && <span className="ml-2 text-slate-600">({org.forwardingAddress})</span>}

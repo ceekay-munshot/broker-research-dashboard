@@ -41,6 +41,12 @@ export const attachments: readonly Attachment[] = [
   mk('att_0028', 'eml_0028', 'IOC_ScannedReport_20260422.pdf',          22, 'failed',
      'pdf_extraction_failed: image-only pages, OCR worker unavailable'),
 
+  // Aranya · extra coverage (att_0036..0039)
+  mk('att_0036', 'eml_0039', 'TCS_GenAIAttach_20260423.pdf',            18, 'ready'),
+  mk('att_0037', 'eml_0040', 'ICICIBANK_DepositFranchise_20260423.pdf', 14, 'ready'),
+  mk('att_0038', 'eml_0041', 'TATAMOTORS_JLRRecovery_20260423.pdf',     12, 'ready'),
+  mk('att_0039', 'eml_0042', 'RELIANCE_JioARPU_20260423.pdf',           16, 'ready'),
+
   // Sahyadri
   mkS('att_0029', 'eml_0031', 'RELIANCE_ResearchUpdate_20260422.pdf',   18, 'ready'),
   mkS('att_0030', 'eml_0032', 'TCS_GenAIUpdate_20260422.pdf',           24, 'ready'),

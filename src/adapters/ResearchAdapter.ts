@@ -2,21 +2,21 @@ import type {
   Organization, User,
   Broker, BrokerEmail, Attachment,
   ResearchReport, ReportSummary, EvidenceSnippet,
-  Stock, BrokerStockOpinion, ConsensusView,
-  Sector, SectorKnowledgeItem,
-  DivergenceCase,
+  Stock, BrokerStockOpinion,
+  Sector,
   KpiSnapshot,
   IngestionStatus,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
+import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
-  ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListDivergencesQuery,
+  ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListClosuresQuery,
 } from './queries'
 
 // The single contract the UI consumes. The mock adapter (src/adapters/
-// MockResearchAdapter.ts) serves it out of src/mocks/*; the real adapter
-// (future src/adapters/HttpResearchAdapter.ts) will implement the same
+// MockResearchAdapter.ts) serves it out of src/mocks/* plus the deterministic
+// src/engine/ analysis layer; a future HTTP adapter will implement the same
 // interface against an authenticated backend.
 //
 // Read-only by design — every method is a query. Mutations that the product
@@ -69,16 +69,19 @@ export interface ResearchAdapter {
   listEvidenceSnippets(scope: OrgScope, reportId: ReportId): Promise<readonly EvidenceSnippet[]>
 
   // ─── Derived analytics ────────────────────────────────────────────────
-  // These are aggregations over the above. The real adapter will serve
-  // them from a read-through cache; the mock adapter reads fixtures.
+  // These are aggregations produced by the deterministic analysis layer
+  // (src/engine/). The real adapter will serve them from a read-through
+  // cache; the mock adapter computes them on-demand per call.
 
   listBrokerStockOpinions(scope: OrgScope, query?: ListOpinionsQuery): Promise<readonly BrokerStockOpinion[]>
-  getConsensusView(scope: OrgScope, ticker: StockTicker): Promise<ConsensusView | null>
 
-  // Phase 2 surface area — implemented as read stubs today; the adapter
-  // may return an empty array / null until the ARB-closure model ships.
-  listDivergenceCases(scope: OrgScope, query?: ListDivergencesQuery): Promise<readonly DivergenceCase[]>
-  getSectorKnowledge(scope: OrgScope, sectorId: SectorId): Promise<SectorKnowledgeItem | null>
+  /** Full per-ticker conflict closure with consensus, disagreements, outliers, resultant. */
+  getConflictClosure(scope: OrgScope, ticker: StockTicker): Promise<ConflictClosure | null>
+  listConflictClosures(scope: OrgScope, query?: ListClosuresQuery): Promise<readonly ConflictClosure[]>
+
+  /** Per-sector accumulated intelligence: classified signals + resultant-state roll-up. */
+  getSectorIntelligence(scope: OrgScope, sectorId: SectorId): Promise<SectorIntelligence | null>
+  listSectorIntelligence(scope: OrgScope): Promise<readonly SectorIntelligence[]>
 
   // ─── Dashboard + ops ──────────────────────────────────────────────────
 
