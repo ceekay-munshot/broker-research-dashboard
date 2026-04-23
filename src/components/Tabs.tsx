@@ -1,13 +1,11 @@
-import React from 'react'
+import { TABS, type TabId } from '../app/tabs'
 
-const TABS = [
-  { id: 'broker',     label: 'By Broker',          hint: 'House-by-house view' },
-  { id: 'stock',      label: 'By Stock',           hint: 'Opinions matrix per ticker' },
-  { id: 'divergence', label: 'Divergence / ARB',   hint: 'Where the Street disagrees' },
-  { id: 'sector',     label: 'Sector Feed',        hint: 'Rolling sector intelligence' },
-]
+interface TabsProps {
+  readonly active: TabId
+  readonly setActive: (id: TabId) => void
+}
 
-export default function Tabs({ active, setActive }) {
+export default function Tabs({ active, setActive }: TabsProps) {
   return (
     <div className="flex items-end border-b border-white/5 bg-ink-950/40">
       <div className="flex">
@@ -36,5 +34,3 @@ export default function Tabs({ active, setActive }) {
     </div>
   )
 }
-
-export { TABS }

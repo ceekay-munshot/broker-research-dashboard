@@ -26,6 +26,7 @@ import {
   brokerStockOpinions, consensusViews,
   divergenceCases, sectorKnowledgeItems,
   ingestionJobs, kpiSnapshots, ingestionStatuses,
+  DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
 
 // In-memory adapter that serves fixtures from src/mocks/*. Every call filters
@@ -41,6 +42,13 @@ export class MockResearchAdapter implements ResearchAdapter {
 
   constructor(opts: { simulatedLatencyMs?: number } = {}) {
     this.simulatedLatencyMs = opts.simulatedLatencyMs ?? 80
+  }
+
+  // ── Session ──────────────────────────────────────────────────────────
+
+  async getSessionScope(): Promise<OrgScope> {
+    await this.delay()
+    return { orgId: DEFAULT_ORG_ID, actingUserId: DEFAULT_USER_ID }
   }
 
   // ── Tenant / catalog ─────────────────────────────────────────────────

@@ -29,6 +29,16 @@ import type {
 // OrgScopeViolationError on mismatch; the mock adapter enforces it by
 // filtering.
 export interface ResearchAdapter {
+  // ─── Session ─────────────────────────────────────────────────────────
+
+  /**
+   * Resolve the scope the current session is authorized for. Called once at
+   * app bootstrap; the result is threaded through React context and used for
+   * every subsequent method. In production the scope comes from the bearer
+   * token; in the mock this returns a fixed developer-session fixture.
+   */
+  getSessionScope(): Promise<OrgScope>
+
   // ─── Tenant / catalog ─────────────────────────────────────────────────
 
   getOrganization(scope: OrgScope): Promise<Organization>

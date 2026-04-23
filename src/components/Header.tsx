@@ -1,12 +1,16 @@
-import React from 'react'
+import IngestionChip from './IngestionChip'
 
-function formatStamp(iso) {
-  const d = new Date(iso)
-  const date = d.toUTCString().replace('GMT', 'UTC')
-  return date
+interface HeaderProps {
+  readonly lastUpdated: string | null
+  readonly orgShortName: string | null
 }
 
-export default function Header({ lastUpdated }) {
+function formatStamp(iso: string | null): string {
+  if (!iso) return '—'
+  return new Date(iso).toUTCString().replace('GMT', 'UTC')
+}
+
+export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
   return (
     <header className="border-b border-white/5 bg-ink-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 h-14">
@@ -20,13 +24,15 @@ export default function Header({ lastUpdated }) {
           </div>
           <span className="mx-2 text-slate-700">/</span>
           <span className="text-slate-300 text-sm">Email Intelligence Dashboard</span>
+          {orgShortName && (
+            <span className="chip ml-3 border border-white/10 text-slate-400 bg-white/[0.02]">
+              Org · <span className="text-slate-200 ml-1">{orgShortName}</span>
+            </span>
+          )}
         </div>
 
         <div className="flex items-center gap-5">
-          <div className="hidden md:flex items-center gap-2 text-[11px]">
-            <span className="flex w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_#34d399]"/>
-            <span className="text-slate-400">Ingestion live</span>
-          </div>
+          <IngestionChip />
           <div className="flex flex-col items-end">
             <span className="section-title">Last updated</span>
             <span className="num text-slate-200 text-[12px]">{formatStamp(lastUpdated)}</span>
