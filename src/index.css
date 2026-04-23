@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+  }
+  body {
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(212, 175, 55, 0.05), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgba(59, 130, 246, 0.04), transparent 60%),
+      #07090d;
+    font-feature-settings: "cv11", "ss01", "tnum";
+  }
+  ::selection {
+    background: rgba(212, 175, 55, 0.25);
+    color: #f8fafc;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply bg-ink-900/70 border border-white/5 rounded-lg shadow-panel backdrop-blur-sm;
+  }
+  .panel-hover {
+    @apply transition-colors hover:border-white/10 hover:bg-ink-900/90;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium tracking-wide uppercase;
+  }
+  .num {
+    @apply font-mono tabular-nums;
+  }
+  .divider-v {
+    @apply w-px bg-white/5;
+  }
+  .section-title {
+    @apply text-[11px] uppercase tracking-[0.14em] text-slate-400 font-medium;
+  }
+  .kbd {
+    @apply font-mono text-[10px] px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-slate-300;
+  }
+}
+
+/* subtle scrollbars */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
