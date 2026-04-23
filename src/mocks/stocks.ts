@@ -1,21 +1,34 @@
 import type { Stock } from '../domain'
 import { asSectorId, asTicker } from '../lib/ids'
 
-// Global stock catalog. Prices are snapshot at mock generation time; real
-// adapter will resolve live prices separately.
+// Global stock catalog — NSE-listed Indian large caps across 6 sectors.
+// Prices are snapshot at mock generation time in INR; the real adapter will
+// resolve live prices separately.
 export const stocks: readonly Stock[] = [
-  { ticker: asTicker('NVDA'),  name: 'NVIDIA Corporation',      sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice: 1142.30, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('AAPL'),  name: 'Apple Inc.',              sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice:  218.74, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('MSFT'),  name: 'Microsoft Corporation',   sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice:  436.82, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('GOOGL'), name: 'Alphabet Inc. Class A',   sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice:  189.41, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('META'),  name: 'Meta Platforms Inc.',     sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice:  612.08, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('AMZN'),  name: 'Amazon.com Inc.',         sectorId: asSectorId('sec_tech'),       currency: 'USD', exchange: 'NASDAQ', lastPrice:  203.55, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('JPM'),   name: 'JPMorgan Chase & Co.',    sectorId: asSectorId('sec_fin'),        currency: 'USD', exchange: 'NYSE',   lastPrice:  229.04, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('BAC'),   name: 'Bank of America Corp.',   sectorId: asSectorId('sec_fin'),        currency: 'USD', exchange: 'NYSE',   lastPrice:   42.18, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('XOM'),   name: 'Exxon Mobil Corporation', sectorId: asSectorId('sec_energy'),     currency: 'USD', exchange: 'NYSE',   lastPrice:  116.72, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('CVX'),   name: 'Chevron Corporation',     sectorId: asSectorId('sec_energy'),     currency: 'USD', exchange: 'NYSE',   lastPrice:  162.40, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('LLY'),   name: 'Eli Lilly and Co.',       sectorId: asSectorId('sec_health'),     currency: 'USD', exchange: 'NYSE',   lastPrice:  781.20, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('TSLA'),  name: 'Tesla, Inc.',             sectorId: asSectorId('sec_consumer'),   currency: 'USD', exchange: 'NASDAQ', lastPrice:  248.19, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('WMT'),   name: 'Walmart Inc.',            sectorId: asSectorId('sec_consumer'),   currency: 'USD', exchange: 'NYSE',   lastPrice:   82.14, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
-  { ticker: asTicker('CAT'),   name: 'Caterpillar Inc.',        sectorId: asSectorId('sec_industrial'), currency: 'USD', exchange: 'NYSE',   lastPrice:  342.60, lastPriceAsOf: '2026-04-22T20:00:00.000Z' },
+  // Information Technology
+  { ticker: asTicker('TCS'),        name: 'Tata Consultancy Services',   sectorId: asSectorId('sec_it'),         currency: 'INR', exchange: 'NSE', lastPrice:  4102.50, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('INFY'),       name: 'Infosys',                     sectorId: asSectorId('sec_it'),         currency: 'INR', exchange: 'NSE', lastPrice:  1681.20, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('HCLTECH'),    name: 'HCL Technologies',            sectorId: asSectorId('sec_it'),         currency: 'INR', exchange: 'NSE', lastPrice:  1823.40, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('WIPRO'),      name: 'Wipro',                       sectorId: asSectorId('sec_it'),         currency: 'INR', exchange: 'NSE', lastPrice:   479.85, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+
+  // Banks & Financials
+  { ticker: asTicker('HDFCBANK'),   name: 'HDFC Bank',                   sectorId: asSectorId('sec_fin'),        currency: 'INR', exchange: 'NSE', lastPrice:  1785.60, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('ICICIBANK'),  name: 'ICICI Bank',                  sectorId: asSectorId('sec_fin'),        currency: 'INR', exchange: 'NSE', lastPrice:  1279.25, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('SBIN'),       name: 'State Bank of India',         sectorId: asSectorId('sec_fin'),        currency: 'INR', exchange: 'NSE', lastPrice:   825.40, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+
+  // Oil & Gas
+  { ticker: asTicker('RELIANCE'),   name: 'Reliance Industries',         sectorId: asSectorId('sec_energy'),     currency: 'INR', exchange: 'NSE', lastPrice:  2984.70, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('ONGC'),       name: 'Oil & Natural Gas Corporation', sectorId: asSectorId('sec_energy'),   currency: 'INR', exchange: 'NSE', lastPrice:   280.15, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+
+  // Pharmaceuticals
+  { ticker: asTicker('SUNPHARMA'),  name: 'Sun Pharmaceutical Industries', sectorId: asSectorId('sec_pharma'),   currency: 'INR', exchange: 'NSE', lastPrice:  1719.80, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('DRREDDY'),    name: 'Dr. Reddy\u2019s Laboratories', sectorId: asSectorId('sec_pharma'),   currency: 'INR', exchange: 'NSE', lastPrice:  6341.00, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+
+  // Consumer & Auto
+  { ticker: asTicker('HINDUNILVR'), name: 'Hindustan Unilever',          sectorId: asSectorId('sec_consumer'),   currency: 'INR', exchange: 'NSE', lastPrice:  2382.90, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('MARUTI'),     name: 'Maruti Suzuki India',         sectorId: asSectorId('sec_consumer'),   currency: 'INR', exchange: 'NSE', lastPrice: 12846.30, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+  { ticker: asTicker('TATAMOTORS'), name: 'Tata Motors',                 sectorId: asSectorId('sec_consumer'),   currency: 'INR', exchange: 'NSE', lastPrice:   894.60, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
+
+  // Capital Goods
+  { ticker: asTicker('LT'),         name: 'Larsen & Toubro',             sectorId: asSectorId('sec_industrial'), currency: 'INR', exchange: 'NSE', lastPrice:  3723.50, lastPriceAsOf: '2026-04-22T10:00:00.000Z' },
 ]

@@ -2,7 +2,7 @@ import type { ReportId, BrokerId } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import type { OpinionCell, ByStockRowViewModel } from '../../viewModels/byStock'
 import { useByStockViewModel } from '../../viewModels/byStock'
-import { RATING_TEXT_COLOR } from '../../viewModels/shared'
+import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 
 interface ByStockProps {
   readonly filters: FiltersState
@@ -82,12 +82,12 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport }: {
       </td>
       <td className="px-3 py-2 text-slate-300 text-[11.5px]">{row.sectorName}</td>
       <td className="px-3 py-2 num text-right text-slate-200">
-        {row.spotPrice !== null ? `$${row.spotPrice.toFixed(2)}` : '—'}
+        {formatPrice(row.spotPrice, row.currency, 2)}
       </td>
       <td className="px-3 py-2 num text-right">
         <div className="flex flex-col items-end">
           <span className="text-slate-100">
-            {row.avgTarget !== null ? `$${row.avgTarget.toFixed(0)}` : '—'}
+            {formatPrice(row.avgTarget, row.currency, 0)}
           </span>
           {row.consensusUpsidePct !== null && (
             <span className={`text-[10px] ${row.consensusUpsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -120,7 +120,7 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
       >
         <div className="flex items-center gap-1.5">
           <span className={`num text-[12.5px] font-semibold ${cell.outlier ? 'text-amber-300' : 'text-slate-100'}`}>
-            {cell.targetPrice !== null ? `$${cell.targetPrice.toLocaleString()}` : '—'}
+            {formatPrice(cell.targetPrice, cell.targetCurrency, 0)}
           </span>
           {cell.targetDelta !== null && cell.targetDelta !== 0 && (
             <span className={`num text-[10px] ${cell.targetDelta > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>

@@ -1,5 +1,5 @@
 import type {
-  Broker, DivergenceCase, DivergenceId, StockTicker,
+  Broker, DivergenceCase, DivergenceId, StockTicker, Stock,
 } from '../domain'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
@@ -23,6 +23,7 @@ export interface DivergenceCardViewModel {
   readonly lowBrokerName: string
   readonly highTargetPrice: number
   readonly lowTargetPrice: number
+  readonly currency: string
   readonly conflicts: readonly ConflictViewModel[]
   readonly aiConclusion: string | null
 }
@@ -34,10 +35,12 @@ export interface DivergenceViewModel {
 interface Inputs {
   readonly cases: readonly DivergenceCase[]
   readonly brokers: readonly Broker[]
+  readonly stocks: readonly Stock[]
 }
 
 export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
   const brokerById = indexBy(inputs.brokers, (b) => b.id as string)
+  const stockByTicker = indexBy(inputs.stocks, (s) => s.ticker as string)
   const brokerName = (id: string | null) => id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
 
   const cases = inputs.cases.map<DivergenceCardViewModel>((d) => ({
@@ -48,6 +51,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
     lowBrokerName: brokerName(d.lowBrokerId as string),
     highTargetPrice: d.highTargetPrice,
     lowTargetPrice: d.lowTargetPrice,
+    currency: stockByTicker.get(d.ticker as string)?.currency ?? 'INR',
     aiConclusion: d.aiConclusion,
     conflicts: d.conflicts.map<ConflictViewModel>((c) => ({
       topic: c.topic,
@@ -65,6 +69,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
 export function useDivergenceViewModel(filters: FiltersState): QueryResult<DivergenceViewModel> {
   const fp = filtersFingerprint(filters)
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
+  const stocks = useAdapterQuery((a, s) => a.listStocks(s), [])
   const cases = useAdapterQuery(
     (a, s) => a.listDivergenceCases(s, {
       tickers: filters.tickers.length ? filters.tickers : undefined,
@@ -72,13 +77,13 @@ export function useDivergenceViewModel(filters: FiltersState): QueryResult<Diver
     [fp],
   )
 
-  const loading = brokers.loading || cases.loading
-  const error = brokers.error ?? cases.error
+  const loading = brokers.loading || stocks.loading || cases.loading
+  const error = brokers.error ?? stocks.error ?? cases.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!brokers.data || !cases.data) return { data: null, loading: true, error: null }
+  if (!brokers.data || !stocks.data || !cases.data) return { data: null, loading: true, error: null }
 
-  const vm = buildDivergenceViewModel({ cases: cases.data, brokers: brokers.data })
+  const vm = buildDivergenceViewModel({ cases: cases.data, brokers: brokers.data, stocks: stocks.data })
   return { data: vm, loading: false, error: null }
 }

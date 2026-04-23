@@ -8,21 +8,21 @@ const AS_OF = '2026-04-23T08:42:00.000Z'
 // UI having to derive them itself.
 export const kpiSnapshots: readonly KpiSnapshot[] = [
   {
-    orgId: asOrgId('org_acme'),
+    orgId: asOrgId('org_aranya'),
     asOf: AS_OF,
     brokersTracked: 10,
     reportsIngested: 22,
-    stocksCovered: 11,
+    stocksCovered: 15,
     divergenceFlags: 4,
     windowDeltas: {
       brokersTracked:  { value:  0, windowDays: 30 },
       reportsIngested: { value: 18, windowDays:  7 },
-      stocksCovered:   { value:  2, windowDays: 30 },
+      stocksCovered:   { value:  3, windowDays: 30 },
       divergenceFlags: { value:  2, windowDays:  7 },
     },
   },
   {
-    orgId: asOrgId('org_northstar'),
+    orgId: asOrgId('org_sahyadri'),
     asOf: AS_OF,
     brokersTracked: 5,
     reportsIngested: 5,
@@ -39,7 +39,7 @@ export const kpiSnapshots: readonly KpiSnapshot[] = [
 
 export const ingestionStatuses: readonly IngestionStatus[] = [
   {
-    orgId: asOrgId('org_acme'),
+    orgId: asOrgId('org_aranya'),
     asOf: AS_OF,
     queued: 3,
     processing: 2,
@@ -48,7 +48,7 @@ export const ingestionStatuses: readonly IngestionStatus[] = [
     throughputPerHour: 6,
   },
   {
-    orgId: asOrgId('org_northstar'),
+    orgId: asOrgId('org_sahyadri'),
     asOf: AS_OF,
     queued: 1,
     processing: 1,

@@ -81,6 +81,23 @@ export function formatShortDate(iso: Iso8601): string {
   return `${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`
 }
 
+// Price formatter that respects the stock/opinion currency. Supports INR
+// (₹ + en-IN grouping, e.g. ₹1,20,000) and USD; falls back to plain locale
+// grouping when currency is unknown.
+export function formatPrice(
+  amount: number | null,
+  currency: string | null | undefined,
+  fractionDigits = 0,
+): string {
+  if (amount === null) return '—'
+  const symbol = currency === 'INR' ? '₹' : currency === 'USD' ? '$' : ''
+  const locale = currency === 'INR' ? 'en-IN' : 'en-US'
+  return `${symbol}${amount.toLocaleString(locale, {
+    minimumFractionDigits: fractionDigits,
+    maximumFractionDigits: fractionDigits,
+  })}`
+}
+
 export function formatTargetDelta(current: number | null, prior: number | null): {
   readonly delta: number | null
   readonly direction: 'up' | 'down' | 'flat' | 'none'

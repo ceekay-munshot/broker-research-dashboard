@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react'
 import type { ReportId, EvidenceSnippet } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
-import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatShortDate, formatTargetDelta } from '../viewModels/shared'
+import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
 import type { ReportDetailViewModel } from '../viewModels/reportDetail'
 
 interface ReportDrawerProps {
@@ -107,10 +107,10 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
               value={vm.rating ?? 'Not rated'}
               valueClass={vm.rating ? RATING_TEXT_COLOR[vm.rating] : 'text-slate-500'}/>
             <CalloutCell label="Target"
-              value={vm.targetPrice !== null ? `${vm.targetCurrency === 'USD' ? '$' : ''}${vm.targetPrice.toLocaleString()}` : '—'}
+              value={formatPrice(vm.targetPrice, vm.targetCurrency, 0)}
               sub={
                 vm.targetChanged
-                  ? `${targetChangeFormat.direction === 'up' ? '▲ +' : targetChangeFormat.direction === 'down' ? '▼ ' : ''}${targetChangeFormat.delta}${vm.priorTargetPrice != null ? ` from ${vm.priorTargetPrice}` : ''}`
+                  ? `${targetChangeFormat.direction === 'up' ? '▲ +' : targetChangeFormat.direction === 'down' ? '▼ ' : ''}${targetChangeFormat.delta}${vm.priorTargetPrice != null ? ` from ${formatPrice(vm.priorTargetPrice, vm.targetCurrency, 0)}` : ''}`
                   : vm.priorTargetPrice != null ? 'unchanged' : undefined
               }
               subClass={

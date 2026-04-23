@@ -1,6 +1,7 @@
 import type { FiltersState } from '../../app/filters'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import { useDivergenceViewModel } from '../../viewModels/divergence'
+import { formatPrice } from '../../viewModels/shared'
 
 interface DivergenceProps {
   readonly filters: FiltersState
@@ -31,7 +32,7 @@ export default function Divergence({ filters }: DivergenceProps) {
   )
 }
 
-function SpreadBar({ low, high }: { low: number; high: number }) {
+function SpreadBar({ low, high, currency }: { low: number; high: number; currency: string }) {
   const pct = (((high - low) / low) * 100).toFixed(0)
   return (
     <div className="flex flex-col gap-1 min-w-[220px]">
@@ -42,8 +43,8 @@ function SpreadBar({ low, high }: { low: number; high: number }) {
       </div>
       <div className="h-1.5 rounded-full bg-gradient-to-r from-rose-500/60 via-slate-500/30 to-emerald-500/60"/>
       <div className="flex items-center justify-between text-[11.5px] num">
-        <span className="text-rose-400">${low.toLocaleString()}</span>
-        <span className="text-emerald-400">${high.toLocaleString()}</span>
+        <span className="text-rose-400">{formatPrice(low, currency, 0)}</span>
+        <span className="text-emerald-400">{formatPrice(high, currency, 0)}</span>
       </div>
     </div>
   )
@@ -64,7 +65,7 @@ function DivergenceCard({ d }: { d: DivergenceCardViewModel }) {
             High: <span className="text-emerald-400">{d.highBrokerName}</span>
           </div>
         </div>
-        <SpreadBar low={d.lowTargetPrice} high={d.highTargetPrice}/>
+        <SpreadBar low={d.lowTargetPrice} high={d.highTargetPrice} currency={d.currency}/>
       </header>
 
       <div>

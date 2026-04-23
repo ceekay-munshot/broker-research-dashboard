@@ -14,25 +14,30 @@ const stance = (bull: number, neut: number, bear: number): Readonly<Record<Stanc
 const ratings = (m: Partial<Record<Rating, number>>): Readonly<Partial<Record<Rating, number>>> => m
 
 export const consensusViews: readonly ConsensusView[] = [
-  // Acme
-  c('org_acme', 'NVDA',  3, 1106.67, 1080, 1320,  920, 43.48, stance(1,1,1), ratings({ Buy: 1, Hold: 1, Underweight: 1 })),
-  c('org_acme', 'AAPL',  2,  235.00,  235,  250,  220, 13.64, stance(1,1,0), ratings({ Buy: 1, Hold: 1 })),
-  c('org_acme', 'MSFT',  2,  495.00,  495,  505,  485,  4.12, stance(2,0,0), ratings({ Buy: 1, Overweight: 1 })),
-  c('org_acme', 'GOOGL', 2,  195.00,  195,  220,  170, 29.41, stance(1,0,1), ratings({ Buy: 1, Underweight: 1 })),
-  c('org_acme', 'META',  1,  680.00,  680,  680,  680,  null, stance(1,0,0), ratings({ Buy: 1 })),
-  c('org_acme', 'TSLA',  3,  231.67,  190,  340,  165,106.06, stance(1,0,2), ratings({ Buy: 1, Underweight: 1, Sell: 1 })),
-  c('org_acme', 'AMZN',  3,  225.00,  235,  240,  200, 20.00, stance(2,1,0), ratings({ Buy: 2, Hold: 1 })),
-  c('org_acme', 'JPM',   1,  248.00,  248,  248,  248,  null, stance(1,0,0), ratings({ Overweight: 1 })),
-  c('org_acme', 'XOM',   2,  116.50,  116.5,135,   98, 37.76, stance(1,0,1), ratings({ Buy: 1, Underweight: 1 })),
-  c('org_acme', 'LLY',   2,  810.00,  810,  860,  760, 13.16, stance(1,1,0), ratings({ Overweight: 1, Hold: 1 })),
-  c('org_acme', 'CAT',   1,  380.00,  380,  380,  380,  null, stance(1,0,0), ratings({ Overweight: 1 })),
+  // Aranya — multi-broker consensus
+  c('org_aranya', 'RELIANCE',   2, 3075.00, 3075, 3200, 2950,  8.47, stance(1,1,0), ratings({ Buy: 1, Hold: 1 })),
+  c('org_aranya', 'ONGC',       2,  292.50,  292.5, 340,  245, 38.78, stance(1,0,1), ratings({ Buy: 1, Sell: 1 })),
+  c('org_aranya', 'TCS',        2, 4100.00, 4100, 4800, 3400, 41.18, stance(1,0,1), ratings({ Buy: 1, Sell: 1 })),
+  c('org_aranya', 'INFY',       2, 1935.00, 1935, 1950, 1920,  1.56, stance(2,0,0), ratings({ Buy: 2 })),
+  c('org_aranya', 'ICICIBANK',  2, 1310.00, 1310, 1520, 1100, 38.18, stance(1,0,1), ratings({ Buy: 1, Sell: 1 })),
+  c('org_aranya', 'MARUTI',     2,13150.00,13150,14500,11800, 22.88, stance(1,1,0), ratings({ Buy: 1, Hold: 1 })),
+  c('org_aranya', 'TATAMOTORS', 2,  900.00,  900, 1080,  720, 50.00, stance(1,0,1), ratings({ Buy: 1, Sell: 1 })),
+  // Aranya — single-broker coverage
+  c('org_aranya', 'HDFCBANK',   1, 2050.00, 2050, 2050, 2050,  null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_aranya', 'SUNPHARMA',  1, 2000.00, 2000, 2000, 2000,  null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_aranya', 'LT',         1, 4200.00, 4200, 4200, 4200,  null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_aranya', 'DRREDDY',    1, 6200.00, 6200, 6200, 6200,  null, stance(0,1,0), ratings({ Hold: 1 })),
+  c('org_aranya', 'WIPRO',      1,  470.00,  470,  470,  470,  null, stance(0,1,0), ratings({ Hold: 1 })),
+  c('org_aranya', 'HCLTECH',    1, 2050.00, 2050, 2050, 2050,  null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_aranya', 'HINDUNILVR', 1, 2100.00, 2100, 2100, 2100,  null, stance(0,0,1), ratings({ Sell: 1 })),
+  c('org_aranya', 'SBIN',       1,  980.00,  980,  980,  980,  null, stance(1,0,0), ratings({ Buy: 1 })),
 
-  // Northstar — all single-broker at this point in time
-  c('org_northstar', 'NVDA', 1, 1320.00, 1320, 1320, 1320, null, stance(1,0,0), ratings({ Buy: 1 })),
-  c('org_northstar', 'MSFT', 1,  485.00,  485,  485,  485, null, stance(1,0,0), ratings({ Overweight: 1 })),
-  c('org_northstar', 'AAPL', 1,  220.00,  220,  220,  220, null, stance(0,1,0), ratings({ Hold: 1 })),
-  c('org_northstar', 'META', 1,  600.00,  600,  600,  600, null, stance(0,1,0), ratings({ Hold: 1 })),
-  c('org_northstar', 'TSLA', 1,  340.00,  340,  340,  340, null, stance(1,0,0), ratings({ Buy: 1 })),
+  // Sahyadri — all single-broker in current period
+  c('org_sahyadri', 'RELIANCE',   1, 3200.00, 3200, 3200, 3200, null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_sahyadri', 'TCS',        1, 4650.00, 4650, 4650, 4650, null, stance(1,0,0), ratings({ Buy: 1 })),
+  c('org_sahyadri', 'MARUTI',     1,11800.00,11800,11800,11800, null, stance(0,1,0), ratings({ Hold: 1 })),
+  c('org_sahyadri', 'INFY',       1, 1750.00, 1750, 1750, 1750, null, stance(0,1,0), ratings({ Hold: 1 })),
+  c('org_sahyadri', 'TATAMOTORS', 1, 1080.00, 1080, 1080, 1080, null, stance(1,0,0), ratings({ Buy: 1 })),
 ]
 
 function c(

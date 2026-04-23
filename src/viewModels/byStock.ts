@@ -14,6 +14,7 @@ export interface OpinionCell {
   readonly targetPrice: number | null
   readonly priorTargetPrice: number | null
   readonly targetDelta: number | null
+  readonly targetCurrency: string | null
   readonly impliedUpsidePct: number | null
   readonly lastUpdatedAt: string
   readonly lastReportId: ReportId
@@ -24,6 +25,7 @@ export interface ByStockRowViewModel {
   readonly ticker: StockTicker
   readonly stockName: string
   readonly sectorName: string
+  readonly currency: string
   readonly spotPrice: number | null
   readonly avgTarget: number | null
   readonly spreadSigma: number | null
@@ -87,6 +89,7 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
         targetDelta: o.targetPrice !== null && o.priorTargetPrice !== null
           ? o.targetPrice - o.priorTargetPrice
           : null,
+        targetCurrency: o.targetCurrency,
         impliedUpsidePct: o.impliedUpsidePct,
         lastUpdatedAt: o.lastUpdatedAt,
         lastReportId: o.lastReportId,
@@ -103,6 +106,7 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       ticker: stock.ticker,
       stockName: stock.name,
       sectorName: inputs.sectorNameById.get(stock.sectorId as string) ?? '—',
+      currency: stock.currency,
       spotPrice: stock.lastPrice,
       avgTarget: consensus?.avgTargetPrice ?? mean,
       spreadSigma: sd > 0 ? sd : null,
