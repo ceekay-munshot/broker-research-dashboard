@@ -1,0 +1,20 @@
+{
+  "messageId": "<ambit-tatamotors-20260424T0620@ambit.co>",
+  "envelopeSender": "research@ambit.co",
+  "originalFrom": "Ambit Capital Institutional Research <research@ambit.co>",
+  "forwardedBy": ["arjun.mehta@aranyacap.example"],
+  "recipient": "research@aranyacap.munshot.io",
+  "subject": "TATAMOTORS: JLR Range Rover launch + India PV gains; upgrading to Buy, PT ₹1,080",
+  "receivedAt": "2026-04-24T06:20:00.000Z",
+  "bodyText": "We upgrade TATAMOTORS to Buy with a 12-month price target of ₹1,080 (prior ₹960). New Range Rover launches drive JLR margin recovery and India PV share gains continue on Punch / Nexon EV / Harrier momentum. Full note attached.",
+  "bodyHtml": null,
+  "attachments": [
+    {
+      "filename": "TATAMOTORS_Ambit_20260424.txt",
+      "mimeType": "text/plain",
+      "fixturePath": "../../attachments/TATAMOTORS_Ambit_20260424.txt",
+      "pageCount": 1,
+      "language": "en"
+    }
+  ]
+}

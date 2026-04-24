@@ -1,0 +1,20 @@
+{
+  "messageId": "<kotak-tcs-20260424T0915@kotak.com>",
+  "envelopeSender": "research@kotak.com",
+  "originalFrom": "Kotak Institutional Equities Research <research@kotak.com>",
+  "forwardedBy": ["kavita.iyer@aranyacap.example"],
+  "recipient": "research@aranyacap.munshot.io",
+  "subject": "TCS: 4QFY26 preview — Deal TCV acceleration intact; Buy reiterated",
+  "receivedAt": "2026-04-24T09:15:30.000Z",
+  "bodyText": "We reiterate Buy on TCS with a 12-month price target of ₹4,800 (prior PT ₹4,500) ahead of the 4QFY26 print. Deal TCV continues to accelerate across BFSI and hi-tech, and our channel work shows Vantara contribution visible in the pipeline. Full note attached.",
+  "bodyHtml": null,
+  "attachments": [
+    {
+      "filename": "TCS_Kotak_20260424.txt",
+      "mimeType": "text/plain",
+      "fixturePath": "../../attachments/TCS_Kotak_20260424.txt",
+      "pageCount": 1,
+      "language": "en"
+    }
+  ]
+}

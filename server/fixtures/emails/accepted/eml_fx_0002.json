@@ -1,0 +1,20 @@
+{
+  "messageId": "<nuvama-tcs-20260424T1030@nuvama.com>",
+  "envelopeSender": "research@nuvama.com",
+  "originalFrom": "Nuvama Institutional Equities <research@nuvama.com>",
+  "forwardedBy": ["arjun.mehta@aranyacap.example"],
+  "recipient": "research@aranyacap.munshot.io",
+  "subject": "TCS: Discretionary deal deferrals intensify; downgrade to Sell, PT ₹3,400",
+  "receivedAt": "2026-04-24T10:30:00.000Z",
+  "bodyText": "We downgrade TCS to Sell with a revised 12-month price target of ₹3,400 (prior ₹3,800). Discretionary deal deferrals are intensifying across BFSI and hi-tech verticals on our channel work, and we see limited scope for a utilization-led margin rescue. Full note attached.",
+  "bodyHtml": null,
+  "attachments": [
+    {
+      "filename": "TCS_Nuvama_20260424.txt",
+      "mimeType": "text/plain",
+      "fixturePath": "../../attachments/TCS_Nuvama_20260424.txt",
+      "pageCount": 1,
+      "language": "en"
+    }
+  ]
+}

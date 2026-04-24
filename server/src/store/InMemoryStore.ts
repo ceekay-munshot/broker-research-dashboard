@@ -1,0 +1,116 @@
+import type {
+  BrokerEmail, Attachment, ResearchReport, ReportSummary, EvidenceSnippet,
+  BrokerStockOpinion,
+  AttachmentId, EmailId, EvidenceId, ReportId, SummaryId, StockTicker,
+  OrgId,
+} from '../../../src/domain'
+
+// Minimal in-memory record store. Ingestion writes; API reads. The whole
+// state reboots with the process, which matches the "prove the pipeline"
+// scope. A real backend replaces this with a database (Postgres / DynamoDB
+// / Supabase) — the interface stays the same.
+
+export class InMemoryStore {
+  // All maps are keyed by the canonical id; values carry orgId so every
+  // read still needs an org filter to enforce tenancy.
+  private readonly emails = new Map<EmailId, BrokerEmail>()
+  private readonly attachments = new Map<AttachmentId, Attachment>()
+  private readonly reports = new Map<ReportId, ResearchReport>()
+  private readonly summaries = new Map<SummaryId, ReportSummary>()
+  private readonly evidenceById = new Map<EvidenceId, EvidenceSnippet>()
+  private readonly opinions: BrokerStockOpinion[] = []
+
+  // ── Writers (used by ingestion) ───────────────────────────────────
+
+  upsertEmail(email: BrokerEmail): void { this.emails.set(email.id, email) }
+  upsertAttachments(atts: readonly Attachment[]): void {
+    for (const a of atts) this.attachments.set(a.id, a)
+  }
+  upsertReport(r: ResearchReport): void { this.reports.set(r.id, r) }
+  upsertSummary(s: ReportSummary): void { this.summaries.set(s.id, s) }
+  upsertEvidence(items: readonly EvidenceSnippet[]): void {
+    for (const e of items) this.evidenceById.set(e.id, e)
+  }
+  upsertOpinion(o: BrokerStockOpinion): void {
+    // One opinion per (orgId, brokerId, ticker) — upsert by replacing.
+    const i = this.opinions.findIndex(
+      (x) => x.orgId === o.orgId && x.brokerId === o.brokerId && x.ticker === o.ticker,
+    )
+    if (i >= 0) this.opinions[i] = o
+    else this.opinions.push(o)
+  }
+
+  reset(): void {
+    this.emails.clear()
+    this.attachments.clear()
+    this.reports.clear()
+    this.summaries.clear()
+    this.evidenceById.clear()
+    this.opinions.length = 0
+  }
+
+  // ── Readers (used by API handlers) ────────────────────────────────
+
+  getEmail(orgId: OrgId, id: EmailId): BrokerEmail | null {
+    const e = this.emails.get(id)
+    return e && e.orgId === orgId ? e : null
+  }
+  listEmails(orgId: OrgId): BrokerEmail[] {
+    return [...this.emails.values()]
+      .filter((e) => e.orgId === orgId)
+      .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
+  }
+  listAttachmentsForEmail(orgId: OrgId, emailId: EmailId): Attachment[] {
+    return [...this.attachments.values()].filter((a) => a.orgId === orgId && a.emailId === emailId)
+  }
+
+  getReport(orgId: OrgId, id: ReportId): ResearchReport | null {
+    const r = this.reports.get(id)
+    return r && r.orgId === orgId ? r : null
+  }
+  listReports(orgId: OrgId): ResearchReport[] {
+    return [...this.reports.values()]
+      .filter((r) => r.orgId === orgId)
+      .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+  }
+
+  getSummaryForReport(orgId: OrgId, reportId: ReportId): ReportSummary | null {
+    for (const s of this.summaries.values()) {
+      if (s.orgId === orgId && s.reportId === reportId) return s
+    }
+    return null
+  }
+  listSummaries(orgId: OrgId): ReportSummary[] {
+    return [...this.summaries.values()].filter((s) => s.orgId === orgId)
+  }
+
+  listEvidenceForReport(orgId: OrgId, reportId: ReportId): EvidenceSnippet[] {
+    return [...this.evidenceById.values()].filter((e) => e.orgId === orgId && e.reportId === reportId)
+  }
+  listEvidence(orgId: OrgId): EvidenceSnippet[] {
+    return [...this.evidenceById.values()].filter((e) => e.orgId === orgId)
+  }
+
+  listOpinions(orgId: OrgId): BrokerStockOpinion[] {
+    return this.opinions.filter((o) => o.orgId === orgId)
+  }
+
+  listCoveredTickers(orgId: OrgId): StockTicker[] {
+    const set = new Set<string>()
+    for (const r of this.reports.values()) {
+      if (r.orgId === orgId) for (const t of r.tickers) set.add(t as unknown as string)
+    }
+    return [...set] as unknown as StockTicker[]
+  }
+
+  // ── Aggregate introspection for KPI + ingestion status ────────────
+
+  countsForOrg(orgId: OrgId) {
+    return {
+      emails: this.listEmails(orgId).length,
+      reports: this.listReports(orgId).length,
+      opinions: this.listOpinions(orgId).length,
+      stocks: this.listCoveredTickers(orgId).length,
+    }
+  }
+}

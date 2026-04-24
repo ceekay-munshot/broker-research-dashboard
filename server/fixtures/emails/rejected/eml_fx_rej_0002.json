@@ -1,0 +1,12 @@
+{
+  "messageId": "<kotak-misrouted-20260424T1100@kotak.com>",
+  "envelopeSender": "research@kotak.com",
+  "originalFrom": "Kotak Institutional Equities Research <research@kotak.com>",
+  "forwardedBy": ["random.person@example.org"],
+  "recipient": "someone@random.example",
+  "subject": "RELIANCE: sum-of-parts update",
+  "receivedAt": "2026-04-24T11:00:00.000Z",
+  "bodyText": "Sender is an allowlisted broker but the recipient is not one of the configured Munshot/Vimana forwarding addresses — the admission gate should drop this with UNKNOWN_RECIPIENT.",
+  "bodyHtml": null,
+  "attachments": []
+}

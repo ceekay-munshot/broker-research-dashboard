@@ -1,0 +1,12 @@
+{
+  "messageId": "<bloomberg-morning-call-20260424T0500@bloomberg.com>",
+  "envelopeSender": "morningcall@bloomberg.com",
+  "originalFrom": "Bloomberg Morning Call <morningcall@bloomberg.com>",
+  "forwardedBy": ["arjun.mehta@aranyacap.example"],
+  "recipient": "research@aranyacap.munshot.io",
+  "subject": "Morning Call — Asia open snapshot",
+  "receivedAt": "2026-04-24T05:00:00.000Z",
+  "bodyText": "Summary of overnight moves and Asia-open setup. (This sender is a news/data provider, not a research broker on Aranya's allowlist — should be rejected at admission.)",
+  "bodyHtml": null,
+  "attachments": []
+}

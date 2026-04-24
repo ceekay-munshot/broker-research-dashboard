@@ -1,0 +1,20 @@
+{
+  "messageId": "<mosl-hdfcbank-20260424T0745@motilaloswal.com>",
+  "envelopeSender": "research@motilaloswal.com",
+  "originalFrom": "Motilal Oswal Institutional Equities <research@motilaloswal.com>",
+  "forwardedBy": ["kavita.iyer@aranyacap.example"],
+  "recipient": "research@aranyacap.munshot.io",
+  "subject": "HDFCBANK: NIM trough visible in 1QFY27; Buy, PT ₹2,050",
+  "receivedAt": "2026-04-24T07:45:00.000Z",
+  "bodyText": "We reiterate Buy on HDFCBANK with a 12-month price target of ₹2,050 (prior PT ₹1,950). The NIM trough is now clearly in view for 1QFY27 and the loan-to-deposit ratio is tracking towards ~100% by FY27 exit. Full note attached.",
+  "bodyHtml": null,
+  "attachments": [
+    {
+      "filename": "HDFCBANK_MOSL_20260424.txt",
+      "mimeType": "text/plain",
+      "fixturePath": "../../attachments/HDFCBANK_MOSL_20260424.txt",
+      "pageCount": 1,
+      "language": "en"
+    }
+  ]
+}

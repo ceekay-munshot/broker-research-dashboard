@@ -1,0 +1,7 @@
+export { validateSender } from './validateSender'
+export type { ValidationResult } from './validateSender'
+export { PlainTextAndWeakPdfExtractor, weakPdfToText } from './extractText'
+export { normalizeAdmittedEmail } from './normalize'
+export type { NormalizedOutputs } from './normalize'
+export { runIngestion } from './pipeline'
+export type { IngestionReport } from './pipeline'
