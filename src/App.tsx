@@ -19,9 +19,10 @@ import ByBroker from './components/views/ByBroker'
 import ByStock from './components/views/ByStock'
 import Divergence from './components/views/Divergence'
 import SectorFeed from './components/views/SectorFeed'
+import DailyWorklog from './components/views/DailyWorklog'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('dashboard')
+  const [activeTab, setActiveTab] = useState<TabId>('worklog')
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [selectedReportId, setSelectedReportId] = useState<ReportId | null>(null)
   const [selectedTicker, setSelectedTicker] = useState<StockTicker | null>(null)
@@ -89,6 +90,7 @@ export default function App() {
                   filters={filters}
                   onSelectReport={onSelectReport}
                   onSelectTicker={onSelectTicker}
+                  setActiveTab={setActiveTab}
                 />
               </div>
             </div>
@@ -112,13 +114,15 @@ export default function App() {
   )
 }
 
-function ViewRouter({ tab, filters, onSelectReport, onSelectTicker }: {
+function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab }: {
   tab: TabId;
   filters: FiltersState;
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
+  setActiveTab: (t: TabId) => void;
 }) {
   switch (tab) {
+    case 'worklog':    return <DailyWorklog onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')}/>
     case 'dashboard':  return <Dashboard  filters={filters} onSelectReport={onSelectReport}/>
     case 'broker':     return <ByBroker   filters={filters} onSelectReport={onSelectReport}/>
     case 'stock':      return <ByStock    filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
