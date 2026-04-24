@@ -35,7 +35,7 @@ function StanceBar({ counts }: { counts: BrokerCardViewModel['stanceCounts'] }) 
   const total = Math.max(1, counts.bullish + counts.neutral + counts.bearish)
   const pct = (v: number) => (100 * v / total).toFixed(0)
   return (
-    <div className="flex w-full h-1.5 rounded overflow-hidden bg-white/5">
+    <div className="flex w-full h-1.5 rounded overflow-hidden bg-line/5">
       <div className="bg-emerald-500/80" style={{ width: `${pct(counts.bullish)}%` }} title={`Bullish ${counts.bullish}`}/>
       <div className="bg-slate-500/60"   style={{ width: `${pct(counts.neutral)}%` }} title={`Neutral ${counts.neutral}`}/>
       <div className="bg-rose-500/80"    style={{ width: `${pct(counts.bearish)}%` }} title={`Bearish ${counts.bearish}`}/>
@@ -101,7 +101,7 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
         <div className="flex flex-wrap gap-1.5">
           {b.topThemes.length === 0 && <span className="text-[11.5px] text-slate-500">No themes identified.</span>}
           {b.topThemes.map((t) => (
-            <span key={t.theme} className="chip bg-white/[0.04] border border-white/5 text-slate-300">
+            <span key={t.theme} className="chip bg-line/[0.04] border border-line/5 text-slate-300">
               {t.theme}<span className="text-slate-500 num">·{t.count}</span>
             </span>
           ))}

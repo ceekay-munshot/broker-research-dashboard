@@ -37,7 +37,7 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
       className={`px-2.5 py-1 text-[11px] rounded border transition-colors
         ${active
           ? 'bg-accent/15 border-accent/40 text-accent'
-          : 'bg-white/[0.02] border-white/5 text-slate-300 hover:bg-white/[0.05] hover:border-white/10'}`}
+          : 'bg-line/[0.02] border-line/5 text-slate-300 hover:bg-line/[0.05] hover:border-line/10'}`}
     >
       {children}
     </button>
@@ -53,7 +53,7 @@ function Checkbox({ label, checked, onChange, swatch }: {
         type="checkbox"
         checked={checked}
         onChange={onChange}
-        className="h-3 w-3 rounded-sm accent-accent bg-transparent border border-white/20"
+        className="h-3 w-3 rounded-sm accent-accent bg-transparent border border-line/20"
       />
       {swatch && <span className="w-1.5 h-1.5 rounded-full" style={{ background: swatch }}/>}
       <span className="text-[12px] text-slate-300 group-hover:text-slate-100 flex-1 truncate">{label}</span>
@@ -77,7 +77,7 @@ function toggle<K extends keyof FiltersState>(
 
 export default function Sidebar({ brokers, sectors, stocks, filters, setFilters }: SidebarProps) {
   return (
-    <aside className="w-60 shrink-0 border-r border-white/5 bg-ink-950/40 h-full overflow-y-auto">
+    <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
         <div>
           <div className="section-title mb-2">Filters</div>
@@ -113,7 +113,7 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
         <FilterSection title="Stock" onReset={() => setFilters((p) => ({ ...p, tickers: [] }))}>
           <input
             placeholder="Ticker or name…"
-            className="w-full bg-white/[0.03] border border-white/5 rounded px-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-accent/40"
+            className="w-full bg-line/[0.03] border border-line/5 rounded px-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-accent/40"
           />
           <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
             {stocks.slice(0, 10).map((s) => (
@@ -152,7 +152,7 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
           </div>
         </FilterSection>
 
-        <div className="pt-2 mt-auto border-t border-white/5 text-[11px] text-slate-500">
+        <div className="pt-2 mt-auto border-t border-line/5 text-[11px] text-slate-500">
           <div className="flex items-center justify-between">
             <span>Saved views</span>
             <button className="text-accent hover:text-accent-soft transition-colors">＋</button>

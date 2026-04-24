@@ -2,29 +2,106 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ───────────────────────────────────────────────────────────────────── */
+/* Theme tokens                                                          */
+/*                                                                       */
+/* `ink-*` is the canvas/panel/bg scale. In dark mode it's near-black    */
+/* inky tones; in light mode it flips to an off-white scale so every     */
+/* `bg-ink-950`, `bg-ink-900/70`, etc. just works without editing class  */
+/* names. `slate-*` (text) is similarly inverted so `text-slate-100`     */
+/* stays "most prominent text" on either canvas. `line` is the dark/     */
+/* light overlay token for borders and subtle hover fills (replaces      */
+/* `white/N` usage everywhere).                                          */
+/* ───────────────────────────────────────────────────────────────────── */
+
+:root {
+  /* Light mode defaults */
+  --ink-950: 248 250 252; /* slate-50  — the canvas */
+  --ink-900: 255 255 255; /* white     — panels */
+  --ink-800: 241 245 249; /* slate-100 — subtle surfaces */
+  --ink-700: 226 232 240; /* slate-200 */
+  --ink-600: 203 213 225; /* slate-300 */
+  --ink-500: 148 163 184; /* slate-400 */
+
+  /* Slate inverted for light mode: classes still read "100 = most     */
+  /* prominent," but that prominence maps to slate-900-ish tones.      */
+  --slate-50:  15 23 42;   /* was slate-900 */
+  --slate-100: 15 23 42;   /* primary text */
+  --slate-200: 30 41 59;
+  --slate-300: 51 65 85;
+  --slate-400: 71 85 105;
+  --slate-500: 100 116 139;
+  --slate-600: 148 163 184;
+  --slate-700: 203 213 225;
+  --slate-800: 226 232 240;
+  --slate-900: 241 245 249;
+  --slate-950: 248 250 252;
+
+  /* Overlay/line token — dark on light canvas. */
+  --line: 15 23 42; /* slate-900 */
+
+  /* Atmospheric glow background — tuned per mode. */
+  --glow-gold: 212 175 55;
+  --glow-blue: 59 130 246;
+  --glow-gold-alpha: 0.03;
+  --glow-blue-alpha: 0.025;
+}
+
+:root.dark {
+  --ink-950: 7 9 13;
+  --ink-900: 11 15 22;
+  --ink-800: 17 23 34;
+  --ink-700: 26 33 48;
+  --ink-600: 35 44 61;
+  --ink-500: 47 58 79;
+
+  --slate-50:  248 250 252;
+  --slate-100: 241 245 249;
+  --slate-200: 226 232 240;
+  --slate-300: 203 213 225;
+  --slate-400: 148 163 184;
+  --slate-500: 100 116 139;
+  --slate-600: 71 85 105;
+  --slate-700: 51 65 85;
+  --slate-800: 30 41 59;
+  --slate-900: 15 23 42;
+  --slate-950: 2 6 23;
+
+  --line: 255 255 255; /* white overlays on dark canvas */
+
+  --glow-gold-alpha: 0.05;
+  --glow-blue-alpha: 0.04;
+}
+
 @layer base {
   html, body, #root {
     height: 100%;
   }
+  html {
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
   body {
-    background:
-      radial-gradient(1200px 600px at 80% -10%, rgba(212, 175, 55, 0.05), transparent 60%),
-      radial-gradient(900px 500px at -10% 10%, rgba(59, 130, 246, 0.04), transparent 60%),
-      #07090d;
+    background-color: rgb(var(--ink-950));
+    background-image:
+      radial-gradient(1200px 600px at 80% -10%, rgb(var(--glow-gold) / var(--glow-gold-alpha)), transparent 60%),
+      radial-gradient(900px 500px at -10% 10%, rgb(var(--glow-blue) / var(--glow-blue-alpha)), transparent 60%);
     font-feature-settings: "cv11", "ss01", "tnum";
   }
   ::selection {
-    background: rgba(212, 175, 55, 0.25);
-    color: #f8fafc;
+    background: rgb(var(--glow-gold) / 0.25);
+    color: rgb(var(--slate-100));
   }
 }
 
 @layer components {
   .panel {
-    @apply bg-ink-900/70 border border-white/5 rounded-lg shadow-panel backdrop-blur-sm;
+    @apply bg-ink-900/70 border border-line/5 rounded-lg shadow-panel backdrop-blur-sm;
   }
   .panel-hover {
-    @apply transition-colors hover:border-white/10 hover:bg-ink-900/90;
+    @apply transition-colors hover:border-line/10 hover:bg-ink-900/90;
   }
   .chip {
     @apply inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium tracking-wide uppercase;
@@ -33,18 +110,18 @@
     @apply font-mono tabular-nums;
   }
   .divider-v {
-    @apply w-px bg-white/5;
+    @apply w-px bg-line/5;
   }
   .section-title {
     @apply text-[11px] uppercase tracking-[0.14em] text-slate-400 font-medium;
   }
   .kbd {
-    @apply font-mono text-[10px] px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-slate-300;
+    @apply font-mono text-[10px] px-1.5 py-0.5 rounded border border-line/10 bg-line/5 text-slate-300;
   }
 }
 
-/* subtle scrollbars */
+/* subtle theme-aware scrollbars */
 *::-webkit-scrollbar { width: 10px; height: 10px; }
 *::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 8px; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.12); }
+*::-webkit-scrollbar-thumb { background: rgb(var(--line) / 0.06); border-radius: 8px; }
+*::-webkit-scrollbar-thumb:hover { background: rgb(var(--line) / 0.12); }

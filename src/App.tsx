@@ -127,7 +127,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker }: {
 function Footer({ org }: { org: Organization | null }) {
   const scope = useScope()
   return (
-    <footer className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-white/5">
+    <footer className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-line/5">
       <span>Broker Research OS · Module 04 · Conflict-closure engine</span>
       <span>
         Scope <span className="kbd">{scope.orgId}</span> / <span className="kbd">{scope.actingUserId}</span>

@@ -28,12 +28,12 @@ export default function Dashboard({ filters, onSelectReport }: DashboardProps) {
             </div>
             <span className="text-[11px] text-slate-500 num">{data.rollingFeed.length} items</span>
           </div>
-          <ul className="flex flex-col divide-y divide-white/5">
+          <ul className="flex flex-col divide-y divide-line/5">
             {data.rollingFeed.map((item) => (
               <li key={item.reportId}>
                 <button
                   onClick={() => onSelectReport(item.reportId)}
-                  className="w-full text-left py-2.5 flex items-start gap-3 hover:bg-white/[0.02] transition-colors rounded px-2 -mx-2"
+                  className="w-full text-left py-2.5 flex items-start gap-3 hover:bg-line/[0.02] transition-colors rounded px-2 -mx-2"
                 >
                   <span className="num text-[10.5px] text-slate-500 w-12 pt-1">{formatShortDate(item.publishedAt)}</span>
                   <span
@@ -41,7 +41,7 @@ export default function Dashboard({ filters, onSelectReport }: DashboardProps) {
                     style={{ background: item.brokerColor ?? '#94a3b8' }}
                   >{item.brokerShortName.slice(0, 3).toUpperCase()}</span>
                   {item.ticker && (
-                    <span className="chip border border-white/10 text-slate-200 shrink-0 mt-0.5">{item.ticker}</span>
+                    <span className="chip border border-line/10 text-slate-200 shrink-0 mt-0.5">{item.ticker}</span>
                   )}
                   <div className="flex-1 min-w-0">
                     <div className={`text-[12.5px] font-medium truncate ${STANCE_TEXT_COLOR[item.stance]}`}>
@@ -70,7 +70,7 @@ export default function Dashboard({ filters, onSelectReport }: DashboardProps) {
             <IngestionStat label="Failed · 24h" value={data.ingestion.failedLast24h}
               valueClass={data.ingestion.failedLast24h > 0 ? 'text-rose-400' : ''}/>
           </dl>
-          <div className="mt-auto pt-3 border-t border-white/5 flex items-center justify-between text-[11px]">
+          <div className="mt-auto pt-3 border-t border-line/5 flex items-center justify-between text-[11px]">
             <span className="text-slate-500">Throughput</span>
             <span className="num text-slate-200">{data.ingestion.throughputPerHour} / hour</span>
           </div>

@@ -83,7 +83,7 @@ function DivergenceCard({ d, onSelectTicker }: {
 
       <SpreadBar low={d.targetStats.low ?? 0} high={d.targetStats.high ?? 0} currency={d.currency}/>
 
-      <div className="text-[12.5px] text-slate-300 leading-relaxed rounded border border-white/5 bg-white/[0.02] p-3">
+      <div className="text-[12.5px] text-slate-300 leading-relaxed rounded border border-line/5 bg-line/[0.02] p-3">
         {d.resultant.narrative}
       </div>
 
@@ -131,7 +131,7 @@ function DivergenceCard({ d, onSelectTicker }: {
         </Section>
       )}
 
-      <div className="text-[10.5px] text-slate-500 flex flex-col gap-0.5 pt-2 border-t border-white/5">
+      <div className="text-[10.5px] text-slate-500 flex flex-col gap-0.5 pt-2 border-t border-line/5">
         {d.confidence.rationale.map((r, idx) => <span key={idx}>· {r}</span>)}
       </div>
     </article>
@@ -169,16 +169,16 @@ function ConsensusRow({ point }: { point: ConsensusPointVM }) {
   const tone = point.polarity === 'bullish' ? 'text-emerald-400'
     : point.polarity === 'bearish' ? 'text-rose-400' : 'text-slate-300'
   return (
-    <li className="flex flex-col gap-0.5 rounded border border-white/5 bg-white/[0.02] p-2.5">
+    <li className="flex flex-col gap-0.5 rounded border border-line/5 bg-line/[0.02] p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</span>
-        <span className={`chip border border-white/10 ${tone} text-[9.5px]`}>Consensus</span>
+        <span className={`chip border border-line/10 ${tone} text-[9.5px]`}>Consensus</span>
       </div>
       <span className="text-[12.5px] text-slate-200 leading-snug">{point.claim}</span>
       {point.supportingClaims.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
           {point.supportingClaims.slice(0, 4).map((c, idx) => (
-            <span key={idx} className="chip bg-white/[0.04] border border-white/5 text-slate-400 text-[10px]">{c}</span>
+            <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-400 text-[10px]">{c}</span>
           ))}
         </div>
       )}
@@ -197,7 +197,7 @@ function ConsensusRow({ point }: { point: ConsensusPointVM }) {
 
 function DisagreementRow({ point }: { point: DisagreementPointVM }) {
   return (
-    <div className="rounded border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2">
+    <div className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
       <div className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</div>
       <div className="flex gap-2 text-[12px]">
         <span className="chip border border-emerald-500/30 text-emerald-400 shrink-0">Bull</span>
@@ -243,7 +243,7 @@ function OutlierRow({ out }: { out: OutlierVM }) {
       </div>
       <div className="flex flex-wrap gap-1">
         {out.reasons.map((r, idx) => (
-          <span key={idx} className="chip bg-white/[0.04] border border-white/5 text-slate-300 text-[10px]">{r}</span>
+          <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-300 text-[10px]">{r}</span>
         ))}
       </div>
       <div className="text-[11px] text-slate-400 leading-snug">{out.notes}</div>
@@ -267,7 +267,7 @@ const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
   consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
   mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
   mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-white/[0.02]',
+  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
   outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 
@@ -287,7 +287,7 @@ function ConfidenceBar({ score, band }: { score: number; band: StrengthBand }) {
   return (
     <div className="flex items-center gap-2 text-[10px]">
       <span className="text-slate-500 uppercase tracking-widest">Confidence</span>
-      <div className="w-20 h-1 rounded-full bg-white/5 overflow-hidden">
+      <div className="w-20 h-1 rounded-full bg-line/5 overflow-hidden">
         <div className={`h-full ${color}`} style={{ width: `${pct}%` }}/>
       </div>
       <span className="num text-slate-300">{pct}%</span>

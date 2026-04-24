@@ -27,7 +27,7 @@ export default function ReportDrawer({ reportId, onClose }: ReportDrawerProps) {
         onClick={onClose}
         aria-label="Close"
       />
-      <aside className="absolute top-0 right-0 h-full w-full md:w-[540px] lg:w-[640px] bg-ink-950 border-l border-white/5 shadow-2xl flex flex-col">
+      <aside className="absolute top-0 right-0 h-full w-full md:w-[540px] lg:w-[640px] bg-ink-950 border-l border-line/5 shadow-2xl flex flex-col">
         <DrawerBody reportId={reportId} onClose={onClose}/>
       </aside>
     </div>
@@ -57,13 +57,13 @@ function DrawerMessage({ onClose, tone, text }: { onClose: () => void; tone: 'lo
 
 function DrawerHeader({ title, onClose }: { title: string; onClose: () => void }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-line/5">
       <div className="flex items-center gap-2">
         <span className="section-title">{title}</span>
       </div>
       <button
         onClick={onClose}
-        className="text-slate-400 hover:text-slate-100 w-7 h-7 flex items-center justify-center rounded border border-white/5 hover:border-white/20 transition-colors"
+        className="text-slate-400 hover:text-slate-100 w-7 h-7 flex items-center justify-center rounded border border-line/5 hover:border-line/20 transition-colors"
         aria-label="Close"
       >✕</button>
     </div>
@@ -86,7 +86,7 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
                 style={{ background: vm.broker.color ?? '#94a3b8' }}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
-              <span className="chip border border-white/10 text-slate-400 ml-auto">{vm.reportType}</span>
+              <span className="chip border border-line/10 text-slate-400 ml-auto">{vm.reportType}</span>
             </div>
             <h2 className="text-slate-100 text-[16px] font-semibold leading-snug">{vm.title}</h2>
             <div className="flex items-center gap-3 text-[11px] text-slate-500 num">
@@ -150,7 +150,7 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
             <Section title="Themes">
               <div className="flex flex-wrap gap-1.5">
                 {vm.themes.map((t) => (
-                  <span key={t} className="chip bg-white/[0.04] border border-white/5 text-slate-300">{t}</span>
+                  <span key={t} className="chip bg-line/[0.04] border border-line/5 text-slate-300">{t}</span>
                 ))}
               </div>
             </Section>
@@ -253,7 +253,7 @@ function EvidenceList({ snippets, indent }: { snippets: readonly EvidenceSnippet
   return (
     <div className={`flex flex-col gap-1.5 ${indent ? 'ml-7' : ''}`}>
       {snippets.map((s) => (
-        <div key={s.id} className="rounded border border-white/5 bg-white/[0.02] px-3 py-2 flex flex-col gap-0.5">
+        <div key={s.id} className="rounded border border-line/5 bg-line/[0.02] px-3 py-2 flex flex-col gap-0.5">
           <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500">
             <span className="chip border border-accent/30 text-accent/90">Evidence</span>
             <span className="num">p.{s.pageNumber}</span>

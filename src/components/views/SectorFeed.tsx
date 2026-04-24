@@ -72,7 +72,7 @@ function SectorTile({ tile, onSelectReport, onSelectTicker }: {
       </header>
 
       <div className="flex items-center gap-3 text-[11px]">
-        <div className="flex-1 h-1 rounded-full bg-white/5 overflow-hidden">
+        <div className="flex-1 h-1 rounded-full bg-line/5 overflow-hidden">
           <div className={`h-full ${positive ? 'bg-emerald-400/80' : 'bg-rose-400/80'}`} style={{ width: `${pct}%` }}/>
         </div>
       </div>
@@ -113,7 +113,7 @@ function SectorTile({ tile, onSelectReport, onSelectTicker }: {
                 >
                   <span className="num text-[10px] text-slate-500 w-12 pt-0.5">{formatShortDate(r.publishedAt)}</span>
                   {r.ticker && (
-                    <span className="chip border border-white/10 text-slate-200 shrink-0">{r.ticker}</span>
+                    <span className="chip border border-line/10 text-slate-200 shrink-0">{r.ticker}</span>
                   )}
                   <span className="text-slate-400 shrink-0">{r.brokerShortName}</span>
                   <span className={`flex-1 truncate ${STANCE_TEXT_COLOR[r.stance]}`} title={r.headline}>{r.headline}</span>
@@ -138,7 +138,7 @@ function SignalRow({ signal }: { signal: SectorSignalVM }) {
   const stanceColor = signal.stanceLean === 'bullish' ? 'text-emerald-400'
     : signal.stanceLean === 'bearish' ? 'text-rose-400' : 'text-slate-300'
   return (
-    <li className="flex flex-col gap-1 rounded border border-white/5 bg-white/[0.02] p-2.5">
+    <li className="flex flex-col gap-1 rounded border border-line/5 bg-line/[0.02] p-2.5">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2 min-w-0">
           <span className={`chip border ${CLASS_COLOR[signal.classification]} text-[9px]`}>
@@ -173,7 +173,7 @@ const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
   consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
   mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
   mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-white/[0.02]',
+  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
   outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 

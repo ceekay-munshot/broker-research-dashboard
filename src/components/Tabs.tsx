@@ -7,7 +7,7 @@ interface TabsProps {
 
 export default function Tabs({ active, setActive }: TabsProps) {
   return (
-    <div className="flex items-end border-b border-white/5 bg-ink-950/40">
+    <div className="flex items-end border-b border-line/5 bg-ink-950/40">
       <div className="flex">
         {TABS.map((t) => {
           const isActive = active === t.id

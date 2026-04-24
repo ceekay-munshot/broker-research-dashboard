@@ -33,7 +33,7 @@ export default function StockDrawer({ ticker, onClose, onSelectReport }: StockDr
         onClick={onClose}
         aria-label="Close"
       />
-      <aside className="absolute top-0 right-0 h-full w-full md:w-[620px] lg:w-[720px] bg-ink-950 border-l border-white/5 shadow-2xl flex flex-col">
+      <aside className="absolute top-0 right-0 h-full w-full md:w-[620px] lg:w-[720px] bg-ink-950 border-l border-line/5 shadow-2xl flex flex-col">
         <Body ticker={ticker} onClose={onClose} onSelectReport={onSelectReport}/>
       </aside>
     </div>
@@ -52,13 +52,13 @@ function Body({ ticker, onClose, onSelectReport }: { ticker: StockTicker; onClos
 
 function Header({ title, onClose }: { title: string; onClose: () => void }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3 border-b border-white/5">
+    <div className="flex items-center justify-between px-5 py-3 border-b border-line/5">
       <div className="flex items-center gap-2">
         <span className="section-title">{title}</span>
       </div>
       <button
         onClick={onClose}
-        className="text-slate-400 hover:text-slate-100 w-7 h-7 flex items-center justify-center rounded border border-white/5 hover:border-white/20 transition-colors"
+        className="text-slate-400 hover:text-slate-100 w-7 h-7 flex items-center justify-center rounded border border-line/5 hover:border-line/20 transition-colors"
         aria-label="Close"
       >✕</button>
     </div>
@@ -197,7 +197,7 @@ function Content({ vm, onClose, onSelectReport }: {
           </Section>
 
           {/* Confidence rationale */}
-          <div className="text-[10.5px] text-slate-500 flex flex-col gap-0.5 pt-3 border-t border-white/5">
+          <div className="text-[10.5px] text-slate-500 flex flex-col gap-0.5 pt-3 border-t border-line/5">
             <span className="section-title mb-0.5">Confidence rationale</span>
             {closure.confidence.rationale.map((r, idx) => <span key={idx}>· {r}</span>)}
           </div>
@@ -229,16 +229,16 @@ function ConsensusRow({ point }: { point: ConsensusPointVM }) {
   const tone = point.polarity === 'bullish' ? 'text-emerald-400'
     : point.polarity === 'bearish' ? 'text-rose-400' : 'text-slate-300'
   return (
-    <li className="flex flex-col gap-0.5 rounded border border-white/5 bg-white/[0.02] p-2.5">
+    <li className="flex flex-col gap-0.5 rounded border border-line/5 bg-line/[0.02] p-2.5">
       <div className="flex items-center justify-between gap-2">
         <span className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</span>
-        <span className={`chip border border-white/10 ${tone} text-[9.5px]`}>Consensus</span>
+        <span className={`chip border border-line/10 ${tone} text-[9.5px]`}>Consensus</span>
       </div>
       <span className="text-[12.5px] text-slate-200 leading-snug">{point.claim}</span>
       {point.supportingClaims.length > 0 && (
         <div className="flex flex-wrap gap-1 mt-1">
           {point.supportingClaims.slice(0, 5).map((c, idx) => (
-            <span key={idx} className="chip bg-white/[0.04] border border-white/5 text-slate-400 text-[10px]">{c}</span>
+            <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-400 text-[10px]">{c}</span>
           ))}
         </div>
       )}
@@ -252,7 +252,7 @@ function ConsensusRow({ point }: { point: ConsensusPointVM }) {
 
 function DisagreementRow({ point }: { point: DisagreementPointVM }) {
   return (
-    <li className="rounded border border-white/5 bg-white/[0.02] p-3 flex flex-col gap-2">
+    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
       <div className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</div>
       <div className="flex gap-2 text-[12.5px]">
         <span className="chip border border-emerald-500/30 text-emerald-400 shrink-0">Bull</span>
@@ -298,7 +298,7 @@ function OutlierRow({ out }: { out: OutlierVM }) {
       </div>
       <div className="flex flex-wrap gap-1">
         {out.reasons.map((r, idx) => (
-          <span key={idx} className="chip bg-white/[0.04] border border-white/5 text-slate-300 text-[10px]">{r}</span>
+          <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-300 text-[10px]">{r}</span>
         ))}
       </div>
       <div className="text-[11px] text-slate-400 leading-snug">{out.notes}</div>
@@ -310,7 +310,7 @@ function LinkedReportRow({ r, onClick }: { r: LinkedReportVM; onClick: () => voi
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors p-2.5 flex flex-col gap-1"
+      className="w-full text-left rounded border border-line/5 bg-line/[0.02] hover:bg-line/[0.04] transition-colors p-2.5 flex flex-col gap-1"
     >
       <div className="flex items-center gap-2">
         <span
@@ -318,7 +318,7 @@ function LinkedReportRow({ r, onClick }: { r: LinkedReportVM; onClick: () => voi
           style={{ background: r.brokerColor ?? '#94a3b8' }}
         >{r.brokerShortName.slice(0, 3).toUpperCase()}</span>
         <span className="text-slate-300 text-[11.5px]">{r.brokerShortName}</span>
-        <span className={`chip border border-white/10 ${STANCE_TEXT_COLOR[r.stance]} text-[9.5px]`}>{r.stance}</span>
+        <span className={`chip border border-line/10 ${STANCE_TEXT_COLOR[r.stance]} text-[9.5px]`}>{r.stance}</span>
         {r.rating && (
           <span className={`text-[10.5px] ${RATING_TEXT_COLOR[r.rating]}`}>{r.rating}</span>
         )}
@@ -341,7 +341,7 @@ function StanceBar({ dist }: { dist: Readonly<Record<'bullish' | 'neutral' | 'be
   const total = Math.max(1, dist.bullish + dist.neutral + dist.bearish)
   const pct = (n: number) => (100 * n / total).toFixed(0)
   return (
-    <div className="flex-1 flex h-1.5 rounded overflow-hidden bg-white/5">
+    <div className="flex-1 flex h-1.5 rounded overflow-hidden bg-line/5">
       <div className="bg-emerald-500/80" style={{ width: `${pct(dist.bullish)}%` }}/>
       <div className="bg-slate-500/60"   style={{ width: `${pct(dist.neutral)}%` }}/>
       <div className="bg-rose-500/80"    style={{ width: `${pct(dist.bearish)}%` }}/>
@@ -354,7 +354,7 @@ function ConfidenceBar({ score, band }: { score: number; band: StrengthBand }) {
   const color = band === 'strong' ? 'bg-emerald-400' : band === 'moderate' ? 'bg-amber-400' : 'bg-slate-500'
   return (
     <span className="flex items-center gap-1.5">
-      <span className="w-20 h-1 rounded-full bg-white/5 overflow-hidden">
+      <span className="w-20 h-1 rounded-full bg-line/5 overflow-hidden">
         <span className={`block h-full ${color}`} style={{ width: `${pct}%` }}/>
       </span>
       <span className="num text-slate-300">{pct}%</span>
@@ -378,7 +378,7 @@ const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
   consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
   mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
   mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-white/[0.02]',
+  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
   outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 

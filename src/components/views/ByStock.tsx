@@ -31,7 +31,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
 
       <div className="panel overflow-x-auto">
         <table className="w-full min-w-[1060px] text-[12px]">
-          <thead className="bg-white/[0.02] border-b border-white/5">
+          <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 bg-ink-900/70 z-10">Ticker</th>
               <th className="px-3 py-2 font-medium">Sector</th>
@@ -84,7 +84,7 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
   onSelectTicker: (t: StockTicker) => void;
 }) {
   return (
-    <tr className={`border-b border-white/5 ${zebra ? 'bg-white/[0.01]' : ''}`}>
+    <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
       <td className="px-3 py-2 sticky left-0 bg-ink-900/70 z-10">
         <button
           onClick={() => onSelectTicker(row.ticker)}
@@ -141,7 +141,7 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
     <td className={`px-2 py-2 align-top ${cell.outlier ? 'bg-amber-500/[0.06]' : ''}`}>
       <button
         onClick={() => onSelectReport(cell.lastReportId)}
-        className="text-left w-full hover:bg-white/[0.02] rounded transition-colors px-1 -mx-1 py-0.5"
+        className="text-left w-full hover:bg-line/[0.02] rounded transition-colors px-1 -mx-1 py-0.5"
       >
         <div className="flex items-center gap-1.5">
           <span className={`num text-[12.5px] font-semibold ${cell.outlier ? 'text-amber-300' : 'text-slate-100'}`}>
@@ -186,7 +186,7 @@ const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
   consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
   mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
   mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-white/[0.02]',
+  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
   outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 

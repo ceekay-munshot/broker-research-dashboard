@@ -1,4 +1,5 @@
 import IngestionChip from './IngestionChip'
+import ThemeToggle from './ThemeToggle'
 
 interface HeaderProps {
   readonly lastUpdated: string | null
@@ -12,11 +13,12 @@ function formatStamp(iso: string | null): string {
 
 export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
   return (
-    <header className="border-b border-white/5 bg-ink-950/80 backdrop-blur-md">
+    <header className="border-b border-line/5 bg-ink-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 h-14">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 rounded-sm bg-gradient-to-br from-accent to-accent-soft flex items-center justify-center shadow-panel">
-            <span className="text-ink-950 font-bold text-[13px] leading-none">B</span>
+            {/* Literal near-black text over the gold monogram — stays dark in both themes. */}
+            <span className="text-[#07090d] font-bold text-[13px] leading-none">B</span>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-slate-200 text-sm font-semibold tracking-wide">Broker Research OS</span>
@@ -25,7 +27,7 @@ export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
           <span className="mx-2 text-slate-700">/</span>
           <span className="text-slate-300 text-sm">Email Intelligence Dashboard</span>
           {orgShortName && (
-            <span className="chip ml-3 border border-white/10 text-slate-400 bg-white/[0.02]">
+            <span className="chip ml-3 border border-line/10 text-slate-400 bg-line/[0.02]">
               Org · <span className="text-slate-200 ml-1">{orgShortName}</span>
             </span>
           )}
@@ -41,6 +43,7 @@ export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
             <span className="kbd">⌘</span><span className="kbd">K</span>
             <span className="text-[11px] text-slate-500 ml-1">search</span>
           </div>
+          <ThemeToggle />
         </div>
       </div>
     </header>
