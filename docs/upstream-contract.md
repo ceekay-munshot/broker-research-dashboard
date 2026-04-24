@@ -123,6 +123,10 @@ noticing:
 - Numeric strings → numbers.
 - Missing-field defaults (`timeZone`, `defaultCurrency`, etc.).
 
+> **Onboarding quick-start**: drop your sample payloads into
+> [`upstream-samples/`](../upstream-samples/) and run `npm run upstream:ready`.
+> Full workflow in [`docs/upstream-onboarding.md`](./upstream-onboarding.md).
+
 ## 5. Verify compatibility
 
 The contract-test harness runs every fixture through the mapper pipeline

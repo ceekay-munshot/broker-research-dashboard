@@ -5,6 +5,8 @@ import { createStubFetch } from './http/stubFetch'
 import { type AdapterMode, normalizeAdapterMode } from './AdapterMode'
 import { readScopeBootstrap } from '../app/scopeBootstrap'
 import { FixtureUpstreamAdapter } from './upstream'
+import { withDiagnostics } from './upstream/withDiagnostics'
+import { setDiagnosticsMode } from './upstream/diagnostics'
 
 // ─────────────────────────────────────────────────────────────────────────
 // Adapter singleton + factory.
@@ -29,14 +31,15 @@ import { FixtureUpstreamAdapter } from './upstream'
 // so `activeMode` must exist before `createAdapterFromEnv()` (which calls
 // `readActiveMode()` internally) runs.
 let activeMode: AdapterMode = normalizeAdapterMode(undefined)
-let adapterInstance: ResearchAdapter = createAdapterFromEnv()
+let adapterInstance: ResearchAdapter = withDiagnostics(createAdapterFromEnv())
+setDiagnosticsMode(activeMode)
 
 export function getResearchAdapter(): ResearchAdapter {
   return adapterInstance
 }
 
 export function setResearchAdapter(next: ResearchAdapter): void {
-  adapterInstance = next
+  adapterInstance = withDiagnostics(next)
 }
 
 /** Which mode the active adapter is running in. Read-only after bootstrap. */

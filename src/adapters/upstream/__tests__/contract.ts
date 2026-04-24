@@ -271,6 +271,85 @@ test('OrgScopeViolationError is a real subclass (sanity)', () => {
   assert(e.code === 'ORG_SCOPE_VIOLATION', 'error code')
 })
 
+// ── Drift regressions ────────────────────────────────────────────────────
+
+test('drift: snake_case keys on organization', () => {
+  const raw = {
+    id: 'org_acme',
+    name: 'Acme Capital Partners LLP',
+    short_name: 'Acme',
+    forwarding_address: 'research@acme.broker-research.example.com',
+    created_at: '2026-01-15T08:30:00.000Z',
+    enabled_broker_ids: ['brk_kotak'],
+    time_zone: 'Asia/Kolkata',
+    default_currency: 'INR',
+  }
+  const out = mapOrganization(raw)
+  assertEqual(out.shortName, 'Acme', 'snake_case short_name → shortName')
+  assertEqual(out.forwardingAddress, 'research@acme.broker-research.example.com', 'snake_case forwarding_address → forwardingAddress')
+})
+
+test('drift: envelope wrapper { data: … } on organization', () => {
+  const raw = { data: UPSTREAM_FIXTURES.organization }
+  const out = mapOrganization(raw)
+  assertEqual(out.id as unknown as string, 'org_acme', 'envelope unwrapped')
+})
+
+test('drift: { response: … } envelope + snake_case on user', () => {
+  const raw = { response: { id: 'usr_demo', org_id: 'org_acme', email: 'x@y.com', display_name: 'X', role: 'analyst', created_at: '2026-01-20T10:00:00.000Z' } }
+  const out = mapUser(raw)
+  assertEqual(out.orgId as unknown as string, 'org_acme', 'snake org_id → camel orgId')
+})
+
+test('drift: alt ID alias `organization_id` on organization', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any = { ...UPSTREAM_FIXTURES.organization }
+  // Simulate an upstream that sends `organization_id` instead of `id`.
+  raw.organization_id = raw.id
+  delete raw.id
+  const out = mapOrganization(raw)
+  assertEqual(out.id as unknown as string, 'org_acme', 'organization_id aliased to id')
+})
+
+test('drift: bare array for Page<ResearchReport> gets wrapped', () => {
+  const raw = UPSTREAM_FIXTURES.researchReports.items
+  const out = mapResearchReportsPage(raw)
+  assertEqual(out.items.length, 2, 'items count')
+  assertEqual(out.nextCursor, null, 'nextCursor defaulted to null')
+  assertEqual(out.totalCount, 2, 'totalCount defaulted to items.length')
+})
+
+test('drift: pagination alias { cursor, total } → { nextCursor, totalCount }', () => {
+  const raw = {
+    items: UPSTREAM_FIXTURES.researchReports.items,
+    cursor: 'next-page',
+    total: 42,
+  }
+  const out = mapResearchReportsPage(raw)
+  assertEqual(out.nextCursor, 'next-page', 'cursor → nextCursor')
+  assertEqual(out.totalCount, 42, 'total → totalCount')
+})
+
+test('drift: numeric-string targetPrice on report summary', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any = { ...UPSTREAM_FIXTURES.reportSummary, targetPrice: '4200', confidence: '0.82' }
+  const out = mapReportSummary(raw)
+  assertEqual(out.targetPrice, 4200, 'numeric-string targetPrice coerced')
+  assertEqual(out.confidence, 0.82, 'numeric-string confidence coerced')
+})
+
+test('drift: numeric-string that cannot parse throws with field path', () => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const raw: any = { ...UPSTREAM_FIXTURES.reportSummary, targetPrice: 'not-a-number' }
+  let threw = false
+  try { mapReportSummary(raw) } catch (e) {
+    threw = true
+    assert(e instanceof ContractViolationError, 'ContractViolationError expected')
+    assert((e as Error).message.includes('ReportSummary.targetPrice'), 'error carries field path')
+  }
+  assert(threw, 'expected throw on non-numeric string')
+})
+
 // ── Report ────────────────────────────────────────────────────────────────
 
 const passed = results.filter((r) => r.ok).length

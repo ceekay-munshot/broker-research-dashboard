@@ -12,6 +12,7 @@ import Sidebar from './components/Sidebar'
 import Tabs from './components/Tabs'
 import ReportDrawer from './components/ReportDrawer'
 import StockDrawer from './components/StockDrawer'
+import DevDiagnosticsChip from './app/DevDiagnosticsChip'
 
 import Dashboard from './components/views/Dashboard'
 import ByBroker from './components/views/ByBroker'
@@ -106,6 +107,7 @@ export default function App() {
         onClose={() => setSelectedTicker(null)}
         onSelectReport={onSelectReport}
       />
+      <DevDiagnosticsChip />
     </div>
   )
 }

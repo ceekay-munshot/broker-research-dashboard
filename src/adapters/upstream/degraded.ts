@@ -98,6 +98,8 @@ export function specForKey(key: string): ResourceSpec | undefined {
  * Warn once per missing optional field, in dev mode only. Hosts running
  * production builds see nothing; developers see a single line per field
  * telling them what the upstream left out and what default was applied.
+ * Also pushes the warning into the diagnostics store so the dev chip and
+ * `window.__upstreamDiagnostics()` can show it.
  */
 const warnedOnce = new Set<string>()
 export function warnMissingOptional(
@@ -109,11 +111,18 @@ export function warnMissingOptional(
   const tag = `${endpointKey}:${fieldPath}`
   if (warnedOnce.has(tag)) return
   warnedOnce.add(tag)
+  const message = `[upstream/${endpointKey}] optional field \`${fieldPath}\` missing; using default=${defaultApplied}. See docs/upstream-contract.md.`
   // eslint-disable-next-line no-console
-  console.warn(
-    `[upstream/${endpointKey}] optional field \`${fieldPath}\` missing; using default=${defaultApplied}. ` +
-    `See docs/upstream-contract.md.`,
-  )
+  console.warn(message)
+  recordDiagnosticsWarning(message)
+}
+
+// Injected by diagnostics module at load time (see diagnostics.ts). Keeps
+// degraded.ts free of any import edge that would pull the whole
+// diagnostics module into environments that don't need it.
+let recordDiagnosticsWarning: (msg: string) => void = () => { /* noop until wired */ }
+export function __setDiagnosticsWarningSink(fn: (msg: string) => void): void {
+  recordDiagnosticsWarning = fn
 }
 
 function isDev(): boolean {

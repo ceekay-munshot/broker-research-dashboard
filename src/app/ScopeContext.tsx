@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useRef, useSt
 import type { OrgScope } from '../domain'
 import { getResearchAdapter } from '../adapters'
 import { onScopeBootstrapChanged } from './scopeBootstrap'
+import { setDiagnosticsScope, resetDiagnostics } from '../adapters/upstream/diagnostics'
 
 // The scope the entire running app reads against. Resolved once at bootstrap
 // via `adapter.getSessionScope()` — which, in `upstream` mode, ultimately
@@ -39,6 +40,10 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     setScope(null)
     setError(null)
     setGeneration((g) => g + 1)
+    // Clear diagnostics so the dev chip doesn't show stale-tenant state
+    // under the new scope.
+    resetDiagnostics()
+    setDiagnosticsScope(null)
   }, [])
 
   // Resolve the scope on mount and every time `reload()` bumps the token.
@@ -49,6 +54,10 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
       .then((s) => {
         if (cancelled || reloadTokenRef.current !== token) return
         setScope(s)
+        setDiagnosticsScope({
+          orgId: s.orgId as unknown as string,
+          actingUserId: s.actingUserId as unknown as string,
+        })
       })
       .catch((e) => {
         if (cancelled || reloadTokenRef.current !== token) return

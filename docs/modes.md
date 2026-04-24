@@ -38,6 +38,13 @@ npm run typecheck
 
 # run the upstream contract tests
 npm run test:contract
+
+# when the upstream team shares sample payloads — drop into
+# upstream-samples/ and run the one-command readiness check.
+npm run upstream:ready
+
+# field-level diff between samples and reference fixtures
+npm run upstream:compare
 ```
 
 ## Required env per mode
