@@ -39,6 +39,16 @@ export interface ExternalScopeBootstrap {
 
   /** Optional host-provided label for diagnostics (e.g. "Vimana Desk v2.4"). */
   readonly hostLabel?: string
+
+  /**
+   * Optional raw-upstream → `/v1` normalization profile. When present,
+   * applied at the HTTP boundary before the `/v1` mappers see a
+   * response. Hosts use this to absorb vendor-specific payload shapes
+   * without modifying this repo. See
+   * `docs/upstream-normalization-bridge.md`. Kept as `unknown` here so
+   * the bootstrap contract does not depend on the full type surface.
+   */
+  readonly normalizationProfile?: unknown
 }
 
 declare global {

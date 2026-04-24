@@ -127,6 +127,11 @@ noticing:
 > [`upstream-samples/`](../upstream-samples/) and run `npm run upstream:ready`.
 > Full workflow in [`docs/upstream-onboarding.md`](./upstream-onboarding.md).
 
+> **Wire-shape differs from `/v1`?** Write a normalization profile.
+> This dashboard has a raw-upstream → `/v1` bridge at the HTTP boundary
+> so you do not have to mold your payloads to match the contract below.
+> See [`docs/upstream-normalization-bridge.md`](./upstream-normalization-bridge.md).
+
 ## 5. Verify compatibility
 
 The contract-test harness runs every fixture through the mapper pipeline

@@ -63,55 +63,55 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const raw = await this.client.request(endpoints.sessionScope(), {
       orgId: '' as OrgScope['orgId'],
       actingUserId: '' as OrgScope['actingUserId'],
-    })
+    }, { endpointKey: 'sessionScope' })
     return mapOrgScope(raw)
   }
 
   // ── Tenant / catalog ────────────────────────────────────────────────
 
   async getOrganization(scope: OrgScope): Promise<Organization> {
-    const raw = await this.client.request(endpoints.organization(), scope)
+    const raw = await this.client.request(endpoints.organization(), scope, { endpointKey: 'organization' })
     const org = mapOrganization(raw)
     assertOrgMatch('Organization', scope, org.id as unknown as string)
     return org
   }
 
   async getCurrentUser(scope: OrgScope): Promise<User> {
-    const raw = await this.client.request(endpoints.currentUser(), scope)
+    const raw = await this.client.request(endpoints.currentUser(), scope, { endpointKey: 'currentUser' })
     const user = mapUser(raw)
     assertOrgMatch('User', scope, user.orgId as unknown as string)
     return user
   }
 
   async listBrokers(scope: OrgScope): Promise<readonly Broker[]> {
-    const raw = await this.client.request(endpoints.brokers(), scope)
+    const raw = await this.client.request(endpoints.brokers(), scope, { endpointKey: 'brokers' })
     // Brokers are a global catalog; no orgId on the record. Enablement is
     // filtered upstream by org.
     return mapBrokers(raw)
   }
 
   async getBroker(scope: OrgScope, brokerId: BrokerId): Promise<Broker | null> {
-    const raw = await this.client.requestOrNull(endpoints.broker(brokerId), scope)
+    const raw = await this.client.requestOrNull(endpoints.broker(brokerId), scope, { endpointKey: 'brokers' })
     return raw === null ? null : mapBroker(raw)
   }
 
   async listSectors(scope: OrgScope): Promise<readonly Sector[]> {
-    const raw = await this.client.request(endpoints.sectors(), scope)
+    const raw = await this.client.request(endpoints.sectors(), scope, { endpointKey: 'sectors' })
     return mapSectors(raw)
   }
 
   async getSector(scope: OrgScope, sectorId: SectorId): Promise<Sector | null> {
-    const raw = await this.client.requestOrNull(endpoints.sector(sectorId), scope)
+    const raw = await this.client.requestOrNull(endpoints.sector(sectorId), scope, { endpointKey: 'sectors' })
     return raw === null ? null : mapSector(raw)
   }
 
   async listStocks(scope: OrgScope): Promise<readonly Stock[]> {
-    const raw = await this.client.request(endpoints.stocks(), scope)
+    const raw = await this.client.request(endpoints.stocks(), scope, { endpointKey: 'stocks' })
     return mapStocks(raw)
   }
 
   async getStock(scope: OrgScope, ticker: StockTicker): Promise<Stock | null> {
-    const raw = await this.client.requestOrNull(endpoints.stock(ticker), scope)
+    const raw = await this.client.requestOrNull(endpoints.stock(ticker), scope, { endpointKey: 'stocks' })
     return raw === null ? null : mapStock(raw)
   }
 
@@ -119,6 +119,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
 
   async listBrokerEmails(scope: OrgScope, query: ListEmailsQuery = {}): Promise<Page<BrokerEmail>> {
     const raw = await this.client.request(endpoints.brokerEmails(), scope, {
+      endpointKey: 'brokerEmails',
       query: {
         since: query.since,
         until: query.until,
@@ -134,7 +135,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async getBrokerEmail(scope: OrgScope, emailId: EmailId): Promise<BrokerEmail | null> {
-    const raw = await this.client.requestOrNull(endpoints.brokerEmail(emailId), scope)
+    const raw = await this.client.requestOrNull(endpoints.brokerEmail(emailId), scope, { endpointKey: 'brokerEmail' })
     if (raw === null) return null
     const email = mapBrokerEmail(raw)
     assertOrgMatch('BrokerEmail', scope, email.orgId as unknown as string)
@@ -142,7 +143,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async listAttachments(scope: OrgScope, emailId: EmailId): Promise<readonly Attachment[]> {
-    const raw = await this.client.request(endpoints.attachmentsForEmail(emailId), scope)
+    const raw = await this.client.request(endpoints.attachmentsForEmail(emailId), scope, { endpointKey: 'attachments' })
     const items = mapAttachments(raw)
     assertPageOrg('Attachment', scope, items, (it) => it.orgId as unknown as string)
     return items
@@ -152,6 +153,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
 
   async listResearchReports(scope: OrgScope, query: ListReportsQuery = {}): Promise<Page<ResearchReport>> {
     const raw = await this.client.request(endpoints.researchReports(), scope, {
+      endpointKey: 'researchReports',
       query: {
         since: query.since,
         until: query.until,
@@ -170,7 +172,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async getResearchReport(scope: OrgScope, reportId: ReportId): Promise<ResearchReport | null> {
-    const raw = await this.client.requestOrNull(endpoints.researchReport(reportId), scope)
+    const raw = await this.client.requestOrNull(endpoints.researchReport(reportId), scope, { endpointKey: 'researchReport' })
     if (raw === null) return null
     const report = mapResearchReport(raw)
     assertOrgMatch('ResearchReport', scope, report.orgId as unknown as string)
@@ -178,7 +180,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async getReportSummary(scope: OrgScope, reportId: ReportId): Promise<ReportSummary | null> {
-    const raw = await this.client.requestOrNull(endpoints.reportSummary(reportId), scope)
+    const raw = await this.client.requestOrNull(endpoints.reportSummary(reportId), scope, { endpointKey: 'reportSummary' })
     if (raw === null) return null
     const summary = mapReportSummary(raw)
     assertOrgMatch('ReportSummary', scope, summary.orgId as unknown as string)
@@ -186,7 +188,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async listEvidenceSnippets(scope: OrgScope, reportId: ReportId): Promise<readonly EvidenceSnippet[]> {
-    const raw = await this.client.request(endpoints.reportEvidence(reportId), scope)
+    const raw = await this.client.request(endpoints.reportEvidence(reportId), scope, { endpointKey: 'reportEvidence' })
     const items = mapEvidenceSnippets(raw)
     assertPageOrg('EvidenceSnippet', scope, items, (it) => it.orgId as unknown as string)
     return items
@@ -196,6 +198,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
 
   async listBrokerStockOpinions(scope: OrgScope, query: ListOpinionsQuery = {}): Promise<readonly BrokerStockOpinion[]> {
     const raw = await this.client.request(endpoints.opinions(), scope, {
+      endpointKey: 'opinions',
       query: {
         brokerIds: query.brokerIds as readonly string[] | undefined,
         tickers: query.tickers as readonly string[] | undefined,
@@ -207,12 +210,13 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async getConflictClosure(scope: OrgScope, ticker: StockTicker): Promise<ConflictClosure | null> {
-    const raw = await this.client.requestOrNull(endpoints.conflictClosure(ticker), scope)
+    const raw = await this.client.requestOrNull(endpoints.conflictClosure(ticker), scope, { endpointKey: 'conflictClosure' })
     return raw === null ? null : mapConflictClosure(raw)
   }
 
   async listConflictClosures(scope: OrgScope, query: ListClosuresQuery = {}): Promise<readonly ConflictClosure[]> {
     const raw = await this.client.request(endpoints.conflictClosures(), scope, {
+      endpointKey: 'conflictClosures',
       query: {
         tickers: query.tickers as readonly string[] | undefined,
         sectorIds: query.sectorIds as readonly string[] | undefined,
@@ -226,26 +230,26 @@ export class HttpResearchAdapter implements ResearchAdapter {
   }
 
   async getSectorIntelligence(scope: OrgScope, sectorId: SectorId): Promise<SectorIntelligence | null> {
-    const raw = await this.client.requestOrNull(endpoints.sectorIntelligenceFor(sectorId), scope)
+    const raw = await this.client.requestOrNull(endpoints.sectorIntelligenceFor(sectorId), scope, { endpointKey: 'sectorIntelligenceFor' })
     return raw === null ? null : mapSectorIntelligence(raw)
   }
 
   async listSectorIntelligence(scope: OrgScope): Promise<readonly SectorIntelligence[]> {
-    const raw = await this.client.request(endpoints.sectorIntelligenceList(), scope)
+    const raw = await this.client.request(endpoints.sectorIntelligenceList(), scope, { endpointKey: 'sectorIntelligence' })
     return mapSectorIntelligenceList(raw)
   }
 
   // ── Dashboard + ops ─────────────────────────────────────────────────
 
   async getKpiSnapshot(scope: OrgScope): Promise<KpiSnapshot> {
-    const raw = await this.client.request(endpoints.kpiSnapshot(), scope)
+    const raw = await this.client.request(endpoints.kpiSnapshot(), scope, { endpointKey: 'kpiSnapshot' })
     const snap = mapKpiSnapshot(raw)
     assertOrgMatch('KpiSnapshot', scope, snap.orgId as unknown as string)
     return snap
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {
-    const raw = await this.client.request(endpoints.ingestionStatus(), scope)
+    const raw = await this.client.request(endpoints.ingestionStatus(), scope, { endpointKey: 'ingestionStatus' })
     const status = mapIngestionStatus(raw)
     assertOrgMatch('IngestionStatus', scope, status.orgId as unknown as string)
     return status

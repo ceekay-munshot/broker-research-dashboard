@@ -27,6 +27,18 @@ interface ImportMetaEnv {
    * mints or refreshes tokens.
    */
   readonly VITE_API_TOKEN?: string
+  /**
+   * Raw-upstream → `/v1` normalization profile selector.
+   *
+   *   identity           (default) upstream already speaks /v1
+   *   example |
+   *   example-divergent  the bundled demonstration profile
+   *
+   * For a real vendor profile, the host injects the full profile object
+   * via `window.__BROKER_RESEARCH_DASHBOARD__.normalizationProfile`. See
+   * `docs/upstream-normalization-bridge.md`.
+   */
+  readonly VITE_UPSTREAM_PROFILE?: 'identity' | 'example' | 'example-divergent'
 }
 
 interface ImportMeta {

@@ -1,6 +1,9 @@
 import type { OrgScope } from '../../domain'
 import { mapHttpError, wrapTransportError } from './errors'
 import { NotFoundError, UnauthenticatedError } from '../errors'
+import {
+  normalizeRawUpstream, identityProfile, type UpstreamNormalizationProfile,
+} from '../rawUpstream'
 
 export type FetchImpl = typeof fetch
 
@@ -24,11 +27,22 @@ export interface HttpClientOptions {
    * propagates an `UnauthenticatedError` — the callback is purely a signal.
    */
   readonly onUnauthenticated?: () => void
+  /**
+   * Optional raw-upstream → `/v1` normalization profile. Applied to every
+   * response body at the HTTP boundary *before* the `/v1` mappers see it.
+   * Defaults to `identityProfile` (no-op). See
+   * `docs/upstream-normalization-bridge.md`.
+   */
+  readonly normalizationProfile?: UpstreamNormalizationProfile
 }
 
 export interface HttpRequestConfig {
   readonly method?: 'GET'
   readonly query?: QueryInput
+  /** Endpoint key used to look up the normalization profile. Falls back
+   *  to identity behavior when omitted — only old callers that haven't
+   *  been updated hit this path. */
+  readonly endpointKey?: string
 }
 
 export type QueryInput = Readonly<Record<
@@ -48,6 +62,7 @@ export class HttpClient {
   private readonly fetchImpl: FetchImpl
   private readonly defaultHeaders: Readonly<Record<string, string>>
   private readonly onUnauthenticated: (() => void) | undefined
+  private readonly normalizationProfile: UpstreamNormalizationProfile
 
   constructor(opts: HttpClientOptions) {
     if (!opts.baseUrl) throw new Error('HttpClient: baseUrl is required')
@@ -64,6 +79,7 @@ export class HttpClient {
     this.fetchImpl = opts.fetchImpl ?? ((...a) => fetch(...a))
     this.defaultHeaders = opts.defaultHeaders ?? {}
     this.onUnauthenticated = opts.onUnauthenticated
+    this.normalizationProfile = opts.normalizationProfile ?? identityProfile
   }
 
   /**
@@ -92,11 +108,18 @@ export class HttpClient {
 
     // 204 No Content → null. Otherwise expect JSON.
     if (response.status === 204) return null
+    let body: unknown
     try {
-      return await response.json()
+      body = await response.json()
     } catch (e) {
       throw wrapTransportError(e, path)
     }
+    // Raw-upstream → /v1 normalization happens here, at the HTTP
+    // boundary. Everything above this line sees only `/v1`-shaped JSON.
+    if (config.endpointKey) {
+      body = normalizeRawUpstream(body, config.endpointKey, this.normalizationProfile)
+    }
+    return body
   }
 
   /**

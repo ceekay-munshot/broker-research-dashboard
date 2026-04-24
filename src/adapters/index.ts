@@ -7,6 +7,10 @@ import { readScopeBootstrap } from '../app/scopeBootstrap'
 import { FixtureUpstreamAdapter } from './upstream'
 import { withDiagnostics } from './upstream/withDiagnostics'
 import { setDiagnosticsMode } from './upstream/diagnostics'
+import {
+  identityProfile, exampleDivergentProfile,
+  type UpstreamNormalizationProfile,
+} from './rawUpstream'
 
 // ─────────────────────────────────────────────────────────────────────────
 // Adapter singleton + factory.
@@ -74,6 +78,7 @@ export function createAdapterFromEnv(): ResearchAdapter {
       baseUrl,
       authToken: bootstrap.token ?? import.meta.env.VITE_API_TOKEN,
       onUnauthenticated: bootstrap.onUnauthenticated,
+      normalizationProfile: resolveNormalizationProfile(bootstrap.normalizationProfile),
     })
   }
 
@@ -95,6 +100,27 @@ export function createAdapterFromEnv(): ResearchAdapter {
   }
 
   return new MockResearchAdapter()
+}
+
+/**
+ * Resolve the normalization profile to hand to the HTTP client:
+ *   1. If the host bootstrap object supplied one, use it verbatim.
+ *   2. Else, map `VITE_UPSTREAM_PROFILE` to a bundled profile
+ *      (`identity` by default, `example` for the demonstration profile).
+ *   3. Fall back to the identity profile — byte-for-byte unchanged.
+ */
+function resolveNormalizationProfile(hostProfile: unknown): UpstreamNormalizationProfile {
+  if (isProfile(hostProfile)) return hostProfile
+  const envName = (import.meta.env.VITE_UPSTREAM_PROFILE as string | undefined)?.trim()
+  if (envName === 'example' || envName === 'example-divergent') return exampleDivergentProfile
+  return identityProfile
+}
+
+function isProfile(v: unknown): v is UpstreamNormalizationProfile {
+  return !!v && typeof v === 'object'
+    && typeof (v as UpstreamNormalizationProfile).name === 'string'
+    && typeof (v as UpstreamNormalizationProfile).defaultNormalizer === 'function'
+    && typeof (v as UpstreamNormalizationProfile).endpoints === 'object'
 }
 
 function readActiveMode(): AdapterMode {
