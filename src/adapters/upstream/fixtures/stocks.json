@@ -1,0 +1,26 @@
+[
+  {
+    "ticker": "TCS",
+    "name": "Tata Consultancy Services",
+    "sectorId": "sec_it",
+    "currency": "INR",
+    "exchange": "NSE",
+    "lastPrice": 3895.4,
+    "lastPriceAsOf": "2026-04-23T10:15:00.000Z"
+  },
+  {
+    "ticker": "MARUTI",
+    "name": "Maruti Suzuki India",
+    "sectorId": "sec_autos",
+    "currency": "INR",
+    "exchange": "NSE",
+    "lastPrice": 12540.0,
+    "lastPriceAsOf": "2026-04-23T10:15:00.000Z"
+  },
+  {
+    "ticker": "LT",
+    "name": "Larsen & Toubro",
+    "sectorId": "sec_capgoods",
+    "currency": "INR"
+  }
+]

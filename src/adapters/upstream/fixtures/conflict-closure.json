@@ -1,0 +1,35 @@
+{
+  "ticker": "TCS",
+  "asOf": "2026-04-22T12:00:00.000Z",
+  "brokerCount": 1,
+  "brokerIds": ["brk_kotak"],
+  "lastReportIds": ["rpt_001"],
+  "stanceDistribution": { "bullish": 1, "neutral": 0, "bearish": 0 },
+  "ratingDistribution": { "Buy": 1 },
+  "targetStats": {
+    "count": 1,
+    "mean": 4200,
+    "median": 4200,
+    "high": 4200,
+    "low": 4200,
+    "stdev": null,
+    "spreadPct": 0
+  },
+  "consensus": [],
+  "disagreements": [],
+  "outliers": [],
+  "resultant": {
+    "ticker": "TCS",
+    "state": "consensus_bullish",
+    "strength": "weak",
+    "narrative": "Single broker coverage; bullish stance with margin-led narrative.",
+    "keyDrivers": ["deal ramps", "margin expansion"],
+    "openQuestions": ["US discretionary trajectory"],
+    "asOf": "2026-04-22T12:00:00.000Z"
+  },
+  "confidence": {
+    "score": 0.45,
+    "band": "weak",
+    "rationale": ["Only one broker in this closure — sample too small to call it consensus."]
+  }
+}

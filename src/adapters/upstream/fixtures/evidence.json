@@ -1,0 +1,30 @@
+[
+  {
+    "id": "ev_001",
+    "orgId": "org_acme",
+    "reportId": "rpt_001",
+    "summaryId": "sum_001",
+    "attachmentId": "att_001",
+    "pageNumber": 2,
+    "textSnippet": "We maintain Buy with a revised target of ₹4,200 (prior ₹4,050), reflecting higher FY27 EPS.",
+    "charOffsetStart": 142,
+    "charOffsetEnd": 249,
+    "boundingBox": [72, 540, 540, 575],
+    "supportingField": "targetPrice",
+    "fieldRef": ""
+  },
+  {
+    "id": "ev_002",
+    "orgId": "org_acme",
+    "reportId": "rpt_001",
+    "summaryId": "sum_001",
+    "attachmentId": "att_001",
+    "pageNumber": 4,
+    "textSnippet": "Order book at $12.1bn TCV translates to book-to-bill of 1.16x — best in four quarters.",
+    "charOffsetStart": null,
+    "charOffsetEnd": null,
+    "boundingBox": null,
+    "supportingField": "keyPoint",
+    "fieldRef": "2"
+  }
+]

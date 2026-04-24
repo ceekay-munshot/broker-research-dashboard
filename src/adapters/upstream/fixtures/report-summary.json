@@ -1,0 +1,26 @@
+{
+  "id": "sum_001",
+  "orgId": "org_acme",
+  "reportId": "rpt_001",
+  "stance": "bullish",
+  "rating": "Buy",
+  "targetPrice": 4200,
+  "priorTargetPrice": 4050,
+  "targetCurrency": "INR",
+  "thesis": "Q4 revenue beat on deal ramps and cost discipline; margin trajectory intact.",
+  "keyPoints": [
+    "Revenue +2.3% vs consensus on BFSI & manufacturing vertical strength",
+    "EBIT margin 24.6% (+50bps QoQ)",
+    "Order book at $12.1bn TCV; book-to-bill 1.16x"
+  ],
+  "themes": ["deal_ramps", "margin_expansion", "bfsi_demand"],
+  "risks": ["US discretionary slowdown", "INR appreciation"],
+  "catalysts": [
+    { "label": "FY27 guidance", "expectedOn": "2026-04-25T00:00:00.000Z" },
+    { "label": "Investor day", "expectedOn": null }
+  ],
+  "confidence": 0.82,
+  "generatedAt": "2026-04-22T09:35:00.000Z",
+  "generatorVersion": "summary-v1.2.0",
+  "evidenceIds": ["ev_001", "ev_002"]
+}

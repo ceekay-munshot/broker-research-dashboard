@@ -1,0 +1,19 @@
+[
+  {
+    "id": "sec_it",
+    "name": "Information Technology",
+    "parentId": null,
+    "tickers": ["TCS", "INFY"]
+  },
+  {
+    "id": "sec_autos",
+    "name": "Consumer & Auto",
+    "parentId": null,
+    "tickers": ["MARUTI", "TATAMOTORS"]
+  },
+  {
+    "id": "sec_capgoods",
+    "name": "Capital Goods",
+    "parentId": null
+  }
+]

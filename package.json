@@ -8,9 +8,11 @@
     "dev": "vite",
     "dev:local": "VITE_RESEARCH_ADAPTER=local VITE_API_BASE_URL=http://localhost:4000 VITE_API_TOKEN=dev-token vite",
     "dev:upstream": "VITE_RESEARCH_ADAPTER=upstream vite",
+    "dev:upstream-fixture": "VITE_RESEARCH_ADAPTER=upstream-fixture vite",
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json",
+    "test:contract": "tsx src/adapters/upstream/__tests__/contract.ts",
     "server:dev": "tsx server/src/index.ts",
     "server:ingest": "tsx server/src/index.ts --ingest-only",
     "server:test": "tsx server/src/__tests__/ingestEml.ts"

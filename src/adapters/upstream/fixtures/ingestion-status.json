@@ -1,0 +1,9 @@
+{
+  "orgId": "org_acme",
+  "asOf": "2026-04-22T12:00:00.000Z",
+  "queued": 0,
+  "processing": 0,
+  "readyLast24h": 2,
+  "failedLast24h": 0,
+  "throughputPerHour": 0.083
+}

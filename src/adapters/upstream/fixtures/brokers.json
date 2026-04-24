@@ -1,0 +1,28 @@
+[
+  {
+    "id": "brk_kotak",
+    "name": "Kotak Institutional Equities",
+    "shortName": "Kotak",
+    "senderDomains": ["kotak.com", "kotaksecurities.com"],
+    "researchAliases": ["Kotak Institutional", "KIE"],
+    "coverageTags": ["largecap", "financials", "autos"],
+    "brandColor": "#dc2626",
+    "website": "https://kotak.com/research"
+  },
+  {
+    "id": "brk_jmfin",
+    "name": "JM Financial Institutional Securities",
+    "shortName": "JMFL",
+    "senderDomains": ["jmfl.com"],
+    "researchAliases": ["JM Financial"],
+    "coverageTags": ["midcap", "industrials"],
+    "brandColor": "#2563eb",
+    "website": "https://jmfl.com"
+  },
+  {
+    "id": "brk_iifl",
+    "name": "IIFL Securities",
+    "shortName": "IIFL",
+    "senderDomains": ["iiflcap.com", "iifl.com"]
+  }
+]

@@ -7,15 +7,17 @@ interface ImportMetaEnv {
   /**
    * Which adapter backs getResearchAdapter() at runtime.
    *
-   *   upstream   Production: external upstream API (read-only analytics client)
-   *   local      Dev harness: local server/ parsing .eml fixtures
-   *   mock       In-memory fixtures + engine (default; offline-friendly)
-   *   mock-http  HttpResearchAdapter over stub fetch (adapter-layer tests)
+   *   upstream          Production: external upstream API (read-only analytics client)
+   *   local             Dev harness: local server/ parsing .eml fixtures
+   *   mock              In-memory fixtures + engine (default; offline-friendly)
+   *   mock-http         HttpResearchAdapter over stub fetch (adapter-layer tests)
+   *   upstream-fixture  FixtureUpstreamAdapter over JSON fixtures in
+   *                     src/adapters/upstream/fixtures (integration rehearsal)
    *
    * Legacy values `http` and `http-stub` are still accepted and mapped to
    * `upstream` and `mock-http` respectively (see AdapterMode.ts).
    */
-  readonly VITE_RESEARCH_ADAPTER?: 'upstream' | 'local' | 'mock' | 'mock-http' | 'http' | 'http-stub'
+  readonly VITE_RESEARCH_ADAPTER?: 'upstream' | 'local' | 'mock' | 'mock-http' | 'upstream-fixture' | 'http' | 'http-stub'
   /** Base URL for the HTTP adapter (required when mode=upstream or mode=local). */
   readonly VITE_API_BASE_URL?: string
   /**

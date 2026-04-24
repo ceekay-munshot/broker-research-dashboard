@@ -1,0 +1,14 @@
+{
+  "orgId": "org_acme",
+  "asOf": "2026-04-22T12:00:00.000Z",
+  "brokersTracked": 3,
+  "reportsIngested": 2,
+  "stocksCovered": 3,
+  "divergenceFlags": 0,
+  "windowDeltas": {
+    "brokersTracked":  { "value": 0,  "windowDays": 7 },
+    "reportsIngested": { "value": 2,  "windowDays": 7 },
+    "stocksCovered":   { "value": 3,  "windowDays": 30 },
+    "divergenceFlags": { "value": 0,  "windowDays": 7 }
+  }
+}

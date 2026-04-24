@@ -1,0 +1,16 @@
+[
+  {
+    "id": "att_001",
+    "orgId": "org_acme",
+    "emailId": "eml_001",
+    "filename": "TCS-4QFY26-results.pdf",
+    "mimeType": "application/pdf",
+    "sizeBytes": 482931,
+    "checksumSha256": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    "storageRef": "s3://broker-research/acme/2026/04/att_001.pdf",
+    "pageCount": 14,
+    "language": "en",
+    "parseStatus": "ready",
+    "parseErrorMessage": null
+  }
+]

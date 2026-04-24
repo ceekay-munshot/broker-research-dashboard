@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "eml_001",
+      "orgId": "org_acme",
+      "brokerId": "brk_kotak",
+      "senderAddress": "research@kotak.com",
+      "senderName": "Kotak Research",
+      "recipientAddress": "research@acme.broker-research.example.com",
+      "subject": "TCS: 4QFY26 results beat; raising TP to ₹4,200",
+      "bodyPreview": "We maintain Buy on TCS after 4QFY26 results that beat our estimates by 2.3%...",
+      "receivedAt": "2026-04-22T09:30:00.000Z",
+      "forwardedFrom": ["analyst@acmecap.example.com"],
+      "attachmentIds": ["att_001"],
+      "reportIds": ["rpt_001"],
+      "status": "ready",
+      "statusMessage": null,
+      "sourceMessageId": "<20260422.0930.kotak.tcs@kotak.com>"
+    },
+    {
+      "id": "eml_002",
+      "orgId": "org_acme",
+      "brokerId": "brk_jmfin",
+      "senderAddress": "morning@jmfl.com",
+      "senderName": "JMFL Morning Brief",
+      "recipientAddress": "research@acme.broker-research.example.com",
+      "subject": "JMFL Morning Brief 22 Apr 2026",
+      "bodyPreview": "Morning brief covering MARUTI (Sell, TP ₹11,000) and LT (Buy, TP ₹4,500)...",
+      "receivedAt": "2026-04-22T06:45:00.000Z",
+      "forwardedFrom": [],
+      "attachmentIds": [],
+      "reportIds": ["rpt_002"],
+      "status": "ready",
+      "statusMessage": null,
+      "sourceMessageId": "<20260422.0645.jmfl.morning@jmfl.com>"
+    }
+  ],
+  "nextCursor": null,
+  "totalCount": 2
+}

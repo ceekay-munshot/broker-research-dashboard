@@ -31,8 +31,14 @@ export type AdapterMode =
   // regression tests of the adapter layer itself.
   | 'mock-http'
 
+  // FixtureUpstreamAdapter — serves `src/adapters/upstream/fixtures/*.json`
+  // through the canonical mapper layer. Integration-rehearsal mode for
+  // exercising the wire-shape handshake before the real upstream is live.
+  // See docs/upstream-contract.md.
+  | 'upstream-fixture'
+
 export const ADAPTER_MODES: readonly AdapterMode[] = [
-  'upstream', 'local', 'mock', 'mock-http',
+  'upstream', 'local', 'mock', 'mock-http', 'upstream-fixture',
 ] as const
 
 /** True iff the given mode indicates production (hits the real upstream API). */
@@ -52,14 +58,15 @@ export function isHttpMode(mode: AdapterMode): boolean {
  */
 export function normalizeAdapterMode(raw: string | undefined): AdapterMode {
   switch (raw) {
-    case 'upstream':  return 'upstream'
-    case 'local':     return 'local'
-    case 'mock':      return 'mock'
-    case 'mock-http': return 'mock-http'
+    case 'upstream':         return 'upstream'
+    case 'local':            return 'local'
+    case 'mock':             return 'mock'
+    case 'mock-http':        return 'mock-http'
+    case 'upstream-fixture': return 'upstream-fixture'
     // Legacy aliases
-    case 'http':      return 'upstream'
-    case 'http-stub': return 'mock-http'
-    case undefined:   return 'mock'
+    case 'http':             return 'upstream'
+    case 'http-stub':        return 'mock-http'
+    case undefined:          return 'mock'
     default:
       // Caller logs a warning; we still return something sane.
       return 'mock'

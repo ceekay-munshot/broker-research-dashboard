@@ -16,15 +16,17 @@ import type {
 } from './queries'
 import { HttpClient, type HttpClientOptions, type QueryInput } from './http/HttpClient'
 import { endpoints } from './http/endpoints'
-import { ContractViolationError, OrgScopeViolationError } from './errors'
+import { OrgScopeViolationError } from './errors'
 import {
-  parseOrgScope, parseOrganization, parseUser,
-  parseBroker, parseSector, parseStock,
-  parseBrokerEmail, parseAttachment,
-  parseResearchReport, parseReportSummary, parseEvidenceSnippet,
-  parseBrokerStockOpinion, parseConflictClosure, parseSectorIntelligence,
-  parseKpiSnapshot, parseIngestionStatus, parsePage,
-} from './http/parsers'
+  mapOrgScope, mapOrganization, mapUser,
+  mapBroker, mapBrokers, mapSector, mapSectors, mapStock, mapStocks,
+  mapBrokerEmail, mapBrokerEmailsPage, mapAttachments,
+  mapResearchReport, mapResearchReportsPage, mapReportSummary, mapEvidenceSnippets,
+  mapBrokerStockOpinions,
+  mapConflictClosure, mapConflictClosures,
+  mapSectorIntelligence, mapSectorIntelligenceList,
+  mapKpiSnapshot, mapIngestionStatus,
+} from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
   // Future hook: allow callers to override how response parsers are invoked
@@ -33,18 +35,17 @@ export interface HttpResearchAdapterOptions extends HttpClientOptions {
 
 /**
  * Production-shape adapter. Every method hits the backend via HttpClient,
- * then runs the response through a typed parser in src/adapters/http/parsers.ts
- * so contract drift surfaces as a ContractViolationError with a precise
- * field path instead of silent `undefined` in the UI.
+ * then runs the response through a typed mapper in
+ * `src/adapters/upstream/mappers.ts`. The mapper layer is where upstream
+ * payload-shape differences from the canonical domain are absorbed — see
+ * docs/upstream-contract.md.
  *
- * After parsing, every org-scoped record is cross-checked against the
+ * After mapping, every org-scoped record is cross-checked against the
  * caller's scope. If the upstream ever returns a record whose `orgId` does
  * not match the scope the request was issued under, an
- * `OrgScopeViolationError` is thrown — a last-line guard against cross-tenant
- * data mixing, on top of the upstream's own authorization. See docs/scope.md.
- *
- * See docs/api-contract.md for the exact backend contract this adapter
- * expects.
+ * `OrgScopeViolationError` is thrown — a last-line guard against
+ * cross-tenant data mixing, on top of the upstream's own authorization.
+ * See docs/scope.md.
  */
 export class HttpResearchAdapter implements ResearchAdapter {
   private readonly client: HttpClient
@@ -63,21 +64,21 @@ export class HttpResearchAdapter implements ResearchAdapter {
       orgId: '' as OrgScope['orgId'],
       actingUserId: '' as OrgScope['actingUserId'],
     })
-    return parseOrgScope(raw)
+    return mapOrgScope(raw)
   }
 
   // ── Tenant / catalog ────────────────────────────────────────────────
 
   async getOrganization(scope: OrgScope): Promise<Organization> {
     const raw = await this.client.request(endpoints.organization(), scope)
-    const org = parseOrganization(raw)
+    const org = mapOrganization(raw)
     assertOrgMatch('Organization', scope, org.id as unknown as string)
     return org
   }
 
   async getCurrentUser(scope: OrgScope): Promise<User> {
     const raw = await this.client.request(endpoints.currentUser(), scope)
-    const user = parseUser(raw)
+    const user = mapUser(raw)
     assertOrgMatch('User', scope, user.orgId as unknown as string)
     return user
   }
@@ -86,32 +87,32 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const raw = await this.client.request(endpoints.brokers(), scope)
     // Brokers are a global catalog; no orgId on the record. Enablement is
     // filtered upstream by org.
-    return parseArray(raw, 'brokers', parseBroker)
+    return mapBrokers(raw)
   }
 
   async getBroker(scope: OrgScope, brokerId: BrokerId): Promise<Broker | null> {
     const raw = await this.client.requestOrNull(endpoints.broker(brokerId), scope)
-    return raw === null ? null : parseBroker(raw)
+    return raw === null ? null : mapBroker(raw)
   }
 
   async listSectors(scope: OrgScope): Promise<readonly Sector[]> {
     const raw = await this.client.request(endpoints.sectors(), scope)
-    return parseArray(raw, 'sectors', parseSector)
+    return mapSectors(raw)
   }
 
   async getSector(scope: OrgScope, sectorId: SectorId): Promise<Sector | null> {
     const raw = await this.client.requestOrNull(endpoints.sector(sectorId), scope)
-    return raw === null ? null : parseSector(raw)
+    return raw === null ? null : mapSector(raw)
   }
 
   async listStocks(scope: OrgScope): Promise<readonly Stock[]> {
     const raw = await this.client.request(endpoints.stocks(), scope)
-    return parseArray(raw, 'stocks', parseStock)
+    return mapStocks(raw)
   }
 
   async getStock(scope: OrgScope, ticker: StockTicker): Promise<Stock | null> {
     const raw = await this.client.requestOrNull(endpoints.stock(ticker), scope)
-    return raw === null ? null : parseStock(raw)
+    return raw === null ? null : mapStock(raw)
   }
 
   // ── Raw inbound pipeline ────────────────────────────────────────────
@@ -127,7 +128,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
         cursor: query.cursor,
       } satisfies QueryInput,
     })
-    const page = parsePage(raw, 'Page<BrokerEmail>', (x, p) => parseBrokerEmail(x, p))
+    const page = mapBrokerEmailsPage(raw)
     assertPageOrg('BrokerEmail', scope, page.items, (it) => it.orgId as unknown as string)
     return page
   }
@@ -135,14 +136,14 @@ export class HttpResearchAdapter implements ResearchAdapter {
   async getBrokerEmail(scope: OrgScope, emailId: EmailId): Promise<BrokerEmail | null> {
     const raw = await this.client.requestOrNull(endpoints.brokerEmail(emailId), scope)
     if (raw === null) return null
-    const email = parseBrokerEmail(raw)
+    const email = mapBrokerEmail(raw)
     assertOrgMatch('BrokerEmail', scope, email.orgId as unknown as string)
     return email
   }
 
   async listAttachments(scope: OrgScope, emailId: EmailId): Promise<readonly Attachment[]> {
     const raw = await this.client.request(endpoints.attachmentsForEmail(emailId), scope)
-    const items = parseArray(raw, 'attachments', parseAttachment)
+    const items = mapAttachments(raw)
     assertPageOrg('Attachment', scope, items, (it) => it.orgId as unknown as string)
     return items
   }
@@ -163,7 +164,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
         cursor: query.cursor,
       } satisfies QueryInput,
     })
-    const page = parsePage(raw, 'Page<ResearchReport>', (x, p) => parseResearchReport(x, p))
+    const page = mapResearchReportsPage(raw)
     assertPageOrg('ResearchReport', scope, page.items, (it) => it.orgId as unknown as string)
     return page
   }
@@ -171,7 +172,7 @@ export class HttpResearchAdapter implements ResearchAdapter {
   async getResearchReport(scope: OrgScope, reportId: ReportId): Promise<ResearchReport | null> {
     const raw = await this.client.requestOrNull(endpoints.researchReport(reportId), scope)
     if (raw === null) return null
-    const report = parseResearchReport(raw)
+    const report = mapResearchReport(raw)
     assertOrgMatch('ResearchReport', scope, report.orgId as unknown as string)
     return report
   }
@@ -179,14 +180,14 @@ export class HttpResearchAdapter implements ResearchAdapter {
   async getReportSummary(scope: OrgScope, reportId: ReportId): Promise<ReportSummary | null> {
     const raw = await this.client.requestOrNull(endpoints.reportSummary(reportId), scope)
     if (raw === null) return null
-    const summary = parseReportSummary(raw)
+    const summary = mapReportSummary(raw)
     assertOrgMatch('ReportSummary', scope, summary.orgId as unknown as string)
     return summary
   }
 
   async listEvidenceSnippets(scope: OrgScope, reportId: ReportId): Promise<readonly EvidenceSnippet[]> {
     const raw = await this.client.request(endpoints.reportEvidence(reportId), scope)
-    const items = parseArray(raw, 'evidence', parseEvidenceSnippet)
+    const items = mapEvidenceSnippets(raw)
     assertPageOrg('EvidenceSnippet', scope, items, (it) => it.orgId as unknown as string)
     return items
   }
@@ -200,14 +201,14 @@ export class HttpResearchAdapter implements ResearchAdapter {
         tickers: query.tickers as readonly string[] | undefined,
       } satisfies QueryInput,
     })
-    const items = parseArray(raw, 'opinions', parseBrokerStockOpinion)
+    const items = mapBrokerStockOpinions(raw)
     assertPageOrg('BrokerStockOpinion', scope, items, (it) => it.orgId as unknown as string)
     return items
   }
 
   async getConflictClosure(scope: OrgScope, ticker: StockTicker): Promise<ConflictClosure | null> {
     const raw = await this.client.requestOrNull(endpoints.conflictClosure(ticker), scope)
-    return raw === null ? null : parseConflictClosure(raw)
+    return raw === null ? null : mapConflictClosure(raw)
   }
 
   async listConflictClosures(scope: OrgScope, query: ListClosuresQuery = {}): Promise<readonly ConflictClosure[]> {
@@ -221,42 +222,34 @@ export class HttpResearchAdapter implements ResearchAdapter {
         mustHaveOutliers: query.mustHaveOutliers,
       } satisfies QueryInput,
     })
-    return parseArray(raw, 'conflict-closures', parseConflictClosure)
+    return mapConflictClosures(raw)
   }
 
   async getSectorIntelligence(scope: OrgScope, sectorId: SectorId): Promise<SectorIntelligence | null> {
     const raw = await this.client.requestOrNull(endpoints.sectorIntelligenceFor(sectorId), scope)
-    return raw === null ? null : parseSectorIntelligence(raw)
+    return raw === null ? null : mapSectorIntelligence(raw)
   }
 
   async listSectorIntelligence(scope: OrgScope): Promise<readonly SectorIntelligence[]> {
     const raw = await this.client.request(endpoints.sectorIntelligenceList(), scope)
-    return parseArray(raw, 'sector-intelligence', parseSectorIntelligence)
+    return mapSectorIntelligenceList(raw)
   }
 
   // ── Dashboard + ops ─────────────────────────────────────────────────
 
   async getKpiSnapshot(scope: OrgScope): Promise<KpiSnapshot> {
     const raw = await this.client.request(endpoints.kpiSnapshot(), scope)
-    const snap = parseKpiSnapshot(raw)
+    const snap = mapKpiSnapshot(raw)
     assertOrgMatch('KpiSnapshot', scope, snap.orgId as unknown as string)
     return snap
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {
     const raw = await this.client.request(endpoints.ingestionStatus(), scope)
-    const status = parseIngestionStatus(raw)
+    const status = mapIngestionStatus(raw)
     assertOrgMatch('IngestionStatus', scope, status.orgId as unknown as string)
     return status
   }
-}
-
-// Lightweight typed array parser used by every list method.
-function parseArray<T>(raw: unknown, rootName: string, parseItem: (x: unknown, p: string) => T): T[] {
-  if (!Array.isArray(raw)) {
-    throw new ContractViolationError(rootName, `expected array, got ${raw === null ? 'null' : typeof raw}`)
-  }
-  return raw.map((x, i) => parseItem(x, `${rootName}[${i}]`))
 }
 
 // ── Cross-tenant guardrails ──────────────────────────────────────────

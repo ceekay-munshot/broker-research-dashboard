@@ -1,0 +1,8 @@
+{
+  "id": "usr_demo",
+  "orgId": "org_acme",
+  "email": "demo@acmecap.example.com",
+  "displayName": "Demo Analyst",
+  "role": "analyst",
+  "createdAt": "2026-01-20T10:00:00.000Z"
+}

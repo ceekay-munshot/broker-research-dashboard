@@ -1,0 +1,41 @@
+[
+  {
+    "orgId": "org_acme",
+    "brokerId": "brk_kotak",
+    "ticker": "TCS",
+    "rating": "Buy",
+    "stance": "bullish",
+    "targetPrice": 4200,
+    "priorTargetPrice": 4050,
+    "targetCurrency": "INR",
+    "lastReportId": "rpt_001",
+    "lastUpdatedAt": "2026-04-22T09:35:00.000Z",
+    "impliedUpsidePct": 7.8
+  },
+  {
+    "orgId": "org_acme",
+    "brokerId": "brk_jmfin",
+    "ticker": "MARUTI",
+    "rating": "Sell",
+    "stance": "bearish",
+    "targetPrice": 11000,
+    "priorTargetPrice": 11500,
+    "targetCurrency": "INR",
+    "lastReportId": "rpt_002",
+    "lastUpdatedAt": "2026-04-22T06:50:00.000Z",
+    "impliedUpsidePct": -12.3
+  },
+  {
+    "orgId": "org_acme",
+    "brokerId": "brk_jmfin",
+    "ticker": "LT",
+    "rating": "Buy",
+    "stance": "bullish",
+    "targetPrice": 4500,
+    "priorTargetPrice": null,
+    "targetCurrency": "INR",
+    "lastReportId": "rpt_002",
+    "lastUpdatedAt": "2026-04-22T06:50:00.000Z",
+    "impliedUpsidePct": 15.2
+  }
+]

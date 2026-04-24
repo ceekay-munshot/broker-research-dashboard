@@ -1,0 +1,40 @@
+{
+  "items": [
+    {
+      "id": "rpt_001",
+      "orgId": "org_acme",
+      "brokerId": "brk_kotak",
+      "sourceEmailId": "eml_001",
+      "sourceAttachmentId": "att_001",
+      "title": "TCS — 4QFY26 results beat; raising TP",
+      "publishedAt": "2026-04-22T07:30:00.000Z",
+      "receivedAt": "2026-04-22T09:30:00.000Z",
+      "reportType": "earnings_review",
+      "tickers": ["TCS"],
+      "sectorIds": ["sec_it"],
+      "pageCount": 14,
+      "language": "en",
+      "status": "ready",
+      "summaryId": "sum_001"
+    },
+    {
+      "id": "rpt_002",
+      "orgId": "org_acme",
+      "brokerId": "brk_jmfin",
+      "sourceEmailId": "eml_002",
+      "sourceAttachmentId": null,
+      "title": "JMFL Morning Brief — 22 Apr 2026",
+      "publishedAt": "2026-04-22T06:30:00.000Z",
+      "receivedAt": "2026-04-22T06:45:00.000Z",
+      "reportType": "morning_note",
+      "tickers": ["MARUTI", "LT"],
+      "sectorIds": ["sec_autos", "sec_capgoods"],
+      "pageCount": null,
+      "language": "en",
+      "status": "ready",
+      "summaryId": "sum_002"
+    }
+  ],
+  "nextCursor": null,
+  "totalCount": 2
+}

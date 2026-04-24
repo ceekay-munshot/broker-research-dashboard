@@ -22,9 +22,20 @@ not the system of record. The intended production topology is:
         │   Adapter layer                    │
         │   src/adapters/HttpResearchAdapter │
         │                                    │
-        │   • typed parsers (contract drift) │
+        │   • HTTP transport, headers, auth  │
         │   • orgId cross-check guardrail    │
         │   • typed error mapping            │
+        └──────────────┬─────────────────────┘
+                       │  raw JSON (upstream shape)
+                       ▼
+        ┌────────────────────────────────────┐
+        │   Upstream translation layer       │
+        │   src/adapters/upstream/           │
+        │                                    │
+        │   • explicit upstream payload types│
+        │   • mappers (upstream → canonical) │
+        │   • required vs optional policy    │
+        │   • contract tests + fixtures      │
         └──────────────┬─────────────────────┘
                        │  ResearchAdapter interface
                        ▼
@@ -71,12 +82,13 @@ the upstream; nothing customer-facing goes through `server/`.
 
 ## Production vs. dev paths
 
-| Runtime mode | Data source                     | Purpose                                      |
-| ------------ | ------------------------------- | -------------------------------------------- |
-| `upstream`   | External upstream API           | **Production**                               |
-| `local`      | `server/` (local, fixture-fed)  | Dev harness with the full HTTP code path     |
-| `mock`       | In-memory fixtures + engine     | Offline dev, Storybook, component tests      |
-| `mock-http`  | Stub fetch backed by the mock   | Adapter-layer regression tests               |
+| Runtime mode       | Data source                                     | Purpose                                      |
+| ------------------ | ----------------------------------------------- | -------------------------------------------- |
+| `upstream`         | External upstream API                           | **Production**                               |
+| `local`            | `server/` (local, fixture-fed)                  | Dev harness with the full HTTP code path     |
+| `mock`             | In-memory fixtures + engine                     | Offline dev, Storybook, component tests      |
+| `mock-http`        | Stub fetch backed by the mock                   | Adapter-layer regression tests               |
+| `upstream-fixture` | Bundled upstream JSON fixtures via translation  | Integration rehearsal against the wire shape |
 
 Mode is selected by `VITE_RESEARCH_ADAPTER` at build / dev time. The UI
 layer is identical across all four. See [`modes.md`](./modes.md) for the

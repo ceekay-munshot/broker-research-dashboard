@@ -4,6 +4,7 @@ import { HttpResearchAdapter } from './HttpResearchAdapter'
 import { createStubFetch } from './http/stubFetch'
 import { type AdapterMode, normalizeAdapterMode } from './AdapterMode'
 import { readScopeBootstrap } from '../app/scopeBootstrap'
+import { FixtureUpstreamAdapter } from './upstream'
 
 // ─────────────────────────────────────────────────────────────────────────
 // Adapter singleton + factory.
@@ -84,6 +85,12 @@ export function createAdapterFromEnv(): ResearchAdapter {
     })
   }
 
+  if (mode === 'upstream-fixture') {
+    // Integration-rehearsal mode: serve the canonical upstream JSON fixtures
+    // through the translation layer. See docs/upstream-contract.md.
+    return new FixtureUpstreamAdapter()
+  }
+
   return new MockResearchAdapter()
 }
 
@@ -95,7 +102,7 @@ function readActiveMode(): AdapterMode {
     // but don't fail loudly — back-compat is the point.
     // eslint-disable-next-line no-console
     console.info(`[adapter] VITE_RESEARCH_ADAPTER="${raw}" normalized to "${mode}"`)
-  } else if (raw && !['upstream', 'local', 'mock', 'mock-http'].includes(raw)) {
+  } else if (raw && !['upstream', 'local', 'mock', 'mock-http', 'upstream-fixture'].includes(raw)) {
     // eslint-disable-next-line no-console
     console.warn(`[adapter] Unknown VITE_RESEARCH_ADAPTER="${raw}"; falling back to "mock".`)
   }
