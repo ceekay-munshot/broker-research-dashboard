@@ -10,15 +10,22 @@ import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
 import {
   organizations, users, brokers, sectors, stocks,
-  DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../config/organizations'
+import { VIMANA_ORG_ID } from '../../../src/mocks/organizations'
+import { VIMANA_USER_ID } from '../../../src/mocks/users'
 
 // Every route from docs/api-contract.md. Shapes the JSON exactly as the
 // frontend's HttpResearchAdapter parsers expect.
+//
+// The backend's default session scope is the Vimana Capital tenant — that's
+// the org whose vimana@vimanacapital.com inbox receives the real .eml
+// samples under server/fixtures/eml/. When running `npm run dev:http` the
+// frontend renders Vimana's data; the mock-adapter path still defaults to
+// the synthetic Aranya tenant.
 
 const FIXED_SESSION_SCOPE: OrgScope = {
-  orgId: DEFAULT_ORG_ID,
-  actingUserId: DEFAULT_USER_ID,
+  orgId: VIMANA_ORG_ID,
+  actingUserId: VIMANA_USER_ID,
 }
 
 export function buildRouter(store: InMemoryStore): Router {

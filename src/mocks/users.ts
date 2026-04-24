@@ -26,6 +26,15 @@ export const users: readonly User[] = [
     role: 'analyst',
     createdAt: '2026-01-08T10:00:00.000Z',
   },
+  {
+    id: asUserId('usr_vijay'),
+    orgId: asOrgId('org_vimana'),
+    email: 'vijay.karnani@vimanacapital.com',
+    displayName: 'Vijay Karnani',
+    role: 'pm',
+    createdAt: '2025-11-01T10:00:00.000Z',
+  },
 ]
 
 export const DEFAULT_USER_ID = users[0]!.id
+export const VIMANA_USER_ID = users[3]!.id

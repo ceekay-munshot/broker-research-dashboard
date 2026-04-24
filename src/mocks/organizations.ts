@@ -1,9 +1,11 @@
 import type { Organization } from '../domain'
 import { asOrgId, asBrokerId } from '../lib/ids'
 
-// Two Indian AMCs with disjoint broker subscriptions. The Module-2 adapter
-// filters every read by orgId so the UI built on top can be verified to
-// actually respect the tenant boundary.
+// Indian AMCs with per-org broker subscriptions. The adapter filters every
+// read by orgId so tenancy is enforced at the edge. Aranya + Sahyadri are
+// synthetic fixtures for the mock adapter; Vimana is the real tenant whose
+// forwarding address (vimana@vimanacapital.com) receives the broker .eml
+// samples we ingest in server/fixtures/eml/.
 export const organizations: readonly Organization[] = [
   {
     id: asOrgId('org_aranya'),
@@ -33,8 +35,21 @@ export const organizations: readonly Organization[] = [
     timeZone: 'Asia/Kolkata',
     defaultCurrency: 'INR',
   },
+  {
+    id: asOrgId('org_vimana'),
+    name: 'Vimana Capital Management LLP',
+    shortName: 'Vimana',
+    forwardingAddress: 'vimana@vimanacapital.com',
+    createdAt: '2025-11-01T10:00:00.000Z',
+    enabledBrokerIds: [
+      asBrokerId('brk_kotak'), asBrokerId('brk_jmfin'), asBrokerId('brk_iifl'),
+    ],
+    timeZone: 'Asia/Kolkata',
+    defaultCurrency: 'INR',
+  },
 ]
 
 // Convenience handles for consumers.
 export const DEFAULT_ORG_ID = organizations[0]!.id
 export const SECONDARY_ORG_ID = organizations[1]!.id
+export const VIMANA_ORG_ID = organizations[2]!.id

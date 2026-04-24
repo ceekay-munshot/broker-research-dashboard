@@ -91,7 +91,10 @@ export const brokers: readonly Broker[] = [
     id: asBrokerId('brk_iifl'),
     name: 'IIFL Securities',
     shortName: 'IIFL',
-    senderDomains: ['iifl.com', 'iiflsecurities.com'],
+    // iiflcap.com is the IIFL institutional-research delivery domain seen on
+    // real inbound mail (e.g. joseph.george@iiflcap.com); iifl.com and
+    // iiflsecurities.com are the customer-facing surfaces.
+    senderDomains: ['iiflcap.com', 'iifl.com', 'iiflsecurities.com'],
     researchAliases: ['IIFL Institutional Equities Research'],
     coverageTags: ['India Large Cap', 'Consumer'],
     brandColor: '#fbbf24',

@@ -1,0 +1,1478 @@
+Delivered-To: vimana@vimanacapital.com
+Received: by 2002:a5d:5351:0:b0:43d:70e3:b396 with SMTP id t17csp2619921wrv;
+        Wed, 22 Apr 2026 19:47:39 -0700 (PDT)
+X-Forwarded-Encrypted: i=2; AFNElJ8JgrPQVYcrSXae9jeHbRcsnlu9oqKgO3SM4A9CxDuxcex0I+DEqM7htLMwoFjvx4yA/SMrkpA=@vimanacapital.com
+X-Received: by 2002:a05:690e:1582:20b0:650:77f4:60d with SMTP id 956f58d0204a3-65310aa96a8mr19122244d50.53.1776912458993;
+        Wed, 22 Apr 2026 19:47:38 -0700 (PDT)
+ARC-Seal: i=1; a=rsa-sha256; t=1776912458; cv=none;
+        d=google.com; s=arc-20240605;
+        b=N/zcLxJt4to6bvzhDNmRSaf9c2hkZyMaM2s1cyLbMos7Jz+IsRX1am9sI1rhUK3mPT
+         LhzqFhQwPwJMiAtUWvXyIeMh27198WffHkRisJACIJMNxHmVN1kmrgxc+zYuEf4k14us
+         l0h0XbMZKdUwHLn1WHx9it6l8vzlm7IrBDjaToNgMiXV5iv1i8uc/BcFoPM8c6Fmjf4M
+         L0oUl+ujZvnSpEzYCggWw58x8JAIq4jxPDvzawP9wApAxwHjwIpQYYSDu22JdpcnWuIF
+         NUfzXRKTLdKMzqt1oR4TRxUZTg4RHENjl3H6UYN0kwgXf40qzUSPEkN09jR9m8rfHjdJ
+         7+BQ==
+ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;
+        h=mime-version:auto-submitted:in-reply-to:references:message-id:date
+         :thread-index:thread-topic:subject:to:from:dkim-signature;
+        bh=ConLPp+wEMWp7c+BJMBrGfjI1EFgdz7kLK4Fal42MaA=;
+        fh=y+F7LJoaHqQYQG4TXHOYP9wk/cToegCQ6lw7eUZg0HI=;
+        b=RQQdG5N1woaLMSDy3Y0bJsIyO64rMq28ctozXOOa45ZF1Oh/AxshWeJSyxZya7lDDY
+         uPNcm3O0wkw07e/GGaAfZb9+MOZqTN9RSxR44H80s6hOOVtydt4Uqdy87UOs2wLPnjCK
+         /iRDJoFc3ksQV8+GU9Urp0PxulfEX6QReoxm637AgGtof5DHhzWMPku39kwp+Xm3BvKW
+         SR4aNPrzblaxhXteCXAcOXD2t1TrIta9RAIOkHErtWN3A84foXAaAkAALRPV/6CxOmJX
+         zKa1uU75tJLoeAZRgdaffeBoRjxU1jolhaBzYVMRc13o0IJ0xU2qzncOdYQUiVlzKGE6
+         M5tw==;
+        dara=google.com
+ARC-Authentication-Results: i=1; mx.google.com;
+       dkim=pass header.i=@jmfl.com header.s=iphmx header.b=YcNW3hD3;
+       spf=pass (google.com: domain of prvs=5661ce13f=jmfsebgresearch@jmfl.com designates 139.138.43.99 as permitted sender) smtp.mailfrom="prvs=5661ce13f=jmfsebgresearch@jmfl.com";
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=jmfl.com
+Return-Path: <prvs=5661ce13f=jmfsebgresearch@jmfl.com>
+Received: from esa.hc809-11.ap.iphmx.com (esa.hc809-11.ap.iphmx.com. [139.138.43.99])
+        by mx.google.com with ESMTPS id 956f58d0204a3-65314b100b0si18271744d50.41.2026.04.22.19.47.36
+        (version=TLS1_3 cipher=TLS_AES_256_GCM_SHA384 bits=256/256);
+        Wed, 22 Apr 2026 19:47:38 -0700 (PDT)
+Received-SPF: pass (google.com: domain of prvs=5661ce13f=jmfsebgresearch@jmfl.com designates 139.138.43.99 as permitted sender) client-ip=139.138.43.99;
+Authentication-Results: mx.google.com;
+       dkim=pass header.i=@jmfl.com header.s=iphmx header.b=YcNW3hD3;
+       spf=pass (google.com: domain of prvs=5661ce13f=jmfsebgresearch@jmfl.com designates 139.138.43.99 as permitted sender) smtp.mailfrom="prvs=5661ce13f=jmfsebgresearch@jmfl.com";
+       dmarc=pass (p=REJECT sp=REJECT dis=NONE) header.from=jmfl.com
+DKIM-Signature: v=1; a=rsa-sha256; c=simple/simple;
+  d=jmfl.com; i=@jmfl.com; q=dns/txt; s=iphmx;
+  t=1776912456; x=1808448456;
+  h=from:to:subject:date:message-id:references:in-reply-to:
+   mime-version;
+  bh=6cOmdKre7N0ez+AgKM7DJgFy8ykPKLKNCUW48SvYwDs=;
+  b=YcNW3hD3R6ApCCCKa3I/qZ3OcxpjMqOMthR4PmZjPj/C/50O7Hon93sD
+   Om369zGI3zq8pesStQY7o10VujL25+3rARxT88lz5gNBIrRBLepkCEVVV
+   O5lra/bKHQdFWuqTj38cOC571j9xKf7kUiRtMsmGvuup7ZVqkVuiWFIIM
+   8=;
+X-CSE-ConnectionGUID: qVLiKpvwRgqr0eYTnrrYbA==
+X-CSE-MsgGUID: IISHYcDUQ96KwISgdVBvUA==
+X-Amp-Result: UNKNOWN
+X-Amp-Original-Verdict: FILE UNKNOWN
+Received: from unknown (HELO JMFLMSX05.jmf.com) ([180.179.66.52])
+  by esa3.hc809-11.ap.iphmx.com with ESMTP/TLS/ECDHE-RSA-AES256-GCM-SHA384; 23 Apr 2026 08:17:33 +0530
+Received: from JMFLMSX02.jmf.com (172.16.23.92) by JMFLMSX05.jmf.com
+ (172.16.23.71) with Microsoft SMTP Server (version=TLS1_2,
+ cipher=TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384) id 15.2.2562.35; Thu, 23 Apr
+ 2026 08:15:43 +0530
+Received: from JMFLMSX02.jmf.com ([::1]) by JMFLMSX02.jmf.com
+ ([fe80::ed5c:7908:24d0:b020%17]) with Microsoft SMTP Server id
+ 15.02.2562.035; Thu, 23 Apr 2026 08:17:33 +0530
+From: jmfsebgresearch <jmfsebgresearch@jmfl.com>
+To: "vijay.karnani@vimanacapital.com" <vijay.karnani@vimanacapital.com>,
+	"vimana@vimanacapital.com" <vimana@vimanacapital.com>
+Subject: FW: JMFL: India Morning Brief (23 April 2026): Havells India, SBI
+ Life Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, PNC
+ Infratech, ABB India, Strategy
+Thread-Topic: JMFL: India Morning Brief (23 April 2026): Havells India, SBI
+ Life Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, PNC
+ Infratech, ABB India, Strategy
+Thread-Index: AQHc0st7p5GfTPTAf0+tQj1NIz/58LXr8V+ZgAAAG5g=
+Date: Thu, 23 Apr 2026 02:47:33 +0000
+Message-ID: <0709bf083b97466c82d2093b12935114@JMFLMSX02.jmf.com>
+References: <OF5DC4AE92.270FC4A7-ON65258DE2.000F4CF2@jmf.com>,<a4e8a97a4dbe418daadb75065dd15764@JMFLMSX02.jmf.com>
+In-Reply-To: <a4e8a97a4dbe418daadb75065dd15764@JMFLMSX02.jmf.com>
+X-MS-Has-Attach: yes
+X-MS-Exchange-Inbox-Rules-Loop: JMFS.Research@jmfl.com
+X-MS-Exchange-Inbox-Rules-Loop: jmfsebgresearch@jmfl.com
+X-MS-TNEF-Correlator:
+x-ms-exchange-parent-message-id: <a4e8a97a4dbe418daadb75065dd15764@JMFLMSX02.jmf.com>
+auto-submitted: auto-generated
+x-ms-exchange-generated-message-source: Mailbox Rules Agent,Mailbox Rules
+ Agent
+x-exclaimer-md-config: a5f7b80b-aedd-4e0a-91ac-4701a8e43b44
+x-c2processedorg: 1e182036-c9f2-4aa0-872d-1bd5c2441bc4
+Content-Type: multipart/related;
+	boundary="_005_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_";
+	type="multipart/alternative"
+MIME-Version: 1.0
+
+--_005_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_
+Content-Type: multipart/alternative;
+	boundary="_000_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_"
+
+--_000_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_
+Content-Type: text/plain; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+
+________________________________
+From: JMFS Research
+Sent: Thursday, April 23, 2026 8:17:10 AM (UTC+05:30) Chennai, Kolkata, Mum=
+bai, New Delhi
+To: br.heads; Rajesh R. Mhatre; Anil Gupta; Anish Bhatt; Ashish Dholakia; D=
+ivyesh Kapadia; Hozefa Arsiwala; Jatin Manjrekar; Jayesh Sheth; Jigar P Sha=
+h; ManoranjanKumar Singh; Mikky Trivedi; Prachi Parekh; Pravin Jain; Rajiv =
+Chaturvedi; Ramchandran Iyer; Sandeep Parekh; Sandeep Wakchaure; Shivani Pa=
+rmar; jmfsebgresearch; Ashwin Kothari
+Subject: FW: JMFL: India Morning Brief (23 April 2026): Havells India, SBI =
+Life Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, PNC Inf=
+ratech, ABB India, Strategy
+
+
+________________________________
+From: JM Financial Research
+Sent: 23 April 2026 08:17:06 (UTC+05:30) Chennai, Kolkata, Mumbai, New Delh=
+i
+To: Advisory
+Subject: JMFL: India Morning Brief (23 April 2026): Havells India, SBI Life=
+ Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, PNC Infrate=
+ch, ABB India, Strategy
+
+Hi JMFS Adivsory,
+
+[cid:JMFinCmpyLogoIMN]
+RESEARCH
+
+
+(Click here to download India Morning Brief<https://jmflresearch.com/Downlo=
+ad?ReportId=3D21212&DownloadType=3Dshow>)
+
+
+
+Focus Report
+
+=95      Havells India | 4Q a beat, but how sustainable is it?<https://jmfl=
+research.com/Download?ReportId=3D21211&DownloadType=3Dshow>
+
+(Shalin Choksy, shalin.choksy@jmfl.com, Tel: (91 22) 66303380)
+Quarterly Result Reviews
+
+=95      SBI Life Insurance | Best bet in an uncertain demand environment<h=
+ttps://jmflresearch.com/Download?ReportId=3D21208&DownloadType=3Dshow>
+
+(Raghvesh Sharan, raghvesh@jmfl.com, Tel: (91 22) 66303099)
+
+=95      Tech Mahindra | Inline 4Q results; FY27 margin trajectory remains =
+on track<https://jmflresearch.com/Download?ReportId=3D21209&DownloadType=3D=
+show>
+
+(Rajiv Berlia, rajiv.berlia@jmfl.com, Tel: (91 22) 66303363)
+
+=95      Tata Communications | Earnings beat on strong digital portfolio gr=
+owth<https://jmflresearch.com/Download?ReportId=3D21210&DownloadType=3Dshow=
+>
+
+(Dayanand Mittal, dayanand.mittal@jmfl.com, Tel: (91 22) 66303063)
+
+=95      Sunteck Realty | Strong pre-sales with improving collections<https=
+://jmflresearch.com/Download?ReportId=3D21207&DownloadType=3Dshow>
+
+(Sourabh Gilda, sourabh.gilda@jmfl.com, Tel: (91 22) 66303114)
+Company/Sector Update
+
+=95      PNC Infratech | Receives much awaited NHAI orders; backlog strengt=
+hens<https://jmflresearch.com/Download?ReportId=3D21204&DownloadType=3Dshow=
+>
+
+(Vaibhav Shah, vaibhav.shah@jmfl.com, Tel: (91 22) 66303068)
+
+=95      ABB India | Parent reported order inflows, which seems largely inl=
+ine<https://jmflresearch.com/Download?ReportId=3D21206&DownloadType=3Dshow>
+
+(Priyankar Biswas, priyankar.biswas@jmfl.com, Tel: (91 22) 69703622)
+Weekly/Monthly Update
+
+=95      Strategy | JM India Pulse =96 Mar=9226<https://jmflresearch.com/Do=
+wnload?ReportId=3D21205&DownloadType=3Dshow>
+
+(Venkatesh Balasubramaniam, venkatesh.balasubramaniam@jmfl.com, Tel: (91 22=
+) 66303081)
+
+
+
+Havells India | 4Q a beat, but how sustainable is it?<https://jmflresearch.=
+com/Download?ReportId=3D21211&DownloadType=3Dshow>
+
+Rating Downgrade                   ADD                 INR 1,490
+
+Havells missed 4Q revenue estimate but beat EBITDA/PAT estimates given (1) =
+stronger C&W margin, and (2) lower-than-expected losses in Lloyd despite re=
+venue declining 19% YoY. Within C&W, Havells reported ~6% volume growth, wi=
+th wires (higher share of copper) volume declining while cables (mix of cop=
+per and aluminium) volume rose minimally; increasing price trends aided mar=
+gin. The company indicated demand has improved off late in Lloyd after a we=
+ak start to the summer and inventory may normalise only by end-April. Furth=
+er, within ECD, despite a YoY revenue decline of ~3%, commentary suggested =
+no market share losses. Lastly, on margin, we note a medium-term aspiration=
+ to gain 200bps. That said, we build in a conservative 100bps expansion ove=
+r FY26=9629E given (1) Increased investments in A&P, brand visibility initi=
+atives, and R&D, and (2) unlikelihood of C&W segment margin sustaining as t=
+here were gains from rising input costs in 4Q. We cut our FY27/28E estimate=
+s by ~3% and value Havells at 45x Mar=9228E EPS, arriving at a TP of INR 1,=
+490, implying ~10% upside to CMP. Hence, downgrade to ADD.
+
+
+
+SBI Life Insurance | Best bet in an uncertain demand environment<https://jm=
+flresearch.com/Download?ReportId=3D21208&DownloadType=3Dshow>
+
+Result Update              BUY                 INR 2,200
+
+SBI Life reported Q4FY26 VNB of INR 16.3bn, +2% JMFe, -2% YoY. Individual A=
+PE/total APE growth of 8%/6% YoY was below estimates, while margin surprise=
+d positively though it declined 210bps YoY to 28.3%. Management had expecte=
+d a 1.74% full-year impact from GST 2.0 for this year, but it was lower at =
+1.50%. FY26 APE growth and margin were in line with guidance at 13%/27.5%. =
+Management guided for 14% APE growth and 27=9628% VNB margin for FY27E and =
+the near term. We have hardly changed our VNB estimates; we slightly cut AP=
+E growth but raise margin forecasts. We maintain BUY with a revised TP of I=
+NR 2,200, valuing the stock at 1.9x Mar=9228E EVPS of INR 1,158 (against 1.=
+9x Mar=9228E EVPS of INR 1,135 earlier). March industry volume data and the=
+se 4Q results reinforce our view that SBI Life is the best play in life ins=
+urance (a defensive sector in itself) when there is demand uncertainty; it =
+remains our top pick in the space.
+
+
+
+Tech Mahindra | Inline 4Q results; FY27 margin trajectory remains on track<=
+https://jmflresearch.com/Download?ReportId=3D21209&DownloadType=3Dshow>
+
+Result Update              ADD                 INR 1,555
+
+Tech Mahindra reported 4QFY26 results =96 revenues and margins were largely=
+ inline. Revenue growth came in at 0.6% cc QoQ vs expectation of 0.4% cc Qo=
+Q. EBIT margins at 13.8% =96 inline versus JMFL and consensus expectations.=
+ Forward looking indicators =96 i) LTM new TCV grew ~42% YoY in FY26 versus=
+ ~43% YoY new TCV growth in FY25 (LTM book to bill of 0.59x in FY26 versus =
+0.43x in FY25). ii) Headcount saw a slight decline -1.3% QoQ / -0.7% YoY. i=
+ii) Management commentary =96 confident of doing better than the industry g=
+rowth and achieve 15% EBIT margins in FY27. Industry growth is expected to =
+be 2-4% or 3-5%. Tech Mahindra has executed well on margins =96 already fac=
+tored in the valuations, in our view. Valuations are at 19x FY27 consensus =
+EPS, at c.7% premium to the sector. We revise our EPS estimates marginally =
+over FY27-28E, incorporating 4Q results. Maintain target multiple of 19x Se=
+p 27 =96 revised TP of INR 1,555 (versus INR 1,550 earlier). Maintain ADD.
+
+
+
+Tata Communications | Earnings beat on strong digital portfolio growth<http=
+s://jmflresearch.com/Download?ReportId=3D21210&DownloadType=3Dshow>
+
+Result Update              BUY                 INR 1,980
+
+Tata Communications (TCOM) reported consolidated revenue of INR 65.5bn (up =
+5.9% QoQ and 9.4% YoY) for Q4FY26, higher than JMFe/consensus, led by stron=
+g growth across digital portfolio, core connectivity, voice segments and TC=
+R. Data segment revenue was 4.2% higher than JMFe at INR 56.8bn (up 6.1% Qo=
+Q and 11.5% YoY) as digital portfolio revenue was 6.7% higher than JMFe at =
+INR 29.1bn (up 9.4% QoQ and 19.2% YoY) and core connectivity revenue was al=
+so 1.7% higher at INR 27.7bn (up 2.8% QoQ and 4.5% YoY). However, consolida=
+ted EBITDA, at INR 12.8bn (up 4.5% QoQ and 14.4% YoY), was only 0.9-2.6% hi=
+gher than JMFe/consensus due to higher network and other opex, resulting in=
+ EBITDA margin of 19.6% in Q4FY26 (19.8% in 3QFY26). Net debt fell QoQ to I=
+NR 94bn while capex fell QoQ to INR 5.4bn or 8.3% of revenue in 4Q. We main=
+tain our BUY rating on TCOM (unchanged TP of INR 1,980/share) based on 10x =
+FY28 EV/EBITDA multiple for the data segment (5Y historical average of 11x)=
+ as we expect data segment EBITDA to grow at a robust CAGR of ~20% over FY2=
+6=9629E, driven by a) strong growth in digital portfolio, positioned strong=
+ly across key megatrends like cloud, AI, IoT, etc.; b) improvement in overa=
+ll EBITDA margin from current ~20% to ~22% by FY28 (management guidance of =
+23=9625%) as operating leverage and acquisition synergies are likely to be =
+partly offset by adverse revenue mix.
+
+
+
+Sunteck Realty | Strong pre-sales with improving collections<https://jmflre=
+search.com/Download?ReportId=3D21207&DownloadType=3Dshow>
+
+Result Update              BUY                 INR 560
+
+Sunteck Realty (SRL) posted robust FY26 pre-sales of c. INR 31.6bn (+25% Yo=
+Y) with Q4FY26 at c. INR 10.6bn (+22% YoY; +45% QoQ; -4% JMFe), underpinned=
+ by sustained traction in premium and uber-luxury segments. Quarterly colle=
+ctions increased 39% YoY to c. INR 4.3bn; for FY26, collections rose 14% Yo=
+Y to INR 14.3bn with an operating surplus of INR 5.5bn (+48% YoY). Collecti=
+ons are set to improve meaningfully over FY27/FY28 as execution picks up pa=
+ce. Business development accelerated during the year with investments in la=
+nd increasing to c. INR 8bn (from c. INR 1.8bn in FY25) and the addition of=
+ c. INR 50bn GDV across three new projects, with embedded margins of c. 30=
+=9635%. The launch pipeline remains healthy (c. INR 70bn GDV for FY27), inc=
+luding subsequent phases at Vasai and Naigaon alongside a recently signed J=
+DA project in Mira Road. The Dubai project is launch-ready, subject to geop=
+olitical normalisation. Overall, management expresses confidence in sustain=
+ing current pre-sales momentum into FY27, irrespective of the Dubai project=
+ launch. Pre-sales could expand at 27% CAGR over FY26=9628E on the back of =
+multiple launches. We reiterate BUY with a DCF based Mar=9227E TP of INR 56=
+0.
+
+
+
+PNC Infratech | Receives much awaited NHAI orders; backlog strengthens<http=
+s://jmflresearch.com/Download?ReportId=3D21204&DownloadType=3Dshow>
+
+Company Update                     BUY                 INR 345
+
+PNC Infratech (PNC) has been declared L1 by the NHAI in two HAM road projec=
+ts for 4-laning of the Barabanki=96Biswariya stretch in Uttar Pradesh; this=
+ would have a total EPC value of c. INR 30bn. And given the packages are co=
+ntiguous, we expect them to support margins. These wins are particularly po=
+sitive as NHAI order inflows had remained slow over the past two years=97 f=
+or instance, PNC=92s FY26 inflows aggregated INR 60bn versus guidance of IN=
+R 120bn. Now these fresh wins will strengthen order backlog and improve exe=
+cution visibility. Order backlog stood at a strong INR 203bn (2.9x TTM reve=
+nue) at end-Dec-25. All in all, we reckon a robust EPS CAGR of 22% over FY2=
+5=9628E. Meanwhile, the stock is trading at an attractive 10x/8x FY27E/28E =
+EPS. All in all, our valuation and TP remain unchanged=97we value the EPC b=
+usiness at 13x FY27E EPS yielding an SotP-based TP of INR 345; maintain BUY=
+.
+
+
+
+ABB India | Parent reported order inflows, which seems largely inline<https=
+://jmflresearch.com/Download?ReportId=3D21206&DownloadType=3Dshow>
+
+Flash Update
+
+ABB India=92s parent entity ABB Global has reported 1QCY26 numbers with ove=
+rall 24% YoY growth in order inflows on a comparable basis (possibly adjust=
+ing for sale of Robotics & Automation). A positive read-through for India i=
+s the reported 1QCY26 order inflow of +26% YoY, the highest in the key AMEA=
+ region for ABB Global. This appears in-line with our estimate of INR43bn (=
+preview note) of ~27% YoY order inflow (ex. Robotics) for ABB India in 1QCY=
+26E. That said, margins may remain under pressure for ABB India. Moreover, =
+current valuations make the risk reward profile significantly adverse, in o=
+ur view.
+
+
+
+Strategy | JM India Pulse =96 Mar=9226<https://jmflresearch.com/Download?Re=
+portId=3D21205&DownloadType=3Dshow>
+
+Sector Update
+
+In this note, we lay out the most important monthly market, sectoral and ec=
+onomic indicators tracked by the JM Financial research team. The indicators=
+ span high-frequency macro variables and sector-level operating metrics tha=
+t help assess near-term growth momentum and emerging inflection points. Esc=
+alation in the West Asia conflict sent Brent crude oil price soaring past t=
+he USD 100/bbl mark. FII selling intensified and the INR weakened; however,=
+ the trade deficit narrowed in Mar=9226. The domestic environment reflects =
+selective strength led by improving discretionary consumption and credit gr=
+owth amid easing financial conditions. Household financialisation remains r=
+esilient even as digital payment growth normalises. Industrial activity mod=
+erated slightly with capex remaining uneven. Rising oil and gas prices, sup=
+ply disruptions and geopolitical uncertainty have driven the recent volatil=
+ity in Indian equity markets, though peace talks between the US and Iran ha=
+ve improved market sentiment.
+
+
+Best regards
+JM Financial Research
+
+[cid:JMFinCmpyLogo]
+JM Financial Institutional Securities Ltd
+Research Analyst
+CIN: U67100MH2017PLC296081
+7th Floor, Cnergy, Prabhadevi, Mumbai 400 025, India
+Board: +91 22 66303030  E-Mail: Jmfinancial.Research@jmfl.com<mailto:Jmfina=
+ncial.Research@jmfl.com> URL: www.jmfl.com
+JM Financial Research is also available on: Bloomberg - JMFR < GO >, FactSe=
+t, LSEG and S&P Capital IQ.
+
+
+--_000_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_
+Content-Type: text/html; charset="Windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+<html>
+<head>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3DWindows-1=
+252">
+<meta content=3D"text/html; charset=3DWindows-1252">
+<meta content=3D"text/html; charset=3Dutf-8">
+</head>
+<body>
+<strong>
+<div><font face=3D"Tahoma" color=3D"#000000" size=3D"2">&nbsp;</font></div>
+</strong>
+<hr tabindex=3D"-1" style=3D"display:inline-block; width:98%">
+<font face=3D"Tahoma" size=3D"2"><b>From:</b> JMFS Research<br>
+<b>Sent:</b> Thursday, April 23, 2026 8:17:10 AM (UTC&#43;05:30) Chennai, K=
+olkata, Mumbai, New Delhi<br>
+<b>To:</b> br.heads; Rajesh R. Mhatre; Anil Gupta; Anish Bhatt; Ashish Dhol=
+akia; Divyesh Kapadia; Hozefa Arsiwala; Jatin Manjrekar; Jayesh Sheth; Jiga=
+r P Shah; ManoranjanKumar Singh; Mikky Trivedi; Prachi Parekh; Pravin Jain;=
+ Rajiv Chaturvedi; Ramchandran Iyer;
+ Sandeep Parekh; Sandeep Wakchaure; Shivani Parmar; jmfsebgresearch; Ashwin=
+ Kothari<br>
+<b>Subject:</b> FW: JMFL: India Morning Brief (23 April 2026): Havells Indi=
+a, SBI Life Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, =
+PNC Infratech, ABB India, Strategy<br>
+</font><br>
+<div></div>
+<div><strong>
+<div><font face=3D"Tahoma" color=3D"#000000" size=3D"2">&nbsp;</font></div>
+</strong>
+<hr tabindex=3D"-1" style=3D"display:inline-block; width:98%">
+<font face=3D"Tahoma" size=3D"2"><b>From:</b> JM Financial Research<br>
+<b>Sent:</b> 23 April 2026 08:17:06 (UTC&#43;05:30) Chennai, Kolkata, Mumba=
+i, New Delhi<br>
+<b>To:</b> Advisory<br>
+<b>Subject:</b> JMFL: India Morning Brief (23 April 2026): Havells India, S=
+BI Life Insurance, Tech Mahindra, Tata Communications, Sunteck Realty, PNC =
+Infratech, ABB India, Strategy<br>
+</font><br>
+<div></div>
+<div>
+<table class=3D"ExternalCustomClass">
+<tbody>
+<tr>
+<td><style>
+<!--
+.ExternalCustomClass p.MsoNormal, .ExternalCustomClass li.MsoNormal, .Exter=
+nalCustomClass div.MsoNormal
+	{margin:0in}
+.ExternalCustomClass a:link, .ExternalCustomClass span.MsoHyperlink
+	{color:#1796FF;
+	text-decoration:underline}
+.ExternalCustomClass a:visited, .ExternalCustomClass span.MsoHyperlinkFollo=
+wed
+	{color:#C6D9F0;
+	text-decoration:underline}
+.ExternalCustomClass p
+	{margin-right:0in;
+	margin-left:0in}
+.ExternalCustomClass .MsoChpDefault
+	{font-size:10.0pt}
+@page WordSection1
+	{margin:1.0in 1.25in 1.0in 1.25in}
+-->
+</style><span style=3D"font-size:10pt; color:Black; font-family:Verdana">Hi
+ JMFS Adivsory,<br>
+</span><br>
+<img border=3D"0" width=3D"auto" height=3D"auto" id=3D"Picture 10" src=3D"c=
+id:JMFinCmpyLogoIMN"><br>
+<span style=3D"font-size:18pt; color:rgb(31,49,127); text-decoration:underl=
+ine; font-weight:bold; font-family:Verdana">RESEARCH</span><br>
+<table width=3D"100%" cellpadding=3D"0" cellspacing=3D"0" border=3D"0">
+<tbody>
+<tr>
+<td colspan=3D"2" style=3D"padding-top:10px"><span style=3D"font-size:10.0p=
+t; font-family:&quot;Verdana&quot;">
+<div class=3D"ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8"><style>
+<!--
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.MsoNormal, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.MsoNormal, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.MsoNormal
+	{margin:0in;
+	font-size:12.0pt;
+	font-family:"Times New Roman",serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 a:link, .ExternalClass9808BD=
+A1B96B4D968C3B60E1C3CC93F8 span.MsoHyperlink
+	{color:blue;
+	text-decoration:underline}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 a:visited, .ExternalClass980=
+8BDA1B96B4D968C3B60E1C3CC93F8 span.MsoHyperlinkFollowed
+	{color:purple;
+	text-decoration:underline}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.MsoListParagraph, .Externa=
+lClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.MsoListParagraph, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 div.MsoListParagraph
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	font-size:12.0pt;
+	font-family:"Times New Roman",serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.MsoListParagraph, .Externa=
+lClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.MsoListParagraph, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 div.MsoListParagraph
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	font-size:12.0pt;
+	font-family:"Times New Roman",serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.MsoListParagraph, .Externa=
+lClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.MsoListParagraph, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 div.MsoListParagraph
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	font-size:12.0pt;
+	font-family:"Times New Roman",serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.MsoListParagraph, .Externa=
+lClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.MsoListParagraph, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 div.MsoListParagraph
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	font-size:12.0pt;
+	font-family:"Times New Roman",serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.FPHeading, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.FPHeading, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.FPHeading
+	{margin-top:0in;
+	margin-right:.05in;
+	margin-bottom:3.0pt;
+	margin-left:0in;
+	text-align:justify;
+	font-size:10.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	color:#1E317F;
+	font-weight:bold;
+	text-decoration:underline}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.FPBullets, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.FPBullets, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.FPBullets
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-style:italic}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.FPBullets, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.FPBullets, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.FPBullets
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-style:italic}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.FPBullets, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.FPBullets, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.FPBullets
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-style:italic}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.FPBullets, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.FPBullets, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.FPBullets
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-style:italic}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.content, .ExternalClass980=
+8BDA1B96B4D968C3B60E1C3CC93F8 li.content, .ExternalClass9808BDA1B96B4D968C3=
+B60E1C3CC93F8 div.content
+	{margin-top:3.0pt;
+	margin-right:0in;
+	margin-bottom:3.0pt;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-weight:bold}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.content, .ExternalClass980=
+8BDA1B96B4D968C3B60E1C3CC93F8 li.content, .ExternalClass9808BDA1B96B4D968C3=
+B60E1C3CC93F8 div.content
+	{margin-top:3.0pt;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-weight:bold}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.content, .ExternalClass980=
+8BDA1B96B4D968C3B60E1C3CC93F8 li.content, .ExternalClass9808BDA1B96B4D968C3=
+B60E1C3CC93F8 div.content
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-weight:bold}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.content, .ExternalClass980=
+8BDA1B96B4D968C3B60E1C3CC93F8 li.content, .ExternalClass9808BDA1B96B4D968C3=
+B60E1C3CC93F8 div.content
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:3.0pt;
+	margin-left:.5in;
+	text-align:justify;
+	text-indent:0in;
+	font-size:9.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif;
+	font-weight:bold}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 span.FPAnalystDetails
+	{font-family:"Frutiger LT 45 Light",sans-serif;
+	color:windowtext;
+	font-weight:bold;
+	font-style:italic;
+	text-decoration:none}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.EQFPAnalystDetails, .Exter=
+nalClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.EQFPAnalystDetails, .ExternalCl=
+ass9808BDA1B96B4D968C3B60E1C3CC93F8 div.EQFPAnalystDetails
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:3.0pt;
+	margin-left:0in;
+	text-indent:.2in;
+	font-size:7.0pt;
+	font-family:Nunito}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.EQContent, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 li.EQContent, .ExternalClass9808BDA1B96B4D9=
+68C3B60E1C3CC93F8 div.EQContent
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:0in;
+	margin-left:.2in;
+	text-align:justify;
+	text-indent:-.2in;
+	font-size:8.0pt;
+	font-family:Nunito;
+	color:blue;
+	font-weight:bold;
+	text-decoration:underline}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.EQChapterHeading, .Externa=
+lClass9808BDA1B96B4D968C3B60E1C3CC93F8 li.EQChapterHeading, .ExternalClass9=
+808BDA1B96B4D968C3B60E1C3CC93F8 div.EQChapterHeading
+	{margin:0in;
+	text-align:justify;
+	border:none;
+	padding:0in;
+	font-size:8.0pt;
+	font-family:Nunito;
+	color:#0066CC;
+	font-weight:bold;
+	text-decoration:underline}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.EQSubHeading, .ExternalCla=
+ss9808BDA1B96B4D968C3B60E1C3CC93F8 li.EQSubHeading, .ExternalClass9808BDA1B=
+96B4D968C3B60E1C3CC93F8 div.EQSubHeading
+	{margin:0in;
+	text-align:justify;
+	font-size:7.0pt;
+	font-family:Nunito;
+	font-weight:bold}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 p.EQBodyText, .ExternalClass=
+9808BDA1B96B4D968C3B60E1C3CC93F8 li.EQBodyText, .ExternalClass9808BDA1B96B4=
+D968C3B60E1C3CC93F8 div.EQBodyText
+	{margin-top:0in;
+	margin-right:0in;
+	margin-bottom:6.0pt;
+	margin-left:0in;
+	text-align:justify;
+	font-size:8.0pt;
+	font-family:Nunito}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 .MsoChpDefault
+	{font-size:11.0pt;
+	font-family:"Frutiger LT 45 Light",sans-serif}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 .MsoPapDefault
+	{margin-bottom:0.0pt;
+	line-height:115%}
+@page WordSection1
+	{margin:.3in .3in .3in .3in}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 ol
+	{margin-bottom:0in}
+.ExternalClass9808BDA1B96B4D968C3B60E1C3CC93F8 ul
+	{margin-bottom:0in}
+-->
+</style>
+<p class=3D"content" style=3D"margin:0in 0in 0in 0.25in; text-indent:-0.25i=
+n"><i><span style=3D"font-size:10pt; font-family:nunito"><br>
+</span></i></p>
+<p class=3D"content" style=3D"margin:0in 0in 0in 0.25in; text-indent:-0.25i=
+n"><i><span style=3D"font-size:10pt; font-family:nunito">(<a href=3D"https:=
+//jmflresearch.com/Download?ReportId=3D21212&amp;DownloadType=3Dshow">Click=
+ here to download India Morning Brief</a>)</span></i></p>
+<p class=3D"FPBullets" style=3D"margin:0in 0in 3pt"><span lang=3D"EN-US" st=
+yle=3D"font-size:10pt; font-family:nunito; font-style:normal">&nbsp;</span>=
+</p>
+<span lang=3D"EN-GB" style=3D"font-size:10pt; font-family:nunito"></span>
+<p class=3D"EQContent"><span style=3D"font-size:10pt; color:windowtext; tex=
+t-decoration:none">Focus Report</span><span lang=3D"EN-GB" style=3D"font-si=
+ze:10pt"></span></p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21211&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">Havells India | 4Q a beat, but how sustainable is=
+ it?</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Shalin Choksy, shalin.choksy@jmfl.com, Tel: (91 22) 66303380)</span></p=
+>
+<p class=3D"MsoNormal" style=3D"margin:3pt 0in"><b><span lang=3D"EN-US" sty=
+le=3D"font-size:10pt; font-family:nunito">Quarterly Result Reviews</span></=
+b><span lang=3D"EN-US" style=3D"font-size:10pt; font-family:nunito"></span>=
+</p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21208&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">SBI Life Insurance | Best bet in an uncertain dem=
+and environment</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Raghvesh Sharan, raghvesh@jmfl.com, Tel: (91 22) 66303099)</span></p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21209&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">Tech Mahindra | Inline 4Q results; FY27 margin tr=
+ajectory remains on track</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Rajiv Berlia, rajiv.berlia@jmfl.com, Tel: (91 22) 66303363)</span></p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21210&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">Tata Communications | Earnings beat on strong dig=
+ital portfolio growth</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Dayanand Mittal, dayanand.mittal@jmfl.com, Tel: (91 22) 66303063)</span=
+></p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21207&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">Sunteck Realty | Strong pre-sales with improving =
+collections</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Sourabh Gilda, sourabh.gilda@jmfl.com, Tel: (91 22) 66303114)</span></p=
+>
+<p class=3D"MsoNormal" style=3D"margin:3pt 0in"><b><span lang=3D"EN-US" sty=
+le=3D"font-size:10pt; font-family:nunito">Company/Sector Update</span></b><=
+span lang=3D"EN-US" style=3D"font-size:10pt; font-family:nunito"></span></p=
+>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21204&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">PNC Infratech | Receives much awaited NHAI orders=
+; backlog strengthens</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Vaibhav Shah, vaibhav.shah@jmfl.com, Tel: (91 22) 66303068)</span></p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21206&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">ABB India | Parent reported order inflows, which =
+seems largely inline</span></a></span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Priyankar Biswas, priyankar.biswas@jmfl.com, Tel: (91 22) 69703622)</sp=
+an></p>
+<p class=3D"MsoNormal" style=3D"margin:3pt 0in"><b><span lang=3D"EN-US" sty=
+le=3D"font-size:10pt; font-family:nunito">Weekly/Monthly Update</span></b><=
+/p>
+<p class=3D"EQContent"><span lang=3D"EN-GB" style=3D"font-size:10pt; font-f=
+amily:symbol; font-weight:normal; text-decoration:none"><span>-<span style=
+=3D"font:7pt &quot;times new roman&quot;">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span></span></span><span lang=3D"EN-GB" style=3D"font-size:10pt"><a href=
+=3D"https://jmflresearch.com/Download?ReportId=3D21205&amp;DownloadType=3Ds=
+how"><span lang=3D"EN-IN">Strategy | JM India Pulse =96 Mar=9226</span></a>=
+</span></p>
+<p class=3D"EQFPAnalystDetails"><span lang=3D"EN-GB" style=3D"font-size:10p=
+t">(Venkatesh Balasubramaniam, venkatesh.balasubramaniam@jmfl.com, Tel: (91=
+ 22) 66303081)</span></p>
+<div style=3D"border-width:1pt medium; border-style:solid none; border-colo=
+r:rgb(0,32,96) currentcolor; padding:1pt 0in 2pt">
+<p class=3D"FPHeading" style=3D"margin:0in; border-width:medium; border-sty=
+le:none; border-color:currentcolor; padding:0in">
+<span class=3D"FPAnalystDetails"><span lang=3D"EN-US" style=3D"font-family:=
+nunito; font-weight:normal; font-style:normal">&nbsp;</span></span></p>
+</div>
+<b><i><span lang=3D"EN-GB" style=3D"font-size:10pt; font-family:nunito"></s=
+pan></i></b>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21211&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">Havells India | 4Q a beat, but how sustai=
+nable is it?</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Rat=
+ing Downgrade<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span>ADD<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 1,490</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">Havel=
+ls missed 4Q revenue estimate but beat EBITDA/PAT estimates given (1) stron=
+ger C&amp;W margin, and (2) lower-than-expected losses in Lloyd despite rev=
+enue declining 19% YoY. Within C&amp;W, Havells
+ reported ~6% volume growth, with wires (higher share of copper) volume dec=
+lining while cables (mix of copper and aluminium) volume rose minimally; in=
+creasing price trends aided margin. The company indicated demand has improv=
+ed off late in Lloyd after a weak
+ start to the summer and inventory may normalise only by end-April. Further=
+, within ECD, despite a YoY revenue decline of ~3%, commentary suggested no=
+ market share losses. Lastly, on margin, we note a medium-term aspiration t=
+o gain 200bps. That said, we build
+ in a conservative 100bps expansion over FY26=9629E given (1) Increased inv=
+estments in A&amp;P, brand visibility initiatives, and R&amp;D, and (2) unl=
+ikelihood of C&amp;W segment margin sustaining as there were gains from ris=
+ing input costs in 4Q. We cut our FY27/28E estimates
+ by ~3% and value Havells at 45x Mar=9228E EPS, arriving at a TP of INR 1,4=
+90, implying ~10% upside to CMP. Hence, downgrade to ADD.</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21208&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">SBI Life Insurance | Best bet in an uncer=
+tain demand environment</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Res=
+ult Update<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;
+</span>BUY<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 2,200</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">SBI L=
+ife reported Q4FY26 VNB of INR 16.3bn, &#43;2% JMFe, -2% YoY. Individual AP=
+E/total APE growth of 8%/6% YoY was below estimates, while margin surprised=
+ positively though it declined 210bps YoY
+ to 28.3%. Management had expected a 1.74% full-year impact from GST 2.0 fo=
+r this year, but it was lower at 1.50%. FY26 APE growth and margin were in =
+line with guidance at 13%/27.5%. Management guided for 14% APE growth and 2=
+7=9628% VNB margin for FY27E and the
+ near term. We have hardly changed our VNB estimates; we slightly cut APE g=
+rowth but raise margin forecasts. We maintain BUY with a revised TP of INR =
+2,200, valuing the stock at 1.9x Mar=9228E EVPS of INR 1,158 (against 1.9x =
+Mar=9228E EVPS of INR 1,135 earlier).
+ March industry volume data and these 4Q results reinforce our view that SB=
+I Life is the best play in life insurance (a defensive sector in itself) wh=
+en there is demand uncertainty; it remains our top pick in the space.</span=
+></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21209&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">Tech Mahindra | Inline 4Q results; FY27 m=
+argin trajectory remains on track</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Res=
+ult Update<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;
+</span>ADD<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 1,555</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">Tech =
+Mahindra reported 4QFY26 results =96 revenues and margins were largely inli=
+ne. Revenue growth came in at 0.6% cc QoQ vs expectation of 0.4% cc QoQ. EB=
+IT margins at 13.8% =96 inline versus JMFL
+ and consensus expectations. Forward looking indicators =96 i) LTM new TCV =
+grew ~42% YoY in FY26 versus ~43% YoY new TCV growth in FY25 (LTM book to b=
+ill of 0.59x in FY26 versus 0.43x in FY25). ii) Headcount saw a slight decl=
+ine -1.3% QoQ / -0.7% YoY. iii) Management
+ commentary =96 confident of doing better than the industry growth and achi=
+eve 15% EBIT margins in FY27. Industry growth is expected to be 2-4% or 3-5=
+%. Tech Mahindra has executed well on margins =96 already factored in the v=
+aluations, in our view. Valuations are
+ at 19x FY27 consensus EPS, at c.7% premium to the sector. We revise our EP=
+S estimates marginally over FY27-28E, incorporating 4Q results. Maintain ta=
+rget multiple of 19x Sep 27 =96 revised TP of INR 1,555 (versus INR 1,550 e=
+arlier). Maintain ADD.</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21210&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">Tata Communications | Earnings beat on st=
+rong digital portfolio growth</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Res=
+ult Update<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;
+</span>BUY<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 1,980</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">Tata =
+Communications (TCOM) reported consolidated revenue of INR 65.5bn (up 5.9% =
+QoQ and 9.4% YoY) for Q4FY26, higher than JMFe/consensus, led by strong gro=
+wth across digital portfolio, core connectivity,
+ voice segments and TCR. Data segment revenue was 4.2% higher than JMFe at =
+INR 56.8bn (up 6.1% QoQ and 11.5% YoY) as digital portfolio revenue was 6.7=
+% higher than JMFe at INR 29.1bn (up 9.4% QoQ and 19.2% YoY) and core conne=
+ctivity revenue was also 1.7% higher
+ at INR 27.7bn (up 2.8% QoQ and 4.5% YoY). However, consolidated EBITDA, at=
+ INR 12.8bn (up 4.5% QoQ and 14.4% YoY), was only 0.9-2.6% higher than JMFe=
+/consensus due to higher network and other opex, resulting in EBITDA margin=
+ of 19.6% in Q4FY26 (19.8% in 3QFY26).
+ Net debt fell QoQ to INR 94bn while capex fell QoQ to INR 5.4bn or 8.3% of=
+ revenue in 4Q. We maintain our BUY rating on TCOM (unchanged TP of INR 1,9=
+80/share) based on 10x FY28 EV/EBITDA multiple for the data segment (5Y his=
+torical average of 11x) as we expect
+ data segment EBITDA to grow at a robust CAGR of ~20% over FY26=9629E, driv=
+en by a) strong growth in digital portfolio, positioned strongly across key=
+ megatrends like cloud, AI, IoT, etc.; b) improvement in overall EBITDA mar=
+gin from current ~20% to ~22% by FY28
+ (management guidance of 23=9625%) as operating leverage and acquisition sy=
+nergies are likely to be partly offset by adverse revenue mix.</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21207&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">Sunteck Realty | Strong pre-sales with im=
+proving collections</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Res=
+ult Update<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;
+</span>BUY<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 560</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">Sunte=
+ck Realty (SRL) posted robust FY26 pre-sales of c. INR 31.6bn (&#43;25% YoY=
+) with Q4FY26 at c. INR 10.6bn (&#43;22% YoY; &#43;45% QoQ; -4% JMFe), unde=
+rpinned by sustained traction in premium and uber-luxury
+ segments. Quarterly collections increased 39% YoY to c. INR 4.3bn; for FY2=
+6, collections rose 14% YoY to INR 14.3bn with an operating surplus of INR =
+5.5bn (&#43;48% YoY). Collections are set to improve meaningfully over FY27=
+/FY28 as execution picks up pace. Business
+ development accelerated during the year with investments in land increasin=
+g to c. INR 8bn (from c. INR 1.8bn in FY25) and the addition of c. INR 50bn=
+ GDV across three new projects, with embedded margins of c. 30=9635%. The l=
+aunch pipeline remains healthy (c.
+ INR 70bn GDV for FY27), including subsequent phases at Vasai and Naigaon a=
+longside a recently signed JDA project in Mira Road. The Dubai project is l=
+aunch-ready, subject to geopolitical normalisation. Overall, management exp=
+resses confidence in sustaining
+ current pre-sales momentum into FY27, irrespective of the Dubai project la=
+unch. Pre-sales could expand at 27% CAGR over FY26=9628E on the back of mul=
+tiple launches. We reiterate BUY with a DCF based Mar=9227E TP of INR 560.<=
+/span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21204&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">PNC Infratech | Receives much awaited NHA=
+I orders; backlog strengthens</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Com=
+pany Update<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbs=
+p;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+</span>BUY<span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </span>INR 345</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">PNC I=
+nfratech (PNC) has been declared L1 by the NHAI in two HAM road projects fo=
+r 4-laning of the Barabanki=96Biswariya stretch in Uttar Pradesh; this woul=
+d have a total EPC value of c. INR 30bn.
+ And given the packages are contiguous, we expect them to support margins. =
+These wins are particularly positive as NHAI order inflows had remained slo=
+w over the past two years=97 for instance, PNC=92s FY26 inflows aggregated =
+INR 60bn versus guidance of INR 120bn.
+ Now these fresh wins will strengthen order backlog and improve execution v=
+isibility. Order backlog stood at a strong INR 203bn (2.9x TTM revenue) at =
+end-Dec-25. All in all, we reckon a robust EPS CAGR of 22% over FY25=9628E.=
+ Meanwhile, the stock is trading at
+ an attractive 10x/8x FY27E/28E EPS. All in all, our valuation and TP remai=
+n unchanged=97we value the EPC business at 13x FY27E EPS yielding an SotP-b=
+ased TP of INR 345; maintain BUY.</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21206&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">ABB India | Parent reported order inflows=
+, which seems largely inline</span></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Fla=
+sh Update</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">ABB I=
+ndia=92s parent entity ABB Global has reported 1QCY26 numbers with overall =
+24% YoY growth in order inflows on a comparable basis (possibly adjusting f=
+or sale of Robotics &amp; Automation). A positive
+ read-through for India is the reported 1QCY26 order inflow of &#43;26% YoY=
+, the highest in the key AMEA region for ABB Global. This appears in-line w=
+ith our estimate of INR43bn (preview note) of ~27% YoY order inflow (ex. Ro=
+botics) for ABB India in 1QCY26E. That
+ said, margins may remain under pressure for ABB India. Moreover, current v=
+aluations make the risk reward profile significantly adverse, in our view.<=
+/span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">&nbsp=
+;</span></p>
+<div style=3D"border-width:medium medium 1pt; border-style:none none solid;=
+ border-color:currentcolor currentcolor silver; padding:0in 0in 1pt">
+<p class=3D"EQChapterHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt"=
+><a href=3D"https://jmflresearch.com/Download?ReportId=3D21205&amp;Download=
+Type=3Dshow"><span lang=3D"EN-IN">Strategy | JM India Pulse =96 Mar=9226</s=
+pan></a></span></p>
+</div>
+<p class=3D"EQSubHeading"><span lang=3D"EN-GB" style=3D"font-size:10pt">Sec=
+tor Update</span></p>
+<p class=3D"EQBodyText"><span lang=3D"EN-GB" style=3D"font-size:10pt">In th=
+is note, we lay out the most important monthly market, sectoral and economi=
+c indicators tracked by the JM Financial research team. The indicators span=
+ high-frequency macro variables and sector-level
+ operating metrics that help assess near-term growth momentum and emerging =
+inflection points. Escalation in the West Asia conflict sent Brent crude oi=
+l price soaring past the USD 100/bbl mark. FII selling intensified and the =
+INR weakened; however, the trade
+ deficit narrowed in Mar=9226. The domestic environment reflects selective =
+strength led by improving discretionary consumption and credit growth amid =
+easing financial conditions. Household financialisation remains resilient e=
+ven as digital payment growth normalises.
+ Industrial activity moderated slightly with capex remaining uneven. Rising=
+ oil and gas prices, supply disruptions and geopolitical uncertainty have d=
+riven the recent volatility in Indian equity markets, though peace talks be=
+tween the US and Iran have improved
+ market sentiment.</span></p>
+</div>
+</span></td>
+</tr>
+<a id=3D"xxxlinkxxx">
+</tbody>
+</table>
+<table>
+<tbody>
+<tr>
+<td style=3D"color:black; font-size:9pt; font-family:&quot;ROBOTO SEMIBOLD&=
+quot;; padding-left:0px; padding-top:30px; padding-bottom:10px">
+Best regards</td>
+</tr>
+<tr style=3D"height:9px">
+<td style=3D"border-top:1px solid #FFE118"><span style=3D"color:black; font=
+-family:&quot;ROBOTO SEMIBOLD&quot;; font-size:9pt">JM Financial Research&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp=
+;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n=
+bsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></td=
+>
+</tr>
+<tr>
+<td style=3D"padding:0px; margin:0px; height:9px; color:black; font-family:=
+&quot;ROBOTO SEMIBOLD&quot;; font-size:8pt">
+</td>
+</tr>
+<tr style=3D"height:9px">
+<td><span><img border=3D"0" width=3D"100" height=3D"23" id=3D"imgJMFinLogo_=
+202604230806" src=3D"cid:JMFinCmpyLogo"></span></td>
+</tr>
+<tr>
+<td style=3D"padding:0px; margin:0px; height:9px; color:black; font-family:=
+&quot;ROBOTO SEMIBOLD&quot;; font-size:8pt">
+JM Financial Institutional Securities Ltd<br>
+Research Analyst</td>
+</tr>
+<tr>
+<td style=3D"padding:0px; margin:0px; height:9px; color:black; font-family:=
+&quot;ROBOTO REGULAR&quot;; font-size:8pt">
+CIN: U67100MH2017PLC296081 </td>
+</tr>
+<tr>
+<td style=3D"padding:0px; margin:0px; height:9px; color:black; font-family:=
+&quot;ROBOTO REGULAR&quot;; font-size:8pt">
+7th Floor, Cnergy, Prabhadevi, Mumbai 400 025, India</td>
+</tr>
+<tr>
+<td style=3D"padding:0px; height:9px; margin:0px; color:black; font-family:=
+&quot;ROBOTO REGULAR&quot;; font-size:8pt">
+Board: &#43;91 22 66303030 &nbsp;E-Mail: <a href=3D"mailto:Jmfinancial.Rese=
+arch@jmfl.com" style=3D"color:Blue; text-decoration:underline">
+Jmfinancial.Research@jmfl.com</a>&nbsp;URL: <a href=3D"www.jmfl.com" style=
+=3D"color:Blue; text-decoration:underline">
+www.jmfl.com</a></td>
+</tr>
+<tr>
+<td style=3D"padding:0px; height:9px; margin:0px; color:black; font-family:=
+&quot;ROBOTO REGULAR&quot;; font-size:8pt">
+JM Financial Research is also available on: Bloomberg - JMFR &lt; GO &gt;, =
+FactSet, LSEG and S&amp;P Capital IQ.
+</td>
+</tr>
+</tbody>
+</table>
+</a></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</body>
+</html>
+
+--_000_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_--
+
+--_005_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_
+Content-Type: image/png; name="ATT00001.png"
+Content-Description: ATT00001.png
+Content-Disposition: inline; filename="ATT00001.png"; size=11078;
+	creation-date="Thu, 23 Apr 2026 02:47:10 GMT";
+	modification-date="Thu, 23 Apr 2026 02:47:10 GMT"
+Content-ID: <JMFinCmpyLogo>
+Content-Transfer-Encoding: base64
+
+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
+/t1AuF/GkN8AAAAASUVORK5CYII=
+
+--_005_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_
+Content-Type: image/png; name="ATT00002.png"
+Content-Description: ATT00002.png
+Content-Disposition: inline; filename="ATT00002.png"; size=8376;
+	creation-date="Thu, 23 Apr 2026 02:47:10 GMT";
+	modification-date="Thu, 23 Apr 2026 02:47:10 GMT"
+Content-ID: <JMFinCmpyLogoIMN>
+Content-Transfer-Encoding: base64
+
+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
+
+--_005_0709bf083b97466c82d2093b12935114JMFLMSX02jmfcom_--
