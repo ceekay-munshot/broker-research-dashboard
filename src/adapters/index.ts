@@ -2,12 +2,32 @@ import type { ResearchAdapter } from './ResearchAdapter'
 import { MockResearchAdapter } from './MockResearchAdapter'
 import { HttpResearchAdapter } from './HttpResearchAdapter'
 import { createStubFetch } from './http/stubFetch'
+import { type AdapterMode, normalizeAdapterMode } from './AdapterMode'
+import { readScopeBootstrap } from '../app/scopeBootstrap'
 
-// Singleton adapter instance. The UI imports `getResearchAdapter()` and
-// never instantiates the adapter directly, so that a different
-// implementation can replace the current one with a single call to
-// setResearchAdapter() at bootstrap — or, more commonly, via env vars
-// wired through createAdapterFromEnv().
+// ─────────────────────────────────────────────────────────────────────────
+// Adapter singleton + factory.
+//
+// The UI imports `getResearchAdapter()` and never constructs an adapter
+// directly. Which concrete implementation is returned depends on the
+// selected mode:
+//
+//   upstream   → HttpResearchAdapter → external upstream API (production)
+//   local      → HttpResearchAdapter → local server/ (dev harness)
+//   mock       → MockResearchAdapter (in-memory fixtures + engine)
+//   mock-http  → HttpResearchAdapter + stub fetch backed by MockResearchAdapter
+//
+// The externally-supplied bootstrap (token, scope hints, onUnauthenticated
+// callback) is read from `scopeBootstrap.ts` — this file never reads host
+// globals or auth state directly.
+//
+// See docs/architecture.md and docs/modes.md.
+// ─────────────────────────────────────────────────────────────────────────
+
+// NB: declaration order matters — `readActiveMode()` writes to `activeMode`,
+// so `activeMode` must exist before `createAdapterFromEnv()` (which calls
+// `readActiveMode()` internally) runs.
+let activeMode: AdapterMode = normalizeAdapterMode(undefined)
 let adapterInstance: ResearchAdapter = createAdapterFromEnv()
 
 export function getResearchAdapter(): ResearchAdapter {
@@ -18,33 +38,45 @@ export function setResearchAdapter(next: ResearchAdapter): void {
   adapterInstance = next
 }
 
+/** Which mode the active adapter is running in. Read-only after bootstrap. */
+export function getActiveAdapterMode(): AdapterMode {
+  return activeMode
+}
+
 /**
- * Env-driven adapter factory. Called once at module load.
+ * Env-driven factory. Called once at module load; the host can override by
+ * calling `setResearchAdapter()` after bootstrap.
  *
- *   VITE_RESEARCH_ADAPTER  mock (default) | http | http-stub
- *   VITE_API_BASE_URL      required when mode = http
- *   VITE_API_TOKEN         optional bearer token
+ *   VITE_RESEARCH_ADAPTER  upstream | local | mock (default) | mock-http
+ *   VITE_API_BASE_URL      required when mode=upstream or mode=local
+ *   VITE_API_TOKEN         dev fallback bearer token; host injection is preferred
  *
- * See .env.example and docs/api-contract.md for conventions.
+ * See .env.example and docs/modes.md for the full contract.
  */
 export function createAdapterFromEnv(): ResearchAdapter {
-  const mode = (import.meta.env.VITE_RESEARCH_ADAPTER ?? 'mock') as string
+  const mode = readActiveMode()
 
-  if (mode === 'http') {
+  if (mode === 'upstream' || mode === 'local') {
     const baseUrl = import.meta.env.VITE_API_BASE_URL
     if (!baseUrl) {
-      throw new Error('VITE_API_BASE_URL is required when VITE_RESEARCH_ADAPTER=http')
+      throw new Error(
+        `VITE_API_BASE_URL is required when VITE_RESEARCH_ADAPTER=${mode}. ` +
+        `Point it at the external upstream API for mode=upstream, or at the local ` +
+        `server (default http://localhost:4000) for mode=local.`,
+      )
     }
+    const bootstrap = readScopeBootstrap()
     return new HttpResearchAdapter({
       baseUrl,
-      authToken: import.meta.env.VITE_API_TOKEN,
+      authToken: bootstrap.token ?? import.meta.env.VITE_API_TOKEN,
+      onUnauthenticated: bootstrap.onUnauthenticated,
     })
   }
 
-  if (mode === 'http-stub') {
-    // Exercises the full HTTP code path (client + parsers + error mapping)
-    // without a real backend. Every request is routed to a MockResearchAdapter
-    // under the hood through src/adapters/http/stubFetch.ts.
+  if (mode === 'mock-http') {
+    // Full HTTP code path (client + parsers + error mapping) against a stub
+    // fetch backed by MockResearchAdapter. Used by the adapter-layer tests
+    // to exercise contract behavior without a live server.
     const mockBacking = new MockResearchAdapter({ simulatedLatencyMs: 0 })
     return new HttpResearchAdapter({
       baseUrl: 'http://stub.local',
@@ -52,16 +84,30 @@ export function createAdapterFromEnv(): ResearchAdapter {
     })
   }
 
-  if (mode !== 'mock') {
-    // eslint-disable-next-line no-console
-    console.warn(`Unknown VITE_RESEARCH_ADAPTER="${mode}"; falling back to mock.`)
-  }
   return new MockResearchAdapter()
+}
+
+function readActiveMode(): AdapterMode {
+  const raw = import.meta.env.VITE_RESEARCH_ADAPTER as string | undefined
+  const mode = normalizeAdapterMode(raw)
+  if (raw && raw !== mode && mode !== normalizeAdapterMode(undefined)) {
+    // A legacy alias was mapped (e.g. 'http' → 'upstream'). Note the remap
+    // but don't fail loudly — back-compat is the point.
+    // eslint-disable-next-line no-console
+    console.info(`[adapter] VITE_RESEARCH_ADAPTER="${raw}" normalized to "${mode}"`)
+  } else if (raw && !['upstream', 'local', 'mock', 'mock-http'].includes(raw)) {
+    // eslint-disable-next-line no-console
+    console.warn(`[adapter] Unknown VITE_RESEARCH_ADAPTER="${raw}"; falling back to "mock".`)
+  }
+  activeMode = mode
+  return mode
 }
 
 export type { ResearchAdapter } from './ResearchAdapter'
 export { MockResearchAdapter } from './MockResearchAdapter'
 export { HttpResearchAdapter } from './HttpResearchAdapter'
+export type { AdapterMode } from './AdapterMode'
+export { ADAPTER_MODES, isProductionMode, isHttpMode } from './AdapterMode'
 export type {
   ListEmailsQuery, ListReportsQuery,
   ListOpinionsQuery, ListClosuresQuery,

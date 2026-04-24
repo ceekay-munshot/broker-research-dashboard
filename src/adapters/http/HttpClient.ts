@@ -1,18 +1,29 @@
 import type { OrgScope } from '../../domain'
 import { mapHttpError, wrapTransportError } from './errors'
-import { NotFoundError } from '../errors'
+import { NotFoundError, UnauthenticatedError } from '../errors'
 
 export type FetchImpl = typeof fetch
 
 export interface HttpClientOptions {
   /** Absolute URL prefix (no trailing slash) joined with endpoint paths. */
   readonly baseUrl: string
-  /** Bearer token or a (sync or async) getter. Omit to send no Authorization. */
+  /**
+   * Bearer token, or a (sync or async) getter returning one. The dashboard
+   * itself never mints tokens — the value here is always externally supplied
+   * by the host (see `src/app/scopeBootstrap.ts`). Omit to send no
+   * Authorization header (only valid for `mock-http` mode).
+   */
   readonly authToken?: string | (() => string | null | undefined | Promise<string | null | undefined>)
   /** Custom fetch — used by stub mode and tests. Defaults to global fetch. */
   readonly fetchImpl?: FetchImpl
   /** Extra headers merged into every request. */
   readonly defaultHeaders?: Readonly<Record<string, string>>
+  /**
+   * Fired once per 401 response. The host typically uses this to re-mint a
+   * bearer token out-of-band (e.g. via a parent frame). The adapter still
+   * propagates an `UnauthenticatedError` — the callback is purely a signal.
+   */
+  readonly onUnauthenticated?: () => void
 }
 
 export interface HttpRequestConfig {
@@ -36,6 +47,7 @@ export class HttpClient {
   private readonly tokenGetter: () => Promise<string | null | undefined>
   private readonly fetchImpl: FetchImpl
   private readonly defaultHeaders: Readonly<Record<string, string>>
+  private readonly onUnauthenticated: (() => void) | undefined
 
   constructor(opts: HttpClientOptions) {
     if (!opts.baseUrl) throw new Error('HttpClient: baseUrl is required')
@@ -51,6 +63,7 @@ export class HttpClient {
 
     this.fetchImpl = opts.fetchImpl ?? ((...a) => fetch(...a))
     this.defaultHeaders = opts.defaultHeaders ?? {}
+    this.onUnauthenticated = opts.onUnauthenticated
   }
 
   /**
@@ -69,7 +82,13 @@ export class HttpClient {
       throw wrapTransportError(e, path)
     }
 
-    if (!response.ok) throw await mapHttpError(response, path)
+    if (!response.ok) {
+      const err = await mapHttpError(response, path)
+      if (err instanceof UnauthenticatedError && this.onUnauthenticated) {
+        try { this.onUnauthenticated() } catch { /* host callback; swallow */ }
+      }
+      throw err
+    }
 
     // 204 No Content → null. Otherwise expect JSON.
     if (response.status === 204) return null

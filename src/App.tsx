@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { ReportId, StockTicker, Organization } from './domain'
 import { useAdapterQuery } from './hooks/useAdapterQuery'
 import { useScope } from './app/ScopeContext'
+import { getActiveAdapterMode } from './adapters'
 import type { FiltersState } from './app/filters'
 import { DEFAULT_FILTERS } from './app/filters'
 import type { TabId } from './app/tabs'
@@ -126,9 +127,13 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker }: {
 
 function Footer({ org }: { org: Organization | null }) {
   const scope = useScope()
+  const mode = getActiveAdapterMode()
   return (
     <footer className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-line/5">
-      <span>Broker Research OS · Module 04 · Conflict-closure engine</span>
+      <span>
+        Broker Research OS · Read-only analytics client ·{' '}
+        <span className="kbd" title="Runtime adapter mode (see docs/modes.md)">{mode}</span>
+      </span>
       <span>
         Scope <span className="kbd">{scope.orgId}</span> / <span className="kbd">{scope.actingUserId}</span>
         {org && <span className="ml-2 text-slate-600">({org.forwardingAddress})</span>}

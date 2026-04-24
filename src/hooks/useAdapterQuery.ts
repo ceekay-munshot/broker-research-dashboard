@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import type { OrgScope } from '../domain'
 import type { ResearchAdapter } from '../adapters'
 import { getResearchAdapter } from '../adapters'
-import { useScope } from '../app/ScopeContext'
+import { useScopeContext } from '../app/ScopeContext'
 
 export interface QueryResult<T> {
   readonly data: T | null
@@ -15,15 +15,18 @@ export interface QueryResult<T> {
  *   - `fetch(adapter, scope)` — invoked on every dependency change
  *   - `deps` — primitive fingerprint of everything `fetch` closes over
  *
- * The scope is supplied implicitly from ScopeContext and is included in the
- * effective dependency set so views transparently re-fetch on org switch.
+ * The scope is supplied implicitly from `ScopeContext`. The scope's
+ * `generation` counter is included in the effective dependency set so a
+ * scope swap (host token refresh, org switch) flushes every query's cached
+ * data and re-runs the fetch — the guardrail against cross-tenant mixing.
+ *
  * Stale responses from a prior `fetch` are discarded when the deps change.
  */
 export function useAdapterQuery<T>(
   fetch: (adapter: ResearchAdapter, scope: OrgScope) => Promise<T>,
   deps: readonly unknown[],
 ): QueryResult<T> {
-  const scope = useScope()
+  const { scope, generation } = useScopeContext()
   const [data, setData] = useState<T | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
@@ -37,6 +40,9 @@ export function useAdapterQuery<T>(
   useEffect(() => {
     let cancelled = false
     setLoading(true)
+    // Clear prior data on scope change so the UI never briefly renders
+    // the previous tenant's data under a new scope.
+    setData(null)
     const adapter = getResearchAdapter()
     fetchRef.current(adapter, scope)
       .then((result) => {
@@ -51,9 +57,10 @@ export function useAdapterQuery<T>(
         setLoading(false)
       })
     return () => { cancelled = true }
-  // The caller's `deps` plus the scope form the effective dependency set.
+  // The caller's `deps` plus the scope + generation form the effective
+  // dependency set. `generation` bumps on every host-initiated scope swap.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.orgId, scope.actingUserId, ...deps])
+  }, [scope.orgId, scope.actingUserId, generation, ...deps])
 
   return { data, loading, error }
 }

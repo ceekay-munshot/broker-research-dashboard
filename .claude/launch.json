@@ -8,9 +8,15 @@
       "port": 5173
     },
     {
-      "name": "dev-http",
+      "name": "dev-local",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:http"],
+      "runtimeArgs": ["run", "dev:local"],
+      "port": 5173
+    },
+    {
+      "name": "dev-upstream",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:upstream"],
       "port": 5173
     }
   ]
