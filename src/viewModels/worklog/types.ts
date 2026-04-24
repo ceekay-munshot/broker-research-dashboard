@@ -14,6 +14,7 @@ import type {
   BrokerId, ReportId, SectorId, StockTicker,
   Stance, Rating, Iso8601, IsoCurrency, EmailId,
 } from '../../domain'
+import type { ReportChangeSet } from '../brokerMemory/types'
 
 /** How the worklog item was produced from the upstream. */
 export type WorklogOrigin =
@@ -99,6 +100,12 @@ export interface WorklogItem {
 
   // Deterministic priority
   readonly priority: WorklogPriority
+
+  /** Optional broker-memory view of what this report changed vs the
+   *  prior comparable note from the same broker. Null when the
+   *  broker-memory layer hasn't produced a linkage (e.g. ticker is null
+   *  or degraded mode). See `src/viewModels/brokerMemory/`. */
+  readonly change: ReportChangeSet | null
 }
 
 // ── Daily summary header ─────────────────────────────────────────────────

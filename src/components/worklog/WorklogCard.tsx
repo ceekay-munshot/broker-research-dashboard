@@ -59,6 +59,7 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
           {item.evidenceCount > 0 && (<><span>·</span><span>{item.evidenceCount} evid</span></>)}
           {item.hasDivergence && (<><span>·</span><span className="text-amber-400">divergence</span></>)}
           {item.source.duplicateCount > 0 && (<><span>·</span><span className="text-slate-400">+{item.source.duplicateCount} dup</span></>)}
+          {renderChangePill(item)}
         </div>
         <div className="text-[11.5px] text-slate-400 truncate mt-0.5">{item.summaryShort}</div>
         {/* Top priority reasons */}
@@ -86,6 +87,28 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
         )}
       </div>
     </button>
+  )
+}
+
+function renderChangePill(item: WorklogItem) {
+  const c = item.change
+  if (!c) return null
+  const bucket = c.significance.bucket
+  const tone =
+    bucket === 'major'          ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
+    : bucket === 'moderate'     ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
+    : bucket === 'first_coverage' ? 'text-accent border-accent/30 bg-accent/10'
+    :                             'text-slate-500 border-slate-500/20 bg-line/[0.02]'
+  const label =
+    bucket === 'major'          ? '▲ major change'
+    : bucket === 'moderate'     ? '▲ moderate change'
+    : bucket === 'first_coverage' ? '★ initiation'
+    :                             'unchanged'
+  return (
+    <>
+      <span>·</span>
+      <span className={`chip text-[9.5px] border ${tone}`}>{label}</span>
+    </>
   )
 }
 

@@ -28,6 +28,7 @@ import type {
 } from './types'
 import { scoreWorklogItem } from './priority'
 import { dedupeWorklogItems } from './dedupe'
+import { buildBrokerMemoryViewModel } from '../brokerMemory/builder'
 
 export interface WorklogBuilderInputs {
   readonly reports: readonly ResearchReport[]
@@ -56,6 +57,17 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
   const emailById   = indexBy(inputs.brokerEmails, (e) => e.id as string)
   const evidenceByR = groupBy(inputs.evidence, (e) => e.reportId as string)
   const closureByT  = indexBy(inputs.closures, (c) => c.ticker as string)
+
+  // Broker memory produces change-sets keyed by `${reportId}:${ticker}`
+  // — the same key shape as WorklogItem.id, so lookup is O(1).
+  const memory = buildBrokerMemoryViewModel({
+    reports: inputs.reports,
+    summaries: inputs.summaries,
+    evidence: inputs.evidence,
+    brokers: inputs.brokers,
+    stocks: inputs.stocks,
+    now,
+  })
 
   // Same-day coverage index: (utcDate, ticker) → set of brokerIds covering
   // that ticker that day. Used by the priority scorer.
@@ -138,8 +150,11 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
         now,
       })
 
+      const itemId = ticker ? `${r.id}:${ticker}` : (r.id as unknown as string)
+      const change = ticker ? memory.changeByKey.get(itemId) ?? null : null
+
       const item: WorklogItem = {
-        id: ticker ? `${r.id}:${ticker}` : (r.id as unknown as string),
+        id: itemId,
         reportId: r.id,
         ticker: ticker,
         brokerId: r.brokerId,
@@ -175,6 +190,7 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
         evidenceCount,
         hasDivergence,
         priority,
+        change,
       }
       scored.push(item)
     }

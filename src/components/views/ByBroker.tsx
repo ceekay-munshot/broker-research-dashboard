@@ -3,6 +3,8 @@ import type { FiltersState } from '../../app/filters'
 import type { BrokerCardViewModel } from '../../viewModels/byBroker'
 import { useByBrokerViewModel } from '../../viewModels/byBroker'
 import { STANCE_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
+import { useAdapterQuery } from '../../hooks/useAdapterQuery'
+import BrokerRecentChanges from '../broker/BrokerRecentChanges'
 
 interface ByBrokerProps {
   readonly filters: FiltersState
@@ -11,6 +13,8 @@ interface ByBrokerProps {
 
 export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
   const { data, loading, error } = useByBrokerViewModel(filters)
+  const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
+  const stocks  = useAdapterQuery((a, s) => a.listStocks(s), [])
 
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
   if (loading || !data) return <ViewMessage tone="loading" text="Loading by-broker view…"/>
@@ -27,6 +31,14 @@ export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
         {data.brokers.map((b) => <BrokerCard key={b.brokerId} b={b} onSelectReport={onSelectReport}/>)}
       </div>
+
+      {brokers.data && stocks.data && (
+        <BrokerRecentChanges
+          brokers={brokers.data}
+          stocks={stocks.data}
+          onSelectReport={onSelectReport}
+        />
+      )}
     </div>
   )
 }
