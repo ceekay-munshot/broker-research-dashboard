@@ -1,0 +1,17 @@
+{
+  "id": "raw_body_only_001",
+  "receivedAt": "2026-04-22T11:15:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-iifl-flash@iifl.com>",
+    "from": "IIFL Research <research@iifl.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "MARUTI — Flash: pricing pressure intensifies; PT ₹11,000",
+    "receivedAt": "2026-04-22T11:15:00.000Z",
+    "bodyText": "MARUTI — Flash note.\n\nWe maintain Hold on MARUTI with revised PT ₹11,000 (from ₹11,500). Q1 retail share lost ~120 bps to Hyundai/Toyota in compact-SUV. Risks: pricing-led volume risk persists into FY27.",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [],
+  "linkedRefs": []
+}

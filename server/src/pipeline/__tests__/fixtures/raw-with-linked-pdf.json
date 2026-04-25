@@ -1,0 +1,24 @@
+{
+  "id": "raw_linked_pdf_001",
+  "receivedAt": "2026-04-22T10:00:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-jmfl-itinitiation@jmfl.com>",
+    "from": "JMFL Research <research@jmfl.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "TCS — Initiation; PT ₹4,300",
+    "receivedAt": "2026-04-22T10:00:00.000Z",
+    "bodyText": "We initiate coverage on TCS with Buy. PT ₹4,300. Full deck linked: https://cdn.jmfl.com/research/TCS-init-2026-04.pdf",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [],
+  "linkedRefs": [
+    {
+      "url": "https://cdn.jmfl.com/research/TCS-init-2026-04.pdf",
+      "hint": "pdf",
+      "cachedContentType": "application/pdf",
+      "cachedText": "TCS — Initiation of Coverage.\n\nRecommendation: Buy. Target Price ₹4,300. We see deal-driven revenue acceleration through FY27 with EBIT margins recovering to 25%. Risks: US discretionary, INR strength, attrition."
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "id": "raw_linked_web_001",
+  "receivedAt": "2026-04-22T08:00:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-kotak-itnotes@kotak.com>",
+    "from": "Kotak Research <research@kotak.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "INFY — Update: pace of deal closures; PT ₹1,750",
+    "receivedAt": "2026-04-22T08:00:00.000Z",
+    "bodyText": "INFY: Buy reiterated. PT ₹1,750. Deal momentum into FY27 looks healthy. See https://research.kotak.com/notes/infy-2026-04-22 for the full note (no PDF attached).",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [],
+  "linkedRefs": [
+    {
+      "url": "https://research.kotak.com/notes/infy-2026-04-22",
+      "hint": "webpage",
+      "cachedContentType": "text/html",
+      "cachedText": "INFY — Update. We reiterate Buy. PT ₹1,750 (unchanged). Deal pipeline expanded by $1.8bn TCV in Q4. Margins held at 21.4% despite wage hikes. Risks: US BFSI slowdown."
+    }
+  ]
+}

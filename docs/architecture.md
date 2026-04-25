@@ -3,6 +3,11 @@
 This repository is a **read-only analytics / presentation client**. It is
 not the system of record. The intended production topology is:
 
+> The server-side raw-artifact processing pipeline that turns raw upstream
+> emails / PDFs / linked artifacts into the canonical `/v1` entities the
+> frontend consumes is documented separately:
+> [`docs/pipeline.md`](./pipeline.md).
+
 ```
         ┌────────────────────────────────────┐
         │     External Upstream API          │

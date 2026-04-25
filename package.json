@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit && tsc -p server/tsconfig.json",
     "test:contract": "tsx src/adapters/upstream/__tests__/contract.ts",
     "test:bridge":   "tsx src/adapters/rawUpstream/__tests__/bridge.ts",
+    "test:pipeline": "tsx server/src/pipeline/__tests__/pipeline.ts",
     "upstream:compare": "tsx src/adapters/upstream/__tests__/compare.ts",
     "upstream:ready":   "tsx src/adapters/upstream/__tests__/readiness.ts",
     "server:dev": "tsx server/src/index.ts",

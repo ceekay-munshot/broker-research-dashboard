@@ -1,0 +1,27 @@
+{
+  "id": "raw_direct_pdf_001",
+  "receivedAt": "2026-04-22T09:30:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-direct-tcs@kotak.com>",
+    "from": "Kotak Research <research@kotak.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "TCS — 4QFY26 Result Update; raises TP to ₹4,200",
+    "receivedAt": "2026-04-22T09:30:00.000Z",
+    "bodyText": "Dear Investor,\n\nWe maintain Buy on TCS and raise TP to ₹4,200 from ₹4,050. Q4 revenue beat consensus by 2.3% on BFSI strength. EBIT margin at 24.6% (+50bps QoQ). Order book TCV $12.1bn (book-to-bill 1.16x). Risks: US discretionary slowdown.\n\nFull report attached.",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [
+    {
+      "filename": "TCS-4QFY26-Result-Update.pdf",
+      "mimeType": "application/pdf",
+      "sizeBytes": 482931,
+      "storageRef": "fixture://raw-direct-pdf/TCS.pdf",
+      "pageCount": 14,
+      "language": "en",
+      "text": "TCS — 4QFY26 Result Update.\n\nRecommendation: Buy. PT ₹4,200 (prior ₹4,050).\n\nQ4 revenue +2.3% vs consensus on BFSI demand. EBIT margin 24.6%, +50bps QoQ on cost discipline. Order book at $12.1bn TCV (book-to-bill 1.16x — best in 4 quarters).\n\nRisks: US discretionary slowdown, INR appreciation."
+    }
+  ],
+  "linkedRefs": []
+}

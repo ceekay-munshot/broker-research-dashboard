@@ -1,0 +1,22 @@
+{
+  "id": "raw_malformed_001",
+  "receivedAt": "2026-04-22T07:30:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-malformed@kotak.com>",
+    "from": "Kotak Research <research@kotak.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "Multi-stock note — TCS Buy, MARUTI Sell mixed signals",
+    "receivedAt": "2026-04-22T07:30:00.000Z",
+    "bodyText": "TCS / MARUTI / LT — multi-name observations. We upgrade TCS to Buy and downgrade TCS to Sell on the same names. PT ₹4,200 then PT ₹3,500. Order book commentary unstructured.",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [],
+  "linkedRefs": [
+    {
+      "url": "https://broken.example.com/missing.pdf",
+      "hint": "pdf"
+    }
+  ]
+}

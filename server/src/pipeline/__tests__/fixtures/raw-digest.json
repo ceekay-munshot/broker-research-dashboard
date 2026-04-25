@@ -1,0 +1,17 @@
+{
+  "id": "raw_digest_001",
+  "receivedAt": "2026-04-22T06:45:00.000Z",
+  "orgId": "org_vimana",
+  "envelope": {
+    "messageId": "<20260422-jmfl-morning@jmfl.com>",
+    "from": "JMFL Morning Brief <morning@jmfl.com>",
+    "to": "vimana@vimanacapital.com",
+    "subject": "JMFL Morning Brief 22 Apr 2026",
+    "receivedAt": "2026-04-22T06:45:00.000Z",
+    "bodyText": "JMFL Morning Brief — 22 Apr 2026.\n\nMARUTI: Sell. TP ₹11,000 from ₹11,500. PV competition intensifies; H1 share loss expected. We downgrade to Sell.\n\nLT: Buy. TP ₹4,500. Order book strong at ₹5.2tn; capex discipline intact.\n\nTCS: Buy. TP ₹4,200 from ₹4,050. Margins expand on BFSI demand.\n",
+    "bodyHtml": null,
+    "forwardedBy": []
+  },
+  "attachmentRefs": [],
+  "linkedRefs": []
+}
