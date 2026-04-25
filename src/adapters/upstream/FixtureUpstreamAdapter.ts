@@ -25,6 +25,7 @@ import type {
   ResearchReport, ReportSummary, EvidenceSnippet,
   BrokerStockOpinion,
   KpiSnapshot, IngestionStatus,
+  PortfolioSnapshot,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../../domain'
@@ -194,6 +195,13 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
     const status = mapIngestionStatus(cloneFixture('ingestionStatus'))
     assertOrgMatch('IngestionStatus', scope, status.orgId as unknown as string)
     return status
+  }
+
+  // ── Portfolio / watchlist ──────────────────────────────────────────
+  // No fixture in this rehearsal mode; returning null exercises the
+  // dashboard's "no portfolio configured" degraded path.
+  async getPortfolioSnapshot(_scope: OrgScope): Promise<PortfolioSnapshot | null> {
+    return null
   }
 }
 

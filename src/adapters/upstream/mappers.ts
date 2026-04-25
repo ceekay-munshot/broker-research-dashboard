@@ -38,6 +38,7 @@ import type {
   ResearchReport, ReportSummary, EvidenceSnippet,
   BrokerStockOpinion,
   KpiSnapshot, IngestionStatus,
+  PortfolioSnapshot,
   Page,
 } from '../../domain'
 import type { ConflictClosure, SectorIntelligence } from '../../engine/types'
@@ -48,6 +49,7 @@ import {
   parseResearchReport, parseReportSummary, parseEvidenceSnippet,
   parseBrokerStockOpinion, parseConflictClosure, parseSectorIntelligence,
   parseKpiSnapshot, parseIngestionStatus, parsePage,
+  parsePortfolioSnapshot,
 } from '../http/parsers'
 import { ContractViolationError } from '../errors'
 import { asBrokerId } from '../../lib/ids'
@@ -316,6 +318,32 @@ export function mapIngestionStatus(raw: unknown, ctx: MappingContext = { endpoin
     aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
     coerceNumericFields(x, ['throughputPerHour'], 'IngestionStatus')
     return parseIngestionStatus(x)
+  })
+}
+
+// ── Portfolio / watchlist (Module 18) ────────────────────────────────────
+
+export function mapPortfolioSnapshot(
+  raw: unknown,
+  ctx: MappingContext = { endpoint: 'portfolioSnapshot' },
+): PortfolioSnapshot {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'PortfolioSnapshot', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    aliasField(x, 'id', ['portfolioId'], ctx.endpoint)
+    if (x.totalGrossExposurePct === undefined) {
+      warnMissingOptional(ctx.endpoint, 'totalGrossExposurePct', 'null')
+      x.totalGrossExposurePct = null
+    }
+    if (x.isConfigured === undefined) {
+      warnMissingOptional(ctx.endpoint, 'isConfigured', 'true')
+      x.isConfigured = true
+    }
+    fillOptionalArray(x, 'positions', ctx.endpoint)
+    fillOptionalArray(x, 'watchlist', ctx.endpoint)
+    coerceNumericFields(x, ['totalGrossExposurePct'], 'PortfolioSnapshot')
+    return parsePortfolioSnapshot(x)
   })
 }
 

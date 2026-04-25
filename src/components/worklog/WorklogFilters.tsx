@@ -1,5 +1,6 @@
 import type {
   WorklogFiltersState, WorklogDateWindow, WorklogGrouping, PriorityBucket, WorklogOrigin,
+  WorklogBookFilter,
 } from '../../viewModels/worklog'
 
 interface WorklogFiltersProps {
@@ -20,6 +21,15 @@ const GROUPINGS: readonly { key: WorklogGrouping; label: string }[] = [
   { key: 'priority',      label: 'Priority' },
   { key: 'broker',        label: 'Broker' },
   { key: 'stock',         label: 'Stock' },
+  { key: 'book',          label: 'Book' },
+]
+const BOOK_FILTERS: readonly { key: WorklogBookFilter; label: string }[] = [
+  { key: 'any',       label: 'Any' },
+  { key: 'book',      label: 'Book' },
+  { key: 'held',      label: 'Held' },
+  { key: 'watchlist', label: 'Watchlist' },
+  { key: 'against',   label: 'Against position' },
+  { key: 'uncovered', label: 'Not in book' },
 ]
 const BUCKETS: readonly { key: PriorityBucket; label: string }[] = [
   { key: 'high',   label: 'High' },
@@ -98,6 +108,24 @@ export default function WorklogFilters({ filters, setFilters }: WorklogFiltersPr
         <Chip active={filters.hasEvidence} onClick={() => toggleFlag('hasEvidence')}>Evidence</Chip>
       </FilterSection>
 
+      <Divider/>
+
+      {/* Book filter (Module 18) */}
+      <FilterSection label="Book">
+        {BOOK_FILTERS.map((b) => (
+          <Chip
+            key={b.key}
+            active={filters.bookFilter === b.key}
+            onClick={() => setFilters({ ...filters, bookFilter: b.key })}
+          >
+            {b.label}
+          </Chip>
+        ))}
+        <Chip active={filters.bookFirst} onClick={() => setFilters({ ...filters, bookFirst: !filters.bookFirst })}>
+          Book first
+        </Chip>
+      </FilterSection>
+
       <div className="ml-auto">
         <button
           onClick={() => setFilters({
@@ -105,6 +133,7 @@ export default function WorklogFilters({ filters, setFilters }: WorklogFiltersPr
             brokerIds: [], tickers: [], sectorIds: [], reportTypes: [],
             stances: [], ratings: [], priorityBuckets: [], origins: [],
             hasTargetChange: false, hasDivergence: false, hasEvidence: false,
+            bookFilter: 'any', bookFirst: false,
           })}
           className="text-slate-500 hover:text-slate-300 text-[11px]"
         >

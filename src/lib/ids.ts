@@ -1,7 +1,7 @@
 import type {
   OrgId, UserId, BrokerId, EmailId, AttachmentId,
   ReportId, SummaryId, EvidenceId, SectorId,
-  IngestionJobId, StockTicker,
+  IngestionJobId, StockTicker, PortfolioId,
 } from '../domain/ids'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
@@ -19,3 +19,4 @@ export const asEvidenceId     = (s: string): EvidenceId     => s as EvidenceId
 export const asSectorId       = (s: string): SectorId       => s as SectorId
 export const asIngestionJobId = (s: string): IngestionJobId => s as IngestionJobId
 export const asTicker         = (s: string): StockTicker    => s as StockTicker
+export const asPortfolioId    = (s: string): PortfolioId    => s as PortfolioId

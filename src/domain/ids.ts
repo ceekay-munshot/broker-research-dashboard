@@ -14,6 +14,7 @@ export type SummaryId      = string & { readonly [brand]: 'SummaryId' }
 export type EvidenceId     = string & { readonly [brand]: 'EvidenceId' }
 export type SectorId       = string & { readonly [brand]: 'SectorId' }
 export type IngestionJobId = string & { readonly [brand]: 'IngestionJobId' }
+export type PortfolioId    = string & { readonly [brand]: 'PortfolioId' }
 
 // Tickers are branded too so they cannot be confused with arbitrary strings.
 export type StockTicker = string & { readonly [brand]: 'StockTicker' }

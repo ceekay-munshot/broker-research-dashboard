@@ -6,9 +6,10 @@ import {
 } from '../viewModels/worklog'
 import type {
   ReportSummary, EvidenceSnippet, BrokerStockOpinion,
-  ResearchReport, BrokerEmail,
+  ResearchReport, BrokerEmail, PortfolioSnapshot,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
+import { buildPortfolioOverlay, EMPTY_PORTFOLIO_OVERLAY } from '../viewModels/portfolio'
 
 /** Stable primitive dep fingerprint for worklog filters. */
 function worklogFiltersFingerprint(f: WorklogFiltersState): string {
@@ -23,6 +24,7 @@ function worklogFiltersFingerprint(f: WorklogFiltersState): string {
     [...f.priorityBuckets].sort().join(','),
     [...f.origins].sort().join(','),
     String(f.hasTargetChange), String(f.hasDivergence), String(f.hasEvidence),
+    f.bookFilter, String(f.bookFirst),
   ].join('|')
 }
 
@@ -87,6 +89,14 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     [],
   )
 
+  const portfolioQ = useAdapterQuery<PortfolioSnapshot | null>(
+    async (a, s) => {
+      try { return await a.getPortfolioSnapshot(s) }
+      catch { return null }
+    },
+    [],
+  )
+
   const requiredLoading = brokers.loading || sectors.loading || stocks.loading || reports.loading
   const requiredError   = brokers.error ?? sectors.error ?? stocks.error ?? reports.error
 
@@ -98,6 +108,7 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     || (opinionsQ.loading && !opinionsQ.data)
     || (closuresQ.loading && !closuresQ.data)
     || (brokerEmailsQ.loading && !brokerEmailsQ.data)
+    || (portfolioQ.loading && !portfolioQ.data)
 
   if (requiredLoading || optionalFirstLoad) return { data: null, loading: true, error: null }
   if (requiredError) return { data: null, loading: false, error: requiredError }
@@ -111,6 +122,7 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
   const opinionsArr  = opinionsQ.data ?? []
   const closuresArr  = closuresQ.data ?? []
   const emailsArr    = brokerEmailsQ.data ?? []
+  const snapshot     = portfolioQ.data ?? null
 
   const degradations: string[] = []
   if (summariesArr.length === 0)  degradations.push('No report summaries available — showing skeleton content only.')
@@ -118,6 +130,18 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
   if (closuresArr.length === 0)   degradations.push('No conflict closures — divergence inferred from opinions where possible.')
   if (opinionsArr.length === 0)   degradations.push('No broker opinions — multi-broker convergence and divergence signals unavailable.')
   if (emailsArr.length === 0)     degradations.push('No broker emails — parent-email lineage hidden.')
+  if (snapshot === null)          degradations.push('No portfolio configured — book overlay disabled. See My Book tab.')
+
+  const overlay = snapshot
+    ? buildPortfolioOverlay({
+        snapshot,
+        reports: reportsArr,
+        summaries: summariesArr,
+        opinions: opinionsArr,
+        closures: closuresArr,
+        stocks: stocks.data,
+      })
+    : EMPTY_PORTFOLIO_OVERLAY
 
   const vm = buildDailyWorklogViewModel({
     reports: reportsArr,
@@ -131,6 +155,7 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     stocks: stocks.data,
     filters,
     degradations,
+    portfolio: overlay,
   })
   return { data: vm, loading: false, error: null }
 }

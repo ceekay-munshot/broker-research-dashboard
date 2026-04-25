@@ -13,6 +13,7 @@
 import type {
   BrokerId, ReportId, SectorId, StockTicker,
   Stance, Rating, Iso8601, IsoCurrency, EmailId,
+  PortfolioRelevance, PortfolioMembership,
 } from '../../domain'
 import type { ReportChangeSet } from '../brokerMemory/types'
 
@@ -106,6 +107,16 @@ export interface WorklogItem {
    *  broker-memory layer hasn't produced a linkage (e.g. ticker is null
    *  or degraded mode). See `src/viewModels/brokerMemory/`. */
   readonly change: ReportChangeSet | null
+
+  /** Portfolio overlay (Module 18). Null when no portfolio is configured;
+   *  membership/relevance are populated when one is. */
+  readonly book: WorklogBookOverlay | null
+}
+
+/** The portfolio decoration on a single worklog item. */
+export interface WorklogBookOverlay {
+  readonly membership: PortfolioMembership
+  readonly relevance: PortfolioRelevance
 }
 
 // ── Daily summary header ─────────────────────────────────────────────────
@@ -125,7 +136,16 @@ export interface DailyWorklogSummary {
 // ── Filters + grouping ───────────────────────────────────────────────────
 
 export type WorklogDateWindow = 'today' | 'last3' | 'last7' | 'all'
-export type WorklogGrouping   = 'chronological' | 'broker' | 'stock' | 'priority'
+export type WorklogGrouping   = 'chronological' | 'broker' | 'stock' | 'priority' | 'book'
+
+/** Book-aware filter mode. `any` means no portfolio filtering. */
+export type WorklogBookFilter =
+  | 'any'
+  | 'held'
+  | 'watchlist'
+  | 'book'         // held + watchlist
+  | 'uncovered'    // adjacent or none
+  | 'against'      // broker view opposes the position
 
 export interface WorklogFiltersState {
   readonly dateWindow: WorklogDateWindow
@@ -142,6 +162,11 @@ export interface WorklogFiltersState {
   readonly hasDivergence: boolean
   readonly hasEvidence: boolean
   readonly grouping: WorklogGrouping
+  /** Portfolio-aware filter. `any` is the no-portfolio default. */
+  readonly bookFilter: WorklogBookFilter
+  /** When true and a portfolio is loaded, items are sorted with
+   *  book-relevance dominating the priority score. */
+  readonly bookFirst: boolean
 }
 
 export const DEFAULT_WORKLOG_FILTERS: WorklogFiltersState = {
@@ -158,6 +183,8 @@ export const DEFAULT_WORKLOG_FILTERS: WorklogFiltersState = {
   hasDivergence: false,
   hasEvidence: false,
   grouping: 'chronological',
+  bookFilter: 'any',
+  bookFirst: false,
 }
 
 // ── Grouped output ───────────────────────────────────────────────────────

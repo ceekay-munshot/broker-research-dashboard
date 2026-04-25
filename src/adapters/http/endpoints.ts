@@ -48,4 +48,7 @@ export const endpoints = {
   // Dashboard + ops
   kpiSnapshot:     () => v1('/kpi-snapshot'),
   ingestionStatus: () => v1('/ingestion-status'),
+
+  // Portfolio / watchlist
+  portfolioSnapshot: () => v1('/portfolio-snapshot'),
 } as const

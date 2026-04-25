@@ -6,6 +6,7 @@ import type {
   Sector,
   KpiSnapshot,
   IngestionStatus,
+  PortfolioSnapshot,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -28,6 +29,7 @@ import {
   ingestionJobs, kpiSnapshots, ingestionStatuses,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
+import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfolio/PortfolioInputProvider'
 
 // In-memory adapter that serves fixtures from src/mocks/* plus runs the
 // deterministic src/engine/ analysis layer on demand. Every call filters by
@@ -40,9 +42,11 @@ import {
 // setResearchAdapter().
 export class MockResearchAdapter implements ResearchAdapter {
   private readonly simulatedLatencyMs: number
+  private readonly portfolioProvider: PortfolioInputProvider
 
-  constructor(opts: { simulatedLatencyMs?: number } = {}) {
+  constructor(opts: { simulatedLatencyMs?: number; portfolioProvider?: PortfolioInputProvider } = {}) {
     this.simulatedLatencyMs = opts.simulatedLatencyMs ?? 80
+    this.portfolioProvider = opts.portfolioProvider ?? new FixturePortfolioProvider()
   }
 
   // ── Session ──────────────────────────────────────────────────────────
@@ -315,6 +319,11 @@ export class MockResearchAdapter implements ResearchAdapter {
     const snap = kpiSnapshots.find((k) => k.orgId === scope.orgId)
     if (!snap) throw new NotFoundError(`No KPI snapshot for org ${scope.orgId}`)
     return snap
+  }
+
+  async getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null> {
+    await this.delay()
+    return this.portfolioProvider.getPortfolioSnapshot(scope)
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {

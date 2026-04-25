@@ -86,6 +86,9 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   // Dashboard / ops — required for header + ingestion chip.
   { key: 'kpiSnapshot',        endpoint: 'GET /v1/kpi-snapshot',        requirement: 'required', description: 'Headline KPIs for the dashboard header.',                            tolerate404: false },
   { key: 'ingestionStatus',    endpoint: 'GET /v1/ingestion-status',    requirement: 'required', description: 'Pipeline ops counters shown in the header chip.',                    tolerate404: false },
+
+  // Portfolio / watchlist — fully optional. 404 is treated as "no portfolio".
+  { key: 'portfolioSnapshot',  endpoint: 'GET /v1/portfolio-snapshot',  requirement: 'optional', description: "Org's current portfolio + watchlist snapshot. 404 → no portfolio configured.", tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

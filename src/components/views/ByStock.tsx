@@ -7,6 +7,7 @@ import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
+import BookBadge from '../portfolio/BookBadge'
 
 interface ByStockProps {
   readonly filters: FiltersState
@@ -42,10 +43,11 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
       </div>
 
       <div className="panel overflow-x-auto">
-        <table className="w-full min-w-[1060px] text-[12px]">
+        <table className="w-full min-w-[1180px] text-[12px]">
           <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 bg-ink-900/70 z-10">Ticker</th>
+              <th className="px-3 py-2 font-medium">Book</th>
               <th className="px-3 py-2 font-medium">Sector</th>
               <th className="px-3 py-2 font-medium">Street state</th>
               <th className="px-3 py-2 font-medium text-right">Spot</th>
@@ -118,9 +120,10 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
 }) {
+  const heldTint = row.book?.membership === 'held' ? 'bg-emerald-500/[0.04]' : ''
   return (
-    <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
-      <td className="px-3 py-2 sticky left-0 bg-ink-900/70 z-10">
+    <tr className={`border-b border-line/5 ${heldTint || (zebra ? 'bg-line/[0.01]' : '')}`}>
+      <td className={`px-3 py-2 sticky left-0 z-10 ${heldTint ? 'bg-ink-900/80' : 'bg-ink-900/70'}`}>
         <button
           onClick={() => onSelectTicker(row.ticker)}
           className="flex flex-col text-left hover:text-accent transition-colors"
@@ -128,6 +131,28 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           <span className="text-slate-100 font-semibold hover:text-accent">{row.ticker}</span>
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
         </button>
+      </td>
+      <td className="px-3 py-2">
+        {row.book ? (
+          <div className="flex flex-col gap-0.5">
+            <BookBadge
+              membership={row.book.membership}
+              direction={row.book.direction}
+              weightPct={row.book.weightPct}
+              conviction={row.book.conviction}
+              compact
+            />
+            {row.book.membership !== 'none' && (
+              <span className="text-[10px] text-slate-500 num">
+                {row.book.distinctBrokersLast7d}br · {row.book.daysSinceLastReport === null ? '—' : `${row.book.daysSinceLastReport}d`}
+                {row.book.riskFlags.includes('stale_coverage') && <span className="text-amber-400"> · stale</span>}
+                {row.book.riskFlags.includes('single_broker_coverage') && <span className="text-amber-400"> · 1br</span>}
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-[11px] text-slate-600">—</span>
+        )}
       </td>
       <td className="px-3 py-2 text-slate-300 text-[11.5px]">{row.sectorName}</td>
       <td className="px-3 py-2">

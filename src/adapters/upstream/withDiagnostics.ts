@@ -33,6 +33,7 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   listSectorIntelligence:   'sectorIntelligence',
   getKpiSnapshot:           'kpiSnapshot',
   getIngestionStatus:       'ingestionStatus',
+  getPortfolioSnapshot:     'portfolioSnapshot',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

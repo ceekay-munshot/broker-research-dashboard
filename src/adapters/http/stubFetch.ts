@@ -149,6 +149,12 @@ function installRoutes(): void {
 
   push('/v1/kpi-snapshot',     async ({ mock, scope }) => await mock.getKpiSnapshot(scope))
   push('/v1/ingestion-status', async ({ mock, scope }) => await mock.getIngestionStatus(scope))
+
+  push('/v1/portfolio-snapshot', async ({ mock, scope }) => {
+    const snap = await mock.getPortfolioSnapshot(scope)
+    if (snap === null) throw new NotFoundError('no portfolio configured')
+    return snap
+  })
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

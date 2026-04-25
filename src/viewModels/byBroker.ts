@@ -1,13 +1,15 @@
 import type {
   Broker, ResearchReport, ReportSummary, Stance,
-  BrokerId,
+  BrokerId, PortfolioSnapshot, BrokerStockOpinion, Stock,
 } from '../domain'
+import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import {
   buildFeedItem, indexBy, type FeedItemViewModel,
 } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint, resolveSince } from '../app/filters'
+import { buildPortfolioOverlay } from './portfolio'
 
 export interface BrokerCardViewModel {
   readonly brokerId: BrokerId
@@ -18,6 +20,23 @@ export interface BrokerCardViewModel {
   readonly stanceCounts: Readonly<Record<Stance, number>>
   readonly topThemes: readonly { readonly theme: string; readonly count: number }[]
   readonly latestReports: readonly FeedItemViewModel[]
+  /** Module 18: items this broker published on book / watchlist names. */
+  readonly bookActivity: BrokerBookActivity
+}
+
+export interface BrokerBookActivity {
+  readonly hasPortfolio: boolean
+  readonly onBookCount: number
+  readonly outlierOnBookCount: number
+  /** Latest items on book/watchlist names (max 3). */
+  readonly latestOnBook: readonly BrokerBookActivityItem[]
+}
+
+export interface BrokerBookActivityItem extends FeedItemViewModel {
+  readonly membership: 'held' | 'watchlist'
+  readonly relevanceBucket: 'critical' | 'high' | 'medium' | 'low' | 'none'
+  readonly bookSummary: string
+  readonly isOutlier: boolean
 }
 
 export interface ByBrokerViewModel {
@@ -29,12 +48,31 @@ interface Inputs {
   readonly reports: readonly ResearchReport[]
   readonly summaries: readonly ReportSummary[]
   readonly filters: FiltersState
+  /** Module 18: optional portfolio inputs. When absent, bookActivity is empty. */
+  readonly portfolio?: {
+    readonly snapshot: PortfolioSnapshot | null
+    readonly opinions: readonly BrokerStockOpinion[]
+    readonly closures: readonly ConflictClosure[]
+    readonly stocks: readonly Stock[]
+  }
 }
 
 export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
   const brokerFilter = new Set<string>(inputs.filters.brokerIds as readonly string[])
   const brokers = inputs.brokers.filter((b) => brokerFilter.size === 0 || brokerFilter.has(b.id as string))
+
+  // Module 18: build portfolio overlay once if portfolio inputs are provided.
+  const overlay = inputs.portfolio?.snapshot
+    ? buildPortfolioOverlay({
+        snapshot: inputs.portfolio.snapshot,
+        reports: inputs.reports,
+        summaries: inputs.summaries,
+        opinions: inputs.portfolio.opinions,
+        closures: inputs.portfolio.closures,
+        stocks: inputs.portfolio.stocks,
+      })
+    : null
 
   const cards = brokers.map<BrokerCardViewModel>((broker) => {
     const theirs = inputs.reports
@@ -62,6 +100,54 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       r, summaryByReport.get(r.id as string) ?? null, broker,
     ))
 
+    // Module 18: items this broker published on the book / watchlist.
+    const bookActivity: BrokerBookActivity = (() => {
+      if (!overlay || !overlay.hasPortfolio) {
+        return { hasPortfolio: false, onBookCount: 0, outlierOnBookCount: 0, latestOnBook: [] }
+      }
+      const items: BrokerBookActivityItem[] = []
+      let outlierCount = 0
+      for (const r of theirs) {
+        for (const t of r.tickers) {
+          const tk = t as string
+          const ctx = overlay.contextByTicker.get(tk)
+          if (!ctx) continue
+          if (ctx.membership !== 'held' && ctx.membership !== 'watchlist') continue
+          const rel = overlay.relevanceByKey.get(`${r.id}:${tk}`)
+          if (!rel) continue
+          const cov = overlay.coverageByTicker.get(tk)
+          const isOutlier = cov?.hasOutlier
+            ? !!inputs.portfolio?.closures
+                .find((c) => (c.ticker as string) === tk)
+                ?.outliers.find((o) => (o.brokerId as string) === (broker.id as string))
+            : false
+          if (isOutlier) outlierCount++
+          const feed = buildFeedItem(r, summaryByReport.get(r.id as string) ?? null, broker)
+          items.push({
+            ...feed,
+            ticker: t,
+            membership: ctx.membership,
+            relevanceBucket: rel.bucket,
+            bookSummary: rel.bookSummary,
+            isOutlier,
+          })
+        }
+      }
+      items.sort((a, b) => {
+        const order = { critical: 0, high: 1, medium: 2, low: 3, none: 4 }
+        const ar = order[a.relevanceBucket]
+        const br = order[b.relevanceBucket]
+        if (ar !== br) return ar - br
+        return b.publishedAt.localeCompare(a.publishedAt)
+      })
+      return {
+        hasPortfolio: true,
+        onBookCount: items.length,
+        outlierOnBookCount: outlierCount,
+        latestOnBook: items.slice(0, 3),
+      }
+    })()
+
     return {
       brokerId: broker.id,
       name: broker.name,
@@ -71,8 +157,18 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       stanceCounts,
       topThemes,
       latestReports,
+      bookActivity,
     }
   })
+
+  if (overlay && overlay.hasPortfolio) {
+    cards.sort((a, b) => {
+      if (a.bookActivity.onBookCount !== b.bookActivity.onBookCount) {
+        return b.bookActivity.onBookCount - a.bookActivity.onBookCount
+      }
+      return b.reportCount - a.reportCount
+    })
+  }
 
   return { brokers: cards }
 }
@@ -82,6 +178,7 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
   const fp = filtersFingerprint(filters)
 
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
+  const stocks  = useAdapterQuery((a, s) => a.listStocks(s),  [])
   const reportsPage = useAdapterQuery(
     (a, s) => a.listResearchReports(s, {
       since,
@@ -99,12 +196,22 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
       .then((rs) => rs.filter((x): x is NonNullable<typeof x> => x !== null))
   }, [needsSummaries.join(',')])
 
-  const loading = brokers.loading || reportsPage.loading || summariesQuery.loading
-  const error = brokers.error ?? reportsPage.error ?? summariesQuery.error
+  const opinionsQ = useAdapterQuery<readonly BrokerStockOpinion[]>(
+    async (a, s) => { try { return await a.listBrokerStockOpinions(s) } catch { return [] } }, [],
+  )
+  const closuresQ = useAdapterQuery<readonly ConflictClosure[]>(
+    async (a, s) => { try { return await a.listConflictClosures(s) } catch { return [] } }, [],
+  )
+  const portfolioQ = useAdapterQuery<PortfolioSnapshot | null>(
+    async (a, s) => { try { return await a.getPortfolioSnapshot(s) } catch { return null } }, [],
+  )
+
+  const loading = brokers.loading || reportsPage.loading || summariesQuery.loading || stocks.loading
+  const error = brokers.error ?? reportsPage.error ?? summariesQuery.error ?? stocks.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!brokers.data || !reportsPage.data || !summariesQuery.data) {
+  if (!brokers.data || !reportsPage.data || !summariesQuery.data || !stocks.data) {
     return { data: null, loading: true, error: null }
   }
 
@@ -113,6 +220,12 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
     reports: reportsPage.data.items,
     summaries: summariesQuery.data,
     filters,
+    portfolio: {
+      snapshot: portfolioQ.data ?? null,
+      opinions: opinionsQ.data ?? [],
+      closures: closuresQ.data ?? [],
+      stocks: stocks.data,
+    },
   })
   return { data: vm, loading: false, error: null }
 }

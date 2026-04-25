@@ -7,6 +7,8 @@ import type {
   Sector,
   KpiSnapshot, KpiDelta,
   IngestionStatus, EmailProcessingStatus,
+  PortfolioSnapshot, PortfolioPosition, WatchlistEntry,
+  PortfolioDirection, PortfolioConviction,
   OrgScope, Page, Stance, Rating,
 } from '../../domain'
 import type {
@@ -18,7 +20,7 @@ import type {
 } from '../../engine/types'
 import {
   asOrgId, asUserId, asBrokerId, asEmailId, asAttachmentId,
-  asReportId, asSummaryId, asEvidenceId, asSectorId, asTicker,
+  asReportId, asSummaryId, asEvidenceId, asSectorId, asTicker, asPortfolioId,
 } from '../../lib/ids'
 import { ContractViolationError } from '../errors'
 
@@ -557,6 +559,60 @@ export function parseIngestionStatus(raw: unknown, path = 'IngestionStatus'): In
     readyLast24h: asInt(x.readyLast24h, `${path}.readyLast24h`),
     failedLast24h: asInt(x.failedLast24h, `${path}.failedLast24h`),
     throughputPerHour: asNumber(x.throughputPerHour, `${path}.throughputPerHour`),
+  }
+}
+
+// ─── Portfolio / watchlist ────────────────────────────────────────────
+
+const PF_DIRECTIONS: readonly PortfolioDirection[] = ['long', 'short', 'hedge']
+const PF_CONVICTIONS: readonly PortfolioConviction[] = ['high', 'medium', 'low']
+
+export function parsePortfolioSnapshot(raw: unknown, path = 'PortfolioSnapshot'): PortfolioSnapshot {
+  const x = asObject(raw, path)
+  return {
+    id: asPortfolioId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    asOf: asString(x.asOf, `${path}.asOf`),
+    source: asString(x.source, `${path}.source`),
+    positions: asArray(x.positions, `${path}.positions`)
+      .map((p, i) => parsePortfolioPosition(p, `${path}.positions[${i}]`)),
+    watchlist: asArray(x.watchlist, `${path}.watchlist`)
+      .map((w, i) => parseWatchlistEntry(w, `${path}.watchlist[${i}]`)),
+    totalGrossExposurePct: asNumberOrNull(x.totalGrossExposurePct, `${path}.totalGrossExposurePct`),
+    isConfigured: asBoolean(x.isConfigured, `${path}.isConfigured`),
+  }
+}
+
+function parsePortfolioPosition(raw: unknown, path: string): PortfolioPosition {
+  const x = asObject(raw, path)
+  const conviction = x.conviction === null
+    ? null
+    : asEnum<PortfolioConviction>(x.conviction, PF_CONVICTIONS, `${path}.conviction`)
+  return {
+    portfolioId: asPortfolioId(asString(x.portfolioId, `${path}.portfolioId`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    direction: asEnum<PortfolioDirection>(x.direction, PF_DIRECTIONS, `${path}.direction`),
+    weightPct: asNumberOrNull(x.weightPct, `${path}.weightPct`),
+    costBasis: asNumberOrNull(x.costBasis, `${path}.costBasis`),
+    conviction,
+    tags: asStringArray(x.tags, `${path}.tags`),
+    ownerUserId: x.ownerUserId === null ? null : asUserId(asString(x.ownerUserId, `${path}.ownerUserId`)),
+    openedAt: asStringOrNull(x.openedAt, `${path}.openedAt`),
+    note: asStringOrNull(x.note, `${path}.note`),
+  }
+}
+
+function parseWatchlistEntry(raw: unknown, path: string): WatchlistEntry {
+  const x = asObject(raw, path)
+  return {
+    portfolioId: asPortfolioId(asString(x.portfolioId, `${path}.portfolioId`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    addedAt: asString(x.addedAt, `${path}.addedAt`),
+    tags: asStringArray(x.tags, `${path}.tags`),
+    ownerUserId: x.ownerUserId === null ? null : asUserId(asString(x.ownerUserId, `${path}.ownerUserId`)),
+    note: asStringOrNull(x.note, `${path}.note`),
   }
 }
 

@@ -1,6 +1,7 @@
 import type {
   BrokerEmail, ResearchReport, OrgScope, StockTicker, SectorId, ReportId, EmailId, Stance, Rating, Stock, Sector, Broker, Organization, User,
   EmailProcessingStatus, KpiSnapshot, IngestionStatus, Page,
+  PortfolioSnapshot,
 } from '../../../src/domain'
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
@@ -13,6 +14,7 @@ import {
 } from '../config/organizations'
 import { VIMANA_ORG_ID } from '../../../src/mocks/organizations'
 import { VIMANA_USER_ID } from '../../../src/mocks/users'
+import { portfolioSnapshots } from '../../../src/mocks/portfolios'
 
 // Every route from docs/api-contract.md. Shapes the JSON exactly as the
 // frontend's HttpResearchAdapter parsers expect.
@@ -245,6 +247,13 @@ export function buildRouter(store: InMemoryStore): Router {
       },
     }
     reply.ok(res, snapshot)
+  })
+
+  // ── Portfolio / watchlist (Module 18) ─────────────────────────────
+  r.get('/v1/portfolio-snapshot', ({ res, scope }) => {
+    const snap: PortfolioSnapshot | undefined = portfolioSnapshots.find((p) => p.orgId === scope.orgId)
+    if (!snap) return reply.notFound(res, `no portfolio configured for org ${scope.orgId}`)
+    reply.ok(res, snap)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

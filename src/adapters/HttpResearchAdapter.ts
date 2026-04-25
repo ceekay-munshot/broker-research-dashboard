@@ -6,6 +6,7 @@ import type {
   Sector,
   KpiSnapshot,
   IngestionStatus,
+  PortfolioSnapshot,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -26,6 +27,7 @@ import {
   mapConflictClosure, mapConflictClosures,
   mapSectorIntelligence, mapSectorIntelligenceList,
   mapKpiSnapshot, mapIngestionStatus,
+  mapPortfolioSnapshot,
 } from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
@@ -253,6 +255,18 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const status = mapIngestionStatus(raw)
     assertOrgMatch('IngestionStatus', scope, status.orgId as unknown as string)
     return status
+  }
+
+  // ── Portfolio / watchlist ──────────────────────────────────────────
+
+  async getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null> {
+    const raw = await this.client.requestOrNull(endpoints.portfolioSnapshot(), scope, {
+      endpointKey: 'portfolioSnapshot',
+    })
+    if (raw === null) return null
+    const snap = mapPortfolioSnapshot(raw)
+    assertOrgMatch('PortfolioSnapshot', scope, snap.orgId as unknown as string)
+    return snap
   }
 }
 

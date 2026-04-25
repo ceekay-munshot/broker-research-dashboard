@@ -1,12 +1,15 @@
 import type {
   Broker, BrokerStockOpinion, Stock,
   BrokerId, StockTicker, Rating, Stance, ReportId,
+  PortfolioMembership, PortfolioDirection, PortfolioConviction,
+  PortfolioCoverageSummary, PortfolioSnapshot,
 } from '../domain'
 import type { ConflictClosure, ResultantState, StrengthBand } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint } from '../app/filters'
+import { buildPortfolioOverlay } from './portfolio'
 
 export interface OpinionCell {
   readonly brokerId: BrokerId
@@ -37,6 +40,18 @@ export interface ByStockRowViewModel {
   readonly resultantStrength: StrengthBand
   readonly outlierBrokerIds: readonly BrokerId[]
   readonly opinionsByBroker: Readonly<Record<BrokerId, OpinionCell | undefined>>
+  /** Module 18 portfolio context. Null when no portfolio is configured. */
+  readonly book: ByStockBookContext | null
+}
+
+export interface ByStockBookContext {
+  readonly membership: PortfolioMembership
+  readonly direction: PortfolioDirection | null
+  readonly conviction: PortfolioConviction | null
+  readonly weightPct: number | null
+  readonly daysSinceLastReport: number | null
+  readonly distinctBrokersLast7d: number
+  readonly riskFlags: readonly string[]
 }
 
 export interface ByStockViewModel {
@@ -51,6 +66,8 @@ interface Inputs {
   readonly closures: readonly ConflictClosure[]
   readonly sectorNameById: ReadonlyMap<string, string>
   readonly filters: FiltersState
+  /** Per-ticker portfolio coverage. Empty map when no portfolio. */
+  readonly coverageByTicker?: ReadonlyMap<string, PortfolioCoverageSummary>
 }
 
 export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
@@ -96,6 +113,19 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       ? ((avgTarget / stock.lastPrice) - 1) * 100
       : null
 
+    const cov = inputs.coverageByTicker?.get(stock.ticker as string) ?? null
+    const book: ByStockBookContext | null = cov
+      ? {
+          membership: cov.membership,
+          direction: cov.direction,
+          conviction: cov.conviction,
+          weightPct: cov.weightPct,
+          daysSinceLastReport: cov.activity.daysSinceLastReport,
+          distinctBrokersLast7d: cov.activity.distinctBrokersLast7d,
+          riskFlags: cov.riskFlags,
+        }
+      : null
+
     return {
       ticker: stock.ticker,
       stockName: stock.name,
@@ -111,8 +141,22 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       resultantStrength: closure?.resultant.strength ?? 'weak',
       outlierBrokerIds: closure?.outliers.map((o) => o.brokerId) ?? [],
       opinionsByBroker: opinionsByBroker as Readonly<Record<BrokerId, OpinionCell | undefined>>,
+      book,
     }
   })
+
+  // If a portfolio is loaded, sort book rows first.
+  if (inputs.coverageByTicker && inputs.coverageByTicker.size > 0) {
+    rows.sort((a, b) => {
+      const am = membershipRank(a.book?.membership)
+      const bm = membershipRank(b.book?.membership)
+      if (am !== bm) return am - bm
+      if (a.book?.membership === 'held' && b.book?.membership === 'held') {
+        return (b.book.weightPct ?? 0) - (a.book.weightPct ?? 0)
+      }
+      return (a.ticker as string).localeCompare(b.ticker as string)
+    })
+  }
 
   // Column set: brokers with at least one opinion on screen.
   const shownBrokerIds = new Set<string>()
@@ -122,6 +166,13 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
   const shownBrokers = inputs.brokers.filter((b) => shownBrokerIds.has(b.id as string))
 
   return { rows, brokers: shownBrokers }
+}
+
+function membershipRank(m: PortfolioMembership | undefined): number {
+  if (m === 'held') return 0
+  if (m === 'watchlist') return 1
+  if (m === 'adjacent') return 2
+  return 3
 }
 
 export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockViewModel> {
@@ -138,6 +189,17 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
     [fp],
   )
   const closures = useAdapterQuery((a, s) => a.listConflictClosures(s), [])
+  const reports = useAdapterQuery(
+    (a, s) => a.listResearchReports(s, { limit: 200 }),
+    [],
+  )
+  const portfolio = useAdapterQuery<PortfolioSnapshot | null>(
+    async (a, s) => {
+      try { return await a.getPortfolioSnapshot(s) }
+      catch { return null }
+    },
+    [],
+  )
 
   const loading = stocks.loading || brokers.loading || sectors.loading || opinions.loading || closures.loading
   const error = stocks.error ?? brokers.error ?? sectors.error ?? opinions.error ?? closures.error
@@ -149,6 +211,17 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
   }
 
   const sectorNameById = new Map(sectors.data.map((s) => [s.id as string, s.name]))
+  const overlay = portfolio.data
+    ? buildPortfolioOverlay({
+        snapshot: portfolio.data,
+        reports: reports.data?.items ?? [],
+        summaries: [],
+        opinions: opinions.data,
+        closures: closures.data,
+        stocks: stocks.data,
+      })
+    : null
+
   const vm = buildByStockViewModel({
     stocks: stocks.data,
     brokers: brokers.data,
@@ -156,6 +229,7 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
     closures: closures.data,
     sectorNameById,
     filters,
+    coverageByTicker: overlay?.coverageByTicker,
   })
   return { data: vm, loading: false, error: null }
 }

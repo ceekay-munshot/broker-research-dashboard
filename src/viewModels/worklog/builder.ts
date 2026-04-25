@@ -22,9 +22,10 @@ import type {
 } from '../../domain'
 import type { ConflictClosure } from '../../engine/types'
 import { indexBy, groupBy } from '../shared'
+import type { PortfolioOverlay } from '../portfolio/types'
 import type {
   DailyWorklogSummary, DailyWorklogViewModel, WorklogFiltersState, WorklogGroup,
-  WorklogItem, WorklogOrigin,
+  WorklogItem, WorklogOrigin, WorklogBookOverlay,
 } from './types'
 import { scoreWorklogItem } from './priority'
 import { dedupeWorklogItems } from './dedupe'
@@ -45,6 +46,10 @@ export interface WorklogBuilderInputs {
   readonly now?: Date
   /** Resource-level degradation notes captured by the caller. */
   readonly degradations?: readonly string[]
+  /** Portfolio overlay (Module 18). When provided and configured, every
+   *  worklog item gets a `book` decoration and the bookFilter / bookFirst
+   *  filter knobs apply. */
+  readonly portfolio?: PortfolioOverlay
 }
 
 export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyWorklogViewModel {
@@ -153,6 +158,14 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
       const itemId = ticker ? `${r.id}:${ticker}` : (r.id as unknown as string)
       const change = ticker ? memory.changeByKey.get(itemId) ?? null : null
 
+      // Portfolio overlay decoration. The relevance map is keyed exactly
+      // the same as `itemId` so lookup is O(1).
+      let book: WorklogBookOverlay | null = null
+      if (inputs.portfolio && inputs.portfolio.hasPortfolio) {
+        const rel = inputs.portfolio.relevanceByKey.get(itemId)
+        if (rel) book = { membership: rel.membership, relevance: rel }
+      }
+
       const item: WorklogItem = {
         id: itemId,
         reportId: r.id,
@@ -191,6 +204,7 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
         hasDivergence,
         priority,
         change,
+        book,
       }
       scored.push(item)
     }
@@ -209,7 +223,11 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
   const filtered = canonicalAll.filter((it) => passesFilters(it, inputs.filters, now))
 
   // ── Step 7: grouping + ordering. ───────────────────────────────────────
-  const sorted = [...filtered].sort(compareByPriorityThenRecency)
+  const sorted = [...filtered].sort(
+    inputs.filters.bookFirst && inputs.portfolio?.hasPortfolio
+      ? compareByBookThenPriority
+      : compareByPriorityThenRecency,
+  )
   const groups = groupItems(sorted, inputs.filters.grouping)
 
   return {
@@ -302,6 +320,19 @@ function passesFilters(item: WorklogItem, f: WorklogFiltersState, now: Date): bo
   if (f.hasDivergence && !item.hasDivergence) return false
   if (f.hasEvidence && item.evidenceCount < 1) return false
 
+  // Book filter — silently no-ops when no overlay attached.
+  if (f.bookFilter && f.bookFilter !== 'any') {
+    const m = item.book?.membership ?? 'none'
+    if (f.bookFilter === 'held' && m !== 'held') return false
+    if (f.bookFilter === 'watchlist' && m !== 'watchlist') return false
+    if (f.bookFilter === 'book' && m !== 'held' && m !== 'watchlist') return false
+    if (f.bookFilter === 'uncovered' && (m === 'held' || m === 'watchlist')) return false
+    if (f.bookFilter === 'against') {
+      const reasons = item.book?.relevance.reasons ?? []
+      if (!reasons.some((r) => r.code === 'pf_against')) return false
+    }
+  }
+
   return true
 }
 
@@ -309,6 +340,12 @@ function compareByPriorityThenRecency(a: WorklogItem, b: WorklogItem): number {
   const byScore = b.priority.score - a.priority.score
   if (byScore !== 0) return byScore
   return b.receivedAt.localeCompare(a.receivedAt)
+}
+
+function compareByBookThenPriority(a: WorklogItem, b: WorklogItem): number {
+  const byBook = (b.book?.relevance.score ?? 0) - (a.book?.relevance.score ?? 0)
+  if (byBook !== 0) return byBook
+  return compareByPriorityThenRecency(a, b)
 }
 
 function groupItems(items: readonly WorklogItem[], grouping: WorklogFiltersState['grouping']): readonly WorklogGroup[] {
@@ -348,6 +385,18 @@ function groupItems(items: readonly WorklogItem[], grouping: WorklogFiltersState
     return [...map.entries()].map(([k, its]) => ({
       key: k, label: k, items: its,
     })).sort((a, b) => a.label.localeCompare(b.label))
+  }
+  if (grouping === 'book') {
+    // Held → watchlist → adjacent → none, in this fixed order.
+    const order: readonly { key: string; label: string; pred: (it: WorklogItem) => boolean }[] = [
+      { key: 'held',      label: 'In book',     pred: (i) => (i.book?.membership ?? 'none') === 'held' },
+      { key: 'watchlist', label: 'Watchlist',   pred: (i) => (i.book?.membership ?? 'none') === 'watchlist' },
+      { key: 'adjacent',  label: 'Adjacent',    pred: (i) => (i.book?.membership ?? 'none') === 'adjacent' },
+      { key: 'none',      label: 'Not in book', pred: (i) => !i.book || i.book.membership === 'none' },
+    ]
+    return order
+      .map((g) => ({ key: g.key, label: g.label, items: items.filter(g.pred) }))
+      .filter((g) => g.items.length > 0)
   }
   // priority
   const order = ['high', 'medium', 'low'] as const

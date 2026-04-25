@@ -1,10 +1,11 @@
 import type { ReportId } from '../../domain'
 import type { FiltersState } from '../../app/filters'
-import type { BrokerCardViewModel } from '../../viewModels/byBroker'
+import type { BrokerCardViewModel, BrokerBookActivityItem } from '../../viewModels/byBroker'
 import { useByBrokerViewModel } from '../../viewModels/byBroker'
 import { STANCE_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import BrokerRecentChanges from '../broker/BrokerRecentChanges'
+import BookBadge from '../portfolio/BookBadge'
 
 interface ByBrokerProps {
   readonly filters: FiltersState
@@ -119,7 +120,69 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
           ))}
         </div>
       </div>
+
+      {b.bookActivity.hasPortfolio && (
+        <BookActivitySection activity={b.bookActivity} onSelectReport={onSelectReport}/>
+      )}
     </div>
+  )
+}
+
+function BookActivitySection({
+  activity, onSelectReport,
+}: {
+  activity: BrokerCardViewModel['bookActivity']
+  onSelectReport: (id: ReportId) => void
+}) {
+  return (
+    <div className="border-t border-line/5 pt-2">
+      <div className="flex items-center justify-between mb-1.5">
+        <div className="section-title">On book</div>
+        <span className="text-[10.5px] text-slate-500 num">
+          {activity.onBookCount} on book
+          {activity.outlierOnBookCount > 0 && (
+            <span className="text-amber-400"> · {activity.outlierOnBookCount} outlier</span>
+          )}
+        </span>
+      </div>
+      {activity.latestOnBook.length === 0 ? (
+        <div className="text-[11.5px] text-slate-500">No coverage on the book in this window.</div>
+      ) : (
+        <ul className="flex flex-col gap-1">
+          {activity.latestOnBook.map((it) => (
+            <li key={it.reportId}>
+              <BookActivityRow item={it} onSelectReport={onSelectReport}/>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function BookActivityRow({
+  item, onSelectReport,
+}: {
+  item: BrokerBookActivityItem
+  onSelectReport: (id: ReportId) => void
+}) {
+  return (
+    <button
+      onClick={() => onSelectReport(item.reportId)}
+      className="w-full text-left flex items-center gap-2 text-[11.5px] hover:bg-line/[0.03] rounded px-1 py-0.5 transition-colors"
+    >
+      <span className="num text-[10.5px] text-slate-500 w-12">{formatShortDate(item.publishedAt)}</span>
+      {item.ticker && <span className="chip border border-line/10 text-slate-200 text-[10px]">{item.ticker as unknown as string}</span>}
+      <BookBadge membership={item.membership} compact/>
+      <span className={`chip text-[9.5px] uppercase tracking-wider border ${
+        item.relevanceBucket === 'critical' ? 'border-rose-500/40 text-rose-300 bg-rose-500/10'
+        : item.relevanceBucket === 'high'    ? 'border-amber-500/40 text-amber-300 bg-amber-500/10'
+        : item.relevanceBucket === 'medium'  ? 'border-line/10 text-slate-300'
+        :                                       'border-line/10 text-slate-500'
+      }`}>{item.relevanceBucket}</span>
+      {item.isOutlier && <span className="chip text-[9px] border border-amber-500/40 text-amber-300">outlier</span>}
+      <span className={`flex-1 truncate ${STANCE_TEXT_COLOR[item.stance]}`} title={item.bookSummary}>{item.headline}</span>
+    </button>
   )
 }
 

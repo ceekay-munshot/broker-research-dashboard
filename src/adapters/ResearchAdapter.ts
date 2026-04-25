@@ -6,6 +6,7 @@ import type {
   Sector,
   KpiSnapshot,
   IngestionStatus,
+  PortfolioSnapshot,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -87,4 +88,10 @@ export interface ResearchAdapter {
 
   getKpiSnapshot(scope: OrgScope): Promise<KpiSnapshot>
   getIngestionStatus(scope: OrgScope): Promise<IngestionStatus>
+
+  // ─── Portfolio / watchlist (Module 18) ────────────────────────────────
+  // Returns the org's current portfolio + watchlist snapshot, or null if
+  // the org has no portfolio configured. Adapters that don't have a
+  // portfolio source should return null — the dashboard degrades cleanly.
+  getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null>
 }

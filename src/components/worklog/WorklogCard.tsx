@@ -1,5 +1,6 @@
 import type { WorklogItem } from '../../viewModels/worklog'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
+import BookBadge from '../portfolio/BookBadge'
 
 interface WorklogCardProps {
   readonly item: WorklogItem
@@ -45,6 +46,19 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
         <span className="chip border border-line/10 text-slate-200 shrink-0 mt-0.5">{item.ticker}</span>
       )}
 
+      {/* Portfolio membership (Module 18). Hidden when no portfolio. */}
+      {item.book && item.book.membership !== 'none' && (
+        <span className="shrink-0 mt-0.5">
+          <BookBadge
+            membership={item.book.membership}
+            direction={item.book.relevance.direction}
+            weightPct={item.book.relevance.weightPct}
+            conviction={item.book.relevance.conviction}
+            compact
+          />
+        </span>
+      )}
+
       {/* Body */}
       <div className="flex-1 min-w-0">
         <div className={`text-[12.5px] font-medium truncate ${STANCE_TEXT_COLOR[item.stance]}`}>
@@ -60,7 +74,23 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
           {item.hasDivergence && (<><span>·</span><span className="text-amber-400">divergence</span></>)}
           {item.source.duplicateCount > 0 && (<><span>·</span><span className="text-slate-400">+{item.source.duplicateCount} dup</span></>)}
           {renderChangePill(item)}
+          {item.book && item.book.membership !== 'none' && item.book.relevance.bucket !== 'none' && (
+            <>
+              <span>·</span>
+              <span className={`uppercase tracking-wider text-[9.5px] ${
+                item.book.relevance.bucket === 'critical' ? 'text-rose-300'
+                : item.book.relevance.bucket === 'high'    ? 'text-amber-300'
+                : item.book.relevance.bucket === 'medium'  ? 'text-slate-300'
+                :                                             'text-slate-500'
+              }`}>book·{item.book.relevance.bucket}</span>
+            </>
+          )}
         </div>
+        {item.book && item.book.membership !== 'none' && (
+          <div className="text-[10.5px] text-slate-500 truncate mt-0.5" title={item.book.relevance.bookSummary}>
+            {item.book.relevance.bookSummary}
+          </div>
+        )}
         <div className="text-[11.5px] text-slate-400 truncate mt-0.5">{item.summaryShort}</div>
         {/* Top priority reasons */}
         {item.priority.reasons.length > 0 && (
