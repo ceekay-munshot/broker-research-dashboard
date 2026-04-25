@@ -1,0 +1,35 @@
+{
+  "name": "body-only-no-rating-tcs",
+  "profile": "kotak_pdf",
+  "sourceType": "body",
+  "notes": "Body-only commentary: company update with target reiteration but no explicit rating word. Tests deterministic-only fields and review hook for MISSING_TARGET_FOR_RATED (should NOT fire because no rating was extracted).",
+  "raw": {
+    "id": "raw_kotak_norating_001",
+    "receivedAt": "2026-04-22T13:00:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-norating-tcs@kotak.com>",
+      "from": "Kotak Research <research@kotak.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "TCS — Quick read: order book commentary",
+      "receivedAt": "2026-04-22T13:00:00.000Z",
+      "bodyText": "TCS — quick read on the order book. PT ₹4,200 unchanged. Order book at $12.1bn TCV, +18% y/y. Margins held at 24.6%.",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_kotak",
+    "origin": "direct_body",
+    "primary": {
+      "ticker": "TCS",
+      "targetPrice": 4200,
+      "reportType": "update"
+    },
+    "minReports": 1,
+    "expectMaterialization": true,
+    "expectReviewCategories": []
+  }
+}

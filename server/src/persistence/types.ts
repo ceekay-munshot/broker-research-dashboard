@@ -20,13 +20,14 @@
 
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
-  ResearchReport, ReportSummary, OrgId,
+  ResearchReport, ReportSummary, OrgId, ReportId,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
 } from '../pipeline/models'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
+import type { MaterializationQuality } from '../pipeline/quality'
 
 // ── Raw artifact records (mirror of what the upstream sent us) ───────────
 
@@ -121,6 +122,11 @@ export interface Repo {
   upsertReportSummary(rec: ReportSummary): void
   upsertEvidence(recs: readonly EvidenceSnippet[]): void
   upsertOpinion(rec: BrokerStockOpinion): void
+
+  // Quality metadata (Module 15) ────────────────────────────────────────
+  upsertMaterializationQuality(rec: MaterializationQuality): void
+  getMaterializationQuality(orgId: OrgId, reportId: ReportId): MaterializationQuality | null
+  listMaterializationQuality(orgId: OrgId): readonly MaterializationQuality[]
 
   /** Hydration: dump everything for an org so `HybridCanonicalStore`
    *  can preload the in-memory cache on process startup. */

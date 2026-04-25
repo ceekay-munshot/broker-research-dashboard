@@ -20,6 +20,7 @@ import type {
   EnrichedReportCandidate, EvidenceSpan, ParsedEmailArtifact,
   RawAttachmentRef,
 } from '../models'
+import { scoreMaterializationQuality, type MaterializationQuality } from '../quality'
 
 const GENERATOR_VERSION = 'pipeline@2026.04.13'
 
@@ -43,6 +44,7 @@ export interface MaterializeResult {
   readonly summaries: readonly ReportSummary[]
   readonly evidence: readonly EvidenceSnippet[]
   readonly opinions: readonly BrokerStockOpinion[]
+  readonly quality: readonly MaterializationQuality[]
 }
 
 export function materialize(input: MaterializeInput): MaterializeResult {
@@ -71,6 +73,7 @@ export function materialize(input: MaterializeInput): MaterializeResult {
   const summaries: ReportSummary[] = []
   const evidence: EvidenceSnippet[] = []
   const opinions: BrokerStockOpinion[] = []
+  const quality: MaterializationQuality[] = []
 
   for (let i = 0; i < input.enriched.length; i++) {
     const ec = input.enriched[i]!
@@ -157,6 +160,15 @@ export function materialize(input: MaterializeInput): MaterializeResult {
           : null,
       })
     }
+
+    // ── MaterializationQuality (Module 15) ──────────────────────────
+    quality.push(scoreMaterializationQuality({
+      orgId: input.orgId,
+      enriched: ec,
+      reportId,
+      evidenceSpans: allEvidenceSpans,
+      thesis: summary.thesis,
+    }))
   }
 
   // ── BrokerEmail (after we know the report ids) ─────────────────────
@@ -178,7 +190,7 @@ export function materialize(input: MaterializeInput): MaterializeResult {
     sourceMessageId: input.parsedEmail.messageId,
   }
 
-  return { email, attachments, reports, summaries, evidence, opinions }
+  return { email, attachments, reports, summaries, evidence, opinions, quality }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

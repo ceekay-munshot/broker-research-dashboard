@@ -29,8 +29,15 @@ import {
 import { organizations } from '../config/organizations'
 import { VIMANA_ORG_ID } from '../../../src/mocks/organizations'
 import type { RawEmailArtifact } from '../pipeline/models'
+import { runEvalSuite, aggregateScorecards, diffSnapshots } from '../eval'
+import { severityFor } from '../pipeline/errors'
 
-type Subcommand = 'sync' | 'replay' | 'replay-failed' | 'list-failures' | 'list-review' | 'clear-review' | 'status' | 'help'
+type Subcommand =
+  | 'sync' | 'replay' | 'replay-failed'
+  | 'list-failures' | 'list-review' | 'clear-review' | 'status'
+  // Module 15
+  | 'eval' | 'scorecard' | 'field-stats' | 'top-failures' | 'diff'
+  | 'help'
 
 interface Args {
   readonly cmd: Subcommand
@@ -38,6 +45,11 @@ interface Args {
   readonly id?: string
   readonly note?: string
   readonly reset?: boolean
+  // Module 15 flags
+  readonly nameFilter?: string
+  readonly bucket?: 'broker' | 'profile' | 'source' | 'reportType' | 'enrichment'
+  readonly before?: string                  // path to snapshot JSON
+  readonly after?: string                   // path to snapshot JSON
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -52,12 +64,21 @@ function parseArgs(argv: readonly string[]): Args {
     }
   }
   const orgId = (flags.org as string | undefined) ?? (VIMANA_ORG_ID as unknown as string)
+  const bucketRaw = flags.bucket as string | undefined
+  const bucket = (
+    bucketRaw === 'broker' || bucketRaw === 'profile' || bucketRaw === 'source'
+    || bucketRaw === 'reportType' || bucketRaw === 'enrichment'
+  ) ? bucketRaw : undefined
   return {
     cmd,
     orgId: orgId as unknown as OrgId,
     id: flags.id as string | undefined,
     note: flags.note as string | undefined,
     reset: flags.reset === true,
+    nameFilter: flags.name as string | undefined,
+    bucket,
+    before: flags.before as string | undefined,
+    after: flags.after as string | undefined,
   }
 }
 
@@ -90,6 +111,21 @@ async function main(): Promise<void> {
       break
     case 'status':
       cmdStatus(args, repo)
+      break
+    case 'eval':
+      await cmdEval(args)
+      break
+    case 'scorecard':
+      await cmdScorecard(args)
+      break
+    case 'field-stats':
+      await cmdFieldStats(args)
+      break
+    case 'top-failures':
+      cmdTopFailures(args, repo)
+      break
+    case 'diff':
+      cmdDiff(args)
       break
     case 'help':
     default:
@@ -185,8 +221,108 @@ function cmdStatus(args: Args, repo: Repo): void {
   }
 }
 
+// ── Module 15 — eval / scorecards / field-stats / top-failures / diff ──
+
+async function cmdEval(args: Args): Promise<void> {
+  const evals = await runEvalSuite({ nameFilter: args.nameFilter })
+  let pass = 0, fail = 0
+  for (const e of evals) {
+    const tag = e.passed ? '✓' : '✗'
+    const score = e.score.toFixed(2)
+    console.log(`${tag}  ${score}  ${e.fixture.name}  [${e.fixture.profile} · ${e.fixture.sourceType}]`)
+    if (!e.passed) {
+      fail++
+      const wrong = e.fields.filter((f) => f.outcome === 'wrong' || f.outcome === 'missing')
+      for (const f of wrong) {
+        console.log(`        ${f.outcome.padEnd(7)} ${f.field}` +
+          (f.expected !== undefined ? `  expected=${JSON.stringify(f.expected)}` : '') +
+          (f.actual   !== undefined ? `  actual=${JSON.stringify(f.actual)}` : ''))
+      }
+    } else { pass++ }
+  }
+  console.log(`\n${pass}/${evals.length} passed (${fail} failed)`)
+  if (fail > 0) process.exit(1)
+}
+
+async function cmdScorecard(args: Args): Promise<void> {
+  const evals = await runEvalSuite({ nameFilter: args.nameFilter })
+  const cards = aggregateScorecards(evals)
+  const buckets = args.bucket === 'broker'     ? cards.byBroker
+                : args.bucket === 'profile'    ? cards.byProfile
+                : args.bucket === 'source'     ? cards.bySourceType
+                : args.bucket === 'reportType' ? cards.byReportType
+                : args.bucket === 'enrichment' ? cards.byEnrichmentMode
+                : null
+  console.log(`overall:  ${cards.overall.passed}/${cards.overall.fixtures}  score=${cards.overall.score.toFixed(2)}` +
+    `  det=${cards.overall.deterministicFieldsCount}  llm=${cards.overall.llmFieldsCount}`)
+  if (buckets) {
+    console.log(`\nby ${args.bucket}:`)
+    for (const b of buckets) printBucket(b)
+  } else {
+    for (const [label, list] of [
+      ['broker',     cards.byBroker],
+      ['profile',    cards.byProfile],
+      ['source',     cards.bySourceType],
+      ['reportType', cards.byReportType],
+      ['enrichment', cards.byEnrichmentMode],
+    ] as const) {
+      console.log(`\nby ${label}:`)
+      for (const b of list) printBucket(b)
+    }
+  }
+}
+
+function printBucket(b: ReturnType<typeof aggregateScorecards>['byBroker'][number]): void {
+  const ratio = `${b.passed}/${b.fixtures}`
+  console.log(`  ${b.key.padEnd(30)} ${ratio.padStart(8)}  score=${b.score.toFixed(2)}` +
+    `  det=${b.deterministicFieldsCount}  llm=${b.llmFieldsCount}`)
+}
+
+async function cmdFieldStats(args: Args): Promise<void> {
+  const evals = await runEvalSuite({ nameFilter: args.nameFilter })
+  const cards = aggregateScorecards(evals)
+  const fields = Object.entries(cards.overall.perField).sort((a, b) => a[1] - b[1])
+  if (fields.length === 0) { console.log('no fields evaluated'); return }
+  console.log(`field-level success rate (across ${cards.overall.fixtures} fixtures):`)
+  for (const [field, rate] of fields) {
+    const bar = '█'.repeat(Math.round(rate * 20)).padEnd(20, '·')
+    console.log(`  ${field.padEnd(35)}  ${(rate * 100).toFixed(0).padStart(3)}%  ${bar}`)
+  }
+}
+
+function cmdTopFailures(args: Args, repo: Repo): void {
+  const items = repo.listReviewItems(args.orgId, true)
+  if (items.length === 0) { console.log('no review items recorded'); return }
+  const counts = new Map<string, number>()
+  for (const it of items) {
+    counts.set(it.reasonCategory, (counts.get(it.reasonCategory) ?? 0) + 1)
+  }
+  const sorted = [...counts.entries()].sort((a, b) => b[1] - a[1])
+  console.log(`top failures (${items.length} review items total):`)
+  for (const [cat, n] of sorted) {
+    const sev = severityFor(cat as Parameters<typeof severityFor>[0])
+    console.log(`  ${String(n).padStart(4)}  ${sev.padEnd(6)}  ${cat}`)
+  }
+}
+
+function cmdDiff(args: Args): void {
+  if (!args.before || !args.after) {
+    console.error('diff: --before=<path> --after=<path> required (each pointing to a snapshot JSON)')
+    process.exit(2)
+  }
+  const before = JSON.parse(readFileSync(args.before, 'utf8')) as Parameters<typeof diffSnapshots>[0]
+  const after  = JSON.parse(readFileSync(args.after,  'utf8')) as Parameters<typeof diffSnapshots>[1]
+  const diff = diffSnapshots(before, after)
+  console.log(`diff: ${diff.summary.changed} changed · ${diff.summary.added} added · ${diff.summary.removed} removed · ${diff.summary.unchanged} unchanged`)
+  for (const e of diff.entries) {
+    if (e.outcome === 'unchanged') continue
+    const tag = e.outcome === 'changed' ? '~' : e.outcome === 'added' ? '+' : '-'
+    console.log(`  ${tag}  ${e.field.padEnd(35)}  ${JSON.stringify(e.before)} → ${JSON.stringify(e.after)}`)
+  }
+}
+
 function printHelp(): void {
-  console.log(`live-sync ops CLI
+  console.log(`live-sync + eval ops CLI
 
   npm run ops -- sync [--org=<orgId>] [--reset]
   npm run ops -- replay --id=<rawEmailId> [--org=<orgId>]
@@ -195,6 +331,12 @@ function printHelp(): void {
   npm run ops -- list-review   [--org=<orgId>]
   npm run ops -- clear-review --id=<reviewId> [--note="..."] [--org=<orgId>]
   npm run ops -- status        [--org=<orgId>]
+
+  npm run ops -- eval [--name=<substring>]
+  npm run ops -- scorecard [--bucket=broker|profile|source|reportType|enrichment]
+  npm run ops -- field-stats
+  npm run ops -- top-failures [--org=<orgId>]
+  npm run ops -- diff --before=<snapshot.json> --after=<snapshot.json>
 
 Default org: org_vimana. SERVER_PERSISTENCE selects the repo (file | memory | sqlite).`)
 }

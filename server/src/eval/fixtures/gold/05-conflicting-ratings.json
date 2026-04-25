@@ -1,0 +1,33 @@
+{
+  "name": "conflicting-ratings-tcs",
+  "profile": "kotak_pdf",
+  "sourceType": "body",
+  "notes": "Two distinct rating actions appear: 'upgrade to Buy' AND 'downgrade to Sell' on the same ticker. Pipeline must enqueue CONFLICTING_RATINGS for review and emit a candidate (deterministic-only fields where unambiguous).",
+  "raw": {
+    "id": "raw_kotak_conflict_001",
+    "receivedAt": "2026-04-22T14:00:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-conflict-ratings@kotak.com>",
+      "from": "Kotak Research <research@kotak.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "TCS — Multi-stock note (mixed signals)",
+      "receivedAt": "2026-04-22T14:00:00.000Z",
+      "bodyText": "On TCS — we upgrade to Buy following margin guidance. Separately, the BFSI vertical disappointed; we downgrade to Sell on near-term execution risk. PT ₹4,100.",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_kotak",
+    "origin": "direct_body",
+    "primary": {
+      "ticker": "TCS",
+      "targetPrice": 4100
+    },
+    "expectMaterialization": true,
+    "expectReviewCategories": ["CONFLICTING_RATINGS"]
+  }
+}

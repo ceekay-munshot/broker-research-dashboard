@@ -1,0 +1,45 @@
+{
+  "name": "linked-webpage-supports-body",
+  "profile": "kotak_pdf",
+  "sourceType": "linked_webpage",
+  "notes": "Email body has a brief mention; the linked webpage carries the full thesis + risks. Pipeline must extract from the linked source AND the linked artifact must contribute evidence.",
+  "raw": {
+    "id": "raw_kotak_linkedweb_001",
+    "receivedAt": "2026-04-22T08:00:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-linked-webpage-infy@kotak.com>",
+      "from": "Kotak Research <research@kotak.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "INFY — Update: deal momentum; PT ₹1,750",
+      "receivedAt": "2026-04-22T08:00:00.000Z",
+      "bodyText": "INFY: Buy. PT ₹1,750. Full note: https://research.kotak.com/notes/infy-2026-04-22",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [],
+    "linkedRefs": [
+      {
+        "url": "https://research.kotak.com/notes/infy-2026-04-22",
+        "hint": "webpage",
+        "cachedContentType": "text/html",
+        "cachedText": "INFY — Update. We reiterate Buy. PT ₹1,750 (unchanged from prior note ₹1,750). Q4 deal pipeline expanded by $1.8bn TCV. Margins held at 21.4% despite wage hikes. Risks: US BFSI slowdown; INR strength."
+      }
+    ]
+  },
+  "expected": {
+    "broker": "brk_kotak",
+    "origin": "direct_body",
+    "primary": {
+      "ticker": "INFY",
+      "rating": "Buy",
+      "stance": "bullish",
+      "targetPrice": 1750,
+      "reportType": "update"
+    },
+    "minReports": 1,
+    "linkedArtifactsContributed": true,
+    "expectMaterialization": true,
+    "expectReviewCategories": []
+  }
+}

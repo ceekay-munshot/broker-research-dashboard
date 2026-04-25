@@ -1,0 +1,49 @@
+{
+  "name": "kotak-tcs-direct-pdf",
+  "profile": "kotak_pdf",
+  "sourceType": "attachment",
+  "notes": "Single-ticker earnings review with PDF attachment. Baseline happy path.",
+  "raw": {
+    "id": "raw_kotak_tcs_001",
+    "receivedAt": "2026-04-22T09:30:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-direct-tcs@kotak.com>",
+      "from": "Kotak Research <research@kotak.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "TCS — 4QFY26 Result Update; raises TP to ₹4,200",
+      "receivedAt": "2026-04-22T09:30:00.000Z",
+      "bodyText": "We maintain Buy on TCS and raise TP to ₹4,200 from ₹4,050. Q4 revenue beat consensus by 2.3%.",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [
+      {
+        "filename": "TCS-4QFY26.pdf",
+        "mimeType": "application/pdf",
+        "sizeBytes": 482931,
+        "storageRef": "fixture://gold/TCS-4QFY26.pdf",
+        "pageCount": 14,
+        "language": "en",
+        "text": "TCS — 4QFY26 Result Update. Recommendation: Buy. PT ₹4,200 (prior ₹4,050). Order book at $12.1bn TCV. Risks: US discretionary slowdown."
+      }
+    ],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_kotak",
+    "origin": "direct_attachment",
+    "primary": {
+      "ticker": "TCS",
+      "rating": "Buy",
+      "stance": "bullish",
+      "targetPrice": 4200,
+      "priorTargetPrice": 4050,
+      "reportType": "earnings_review"
+    },
+    "minReports": 1,
+    "minEvidence": 2,
+    "expectMaterialization": true,
+    "expectReviewCategories": []
+  }
+}

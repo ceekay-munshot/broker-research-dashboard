@@ -1,9 +1,10 @@
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
-  ResearchReport, ReportSummary, OrgId,
+  ResearchReport, ReportSummary, OrgId, ReportId,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
+import type { MaterializationQuality } from '../pipeline/quality'
 import type {
   PersistedJob, PersistedRawEmail, PersistedReviewItem,
   Repo, SyncCheckpoint,
@@ -23,6 +24,7 @@ export class InMemoryRepo implements Repo {
   private readonly canonicalSummaries = new Map<string, ReportSummary>()
   private readonly canonicalEvidence = new Map<string, EvidenceSnippet>()
   private readonly canonicalOpinions: BrokerStockOpinion[] = []
+  private readonly canonicalQuality = new Map<string, MaterializationQuality>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -103,6 +105,18 @@ export class InMemoryRepo implements Repo {
     )
     if (i >= 0) this.canonicalOpinions[i] = rec
     else this.canonicalOpinions.push(rec)
+  }
+
+  // ── Quality (Module 15) ─────────────────────────────────────────────
+  upsertMaterializationQuality(rec: MaterializationQuality): void {
+    this.canonicalQuality.set(rec.reportId as unknown as string, rec)
+  }
+  getMaterializationQuality(orgId: OrgId, reportId: ReportId): MaterializationQuality | null {
+    const q = this.canonicalQuality.get(reportId as unknown as string)
+    return q && q.orgId === orgId ? q : null
+  }
+  listMaterializationQuality(orgId: OrgId): readonly MaterializationQuality[] {
+    return [...this.canonicalQuality.values()].filter((q) => q.orgId === orgId)
   }
   loadCanonicalForOrg(orgId: OrgId) {
     return {

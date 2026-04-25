@@ -1,0 +1,35 @@
+{
+  "name": "jmfl-morning-digest-multi-ticker",
+  "profile": "jmfl_morning_brief",
+  "sourceType": "body",
+  "notes": "Morning brief covering 3 tickers with overlapping themes. Tests digest splitting + per-ticker rating/TP extraction.",
+  "raw": {
+    "id": "raw_jmfl_digest_001",
+    "receivedAt": "2026-04-22T06:45:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-jmfl-digest@jmfl.com>",
+      "from": "JMFL Morning Brief <morning@jmfl.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "JMFL Morning Brief 22 Apr 2026",
+      "receivedAt": "2026-04-22T06:45:00.000Z",
+      "bodyText": "JMFL Morning Brief — 22 Apr 2026.\n\nMARUTI: Sell. PT ₹11,000 from ₹11,500. PV competition intensifies; H1 share loss expected. Risks: pricing-led volume.\n\nLT: Buy. PT ₹4,500. Order book strong at ₹5.2tn; capex discipline intact.\n\nTCS: Buy. PT ₹4,200 from ₹4,050. Margins expand on BFSI demand.\n",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_jmfin",
+    "origin": "digest_split",
+    "perTicker": {
+      "MARUTI": { "ticker": "MARUTI", "rating": "Sell", "stance": "bearish", "targetPrice": 11000, "priorTargetPrice": 11500 },
+      "LT":     { "ticker": "LT",     "rating": "Buy",  "stance": "bullish", "targetPrice": 4500 },
+      "TCS":    { "ticker": "TCS",    "rating": "Buy",  "stance": "bullish", "targetPrice": 4200, "priorTargetPrice": 4050 }
+    },
+    "minReports": 3,
+    "expectMaterialization": true,
+    "expectReviewCategories": []
+  }
+}

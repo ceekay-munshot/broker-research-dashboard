@@ -1,0 +1,38 @@
+{
+  "name": "forwarded-chain-iifl-maruti",
+  "profile": "iifl_html_single",
+  "sourceType": "body",
+  "notes": "Email forwarded twice through the desk before landing in vimana@. Forwarder list non-empty; sender remains the original broker domain.",
+  "raw": {
+    "id": "raw_iifl_fwd_001",
+    "receivedAt": "2026-04-22T11:15:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-fwd-maruti@iifl.com>",
+      "from": "IIFL Research <research@iifl.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "FW: FW: MARUTI — Flash: pricing pressure intensifies; PT ₹11,000",
+      "receivedAt": "2026-04-22T11:15:00.000Z",
+      "bodyText": "----- Forwarded by analyst@vimanacapital.com -----\n\n----- Forwarded by desk@vimanacapital.com -----\n\nMARUTI — Flash note. We maintain Hold on MARUTI with revised PT ₹11,000 (from ₹11,500). Q1 retail share lost ~120 bps to Hyundai/Toyota in compact-SUV.",
+      "bodyHtml": null,
+      "forwardedBy": ["desk@vimanacapital.com", "analyst@vimanacapital.com"]
+    },
+    "attachmentRefs": [],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_iifl",
+    "origin": "direct_body",
+    "primary": {
+      "ticker": "MARUTI",
+      "rating": "Hold",
+      "stance": "neutral",
+      "targetPrice": 11000,
+      "priorTargetPrice": 11500,
+      "reportType": "flash"
+    },
+    "minReports": 1,
+    "expectMaterialization": true,
+    "expectReviewCategories": []
+  }
+}

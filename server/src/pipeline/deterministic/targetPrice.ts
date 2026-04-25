@@ -17,13 +17,19 @@ const CCY = '(?:₹|Rs\\.?|INR)?\\s?'
 
 // Target-price phrasing accepted: TP / PT / target price / price target /
 // target. Both `PT` and `TP` are observed in real Indian-broker copy.
+//
+// Two regexes — RAISE phrasing (preferred when present) and PRIMARY
+// (anchored to the keyword) — are scanned globally so we collect every
+// candidate target in the text. The first RAISE match wins as the
+// primary; conflict detection compares the full distinct set across
+// both regexes.
 const RE_TARGET_PRIMARY = new RegExp(
   `(?:TP|PT|price[\\s-]?target|target[\\s-]?price|target)\\s*(?:of|:|—|-|to|at|is|now)?\\s*${CCY}${NUM}`,
-  'i',
+  'gi',
 )
 const RE_TARGET_RAISE = new RegExp(
   `(?:rais(?:e|ed|es) (?:TP|PT|target)|new (?:TP|PT|target)|revised (?:TP|PT|target))\\s*(?:to)?\\s*${CCY}${NUM}`,
-  'i',
+  'gi',
 )
 const RE_PRIOR_FROM = new RegExp(`\\bfrom\\s+${CCY}${NUM}`, 'i')
 const RE_PRIOR_EXPLICIT = new RegExp(`\\bprior\\s+(?:TP|PT|target)\\s*(?:of|:|—|-)?\\s*${CCY}${NUM}`, 'i')
@@ -37,20 +43,24 @@ export interface TargetExtraction {
 export function detectTargetPrice(text: string): TargetExtraction {
   if (!text) return { targetPrice: null, priorTargetPrice: null, conflicting: false }
 
-  const candidates: number[] = []
-  const m1 = text.match(RE_TARGET_RAISE)
-  if (m1) candidates.push(parseNumber(m1[1]!))
-  const m2 = text.match(RE_TARGET_PRIMARY)
-  if (m2) candidates.push(parseNumber(m2[1]!))
+  // Collect every match across the text. matchAll requires the regex
+  // to be global; we reset lastIndex defensively in case the regex
+  // object is reused.
+  RE_TARGET_RAISE.lastIndex = 0
+  RE_TARGET_PRIMARY.lastIndex = 0
+  const raiseMatches = [...text.matchAll(RE_TARGET_RAISE)].map((m) => parseNumber(m[1]!))
+  const primaryMatches = [...text.matchAll(RE_TARGET_PRIMARY)].map((m) => parseNumber(m[1]!))
 
-  // De-duplicate close-enough candidates (within 0.1% of each other).
+  // Prefer the order: first raise, then primary. The first raise wins as
+  // the primary target; the full distinct set across both regexes drives
+  // the conflict detection.
+  const ordered: number[] = [...raiseMatches, ...primaryMatches]
   const distinct: number[] = []
-  for (const c of candidates) {
+  for (const c of ordered) {
+    if (!Number.isFinite(c)) continue
     if (!distinct.some((d) => Math.abs(d - c) / Math.max(1, c) < 0.001)) distinct.push(c)
   }
 
-  // The first candidate wins (raise > primary). Conflict only when two
-  // distinct meaningful values both fire.
   const targetPrice = distinct.length >= 1 ? distinct[0]! : null
   const conflicting = distinct.length > 1
 

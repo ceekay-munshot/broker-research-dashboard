@@ -1,0 +1,38 @@
+{
+  "name": "multiple-targets-tcs",
+  "profile": "kotak_pdf",
+  "sourceType": "body",
+  "notes": "Two distinct numeric targets in one note (raise + bull-case). Pipeline must pick the primary (raised TP) and surface the conflict for review when distinct enough.",
+  "raw": {
+    "id": "raw_kotak_multitp_001",
+    "receivedAt": "2026-04-22T15:00:00.000Z",
+    "orgId": "org_vimana",
+    "envelope": {
+      "messageId": "<gold-multi-tp-tcs@kotak.com>",
+      "from": "Kotak Research <research@kotak.com>",
+      "to": "vimana@vimanacapital.com",
+      "subject": "TCS — Result review: raises TP",
+      "receivedAt": "2026-04-22T15:00:00.000Z",
+      "bodyText": "We raise TP to ₹4,200 from ₹4,050 on TCS (Buy). Revised target ₹4,800 in our bull case if BFSI re-accelerates.",
+      "bodyHtml": null,
+      "forwardedBy": []
+    },
+    "attachmentRefs": [],
+    "linkedRefs": []
+  },
+  "expected": {
+    "broker": "brk_kotak",
+    "origin": "direct_body",
+    "primary": {
+      "ticker": "TCS",
+      "rating": "Buy",
+      "stance": "bullish",
+      "targetPrice": 4200,
+      "priorTargetPrice": 4050,
+      "reportType": "earnings_review"
+    },
+    "minReports": 1,
+    "expectMaterialization": true,
+    "expectReviewCategories": ["CONFLICTING_TARGETS"]
+  }
+}

@@ -17,13 +17,15 @@ import type {
 } from './types'
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
-  OrgId, ResearchReport, ReportSummary,
+  OrgId, ReportId, ResearchReport, ReportSummary,
 } from '../../../src/domain'
+import type { MaterializationQuality } from '../pipeline/quality'
 
 const TABLES = [
   'rawEmails', 'jobs', 'reviewQueue', 'checkpoints',
   'canonicalEmails', 'canonicalAttachments', 'canonicalReports',
   'canonicalSummaries', 'canonicalEvidence', 'canonicalOpinions',
+  'canonicalQuality',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -38,6 +40,7 @@ interface Snapshot {
   canonicalSummaries: ReportSummary[]
   canonicalEvidence: EvidenceSnippet[]
   canonicalOpinions: BrokerStockOpinion[]
+  canonicalQuality: MaterializationQuality[]
 }
 
 export interface JsonFileRepoOptions {
@@ -98,6 +101,16 @@ export class JsonFileRepo implements Repo {
   upsertEvidence(recs: readonly EvidenceSnippet[]) { this.mem.upsertEvidence(recs); this.touch('canonicalEvidence') }
   upsertOpinion(rec: BrokerStockOpinion) { this.mem.upsertOpinion(rec); this.touch('canonicalOpinions') }
 
+  upsertMaterializationQuality(rec: MaterializationQuality) {
+    this.mem.upsertMaterializationQuality(rec); this.touch('canonicalQuality')
+  }
+  getMaterializationQuality(orgId: OrgId, reportId: ReportId) {
+    return this.mem.getMaterializationQuality(orgId, reportId)
+  }
+  listMaterializationQuality(orgId: OrgId) {
+    return this.mem.listMaterializationQuality(orgId)
+  }
+
   loadCanonicalForOrg(orgId: OrgId) { return this.mem.loadCanonicalForOrg(orgId) }
 
   // ── Disk I/O (atomic write per table) ────────────────────────────────
@@ -132,6 +145,7 @@ export class JsonFileRepo implements Repo {
       canonicalSummaries: Map<string, ReportSummary>
       canonicalEvidence: Map<string, EvidenceSnippet>
       canonicalOpinions: BrokerStockOpinion[]
+      canonicalQuality: Map<string, MaterializationQuality>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -144,6 +158,7 @@ export class JsonFileRepo implements Repo {
       canonicalSummaries:   [...m.canonicalSummaries.values()],
       canonicalEvidence:    [...m.canonicalEvidence.values()],
       canonicalOpinions:    [...m.canonicalOpinions],
+      canonicalQuality:     [...m.canonicalQuality.values()],
     }
   }
 
@@ -167,6 +182,7 @@ export class JsonFileRepo implements Repo {
           case 'canonicalSummaries':   this.mem.upsertReportSummary(rec as ReportSummary); break
           case 'canonicalEvidence':    this.mem.upsertEvidence([rec as EvidenceSnippet]); break
           case 'canonicalOpinions':    this.mem.upsertOpinion(rec as BrokerStockOpinion); break
+          case 'canonicalQuality':     this.mem.upsertMaterializationQuality(rec as MaterializationQuality); break
         }
       }
     }

@@ -12,6 +12,10 @@ not the system of record. The intended production topology is:
 > idempotency, and replay/reprocess tooling — is documented at
 > [`docs/live-sync.md`](./live-sync.md).
 
+> The extraction quality harness, review workflow, and operator
+> diagnostics (eval / scorecards / field-stats / replay-diff) are
+> documented at [`docs/eval.md`](./eval.md).
+
 ```
         ┌────────────────────────────────────┐
         │     External Upstream API          │

@@ -175,7 +175,8 @@ export interface EnrichedReportCandidate {
 // ── Final-stage outputs ─────────────────────────────────────────────────
 
 /** What the materializer produces. The shape mirrors what the canonical
- *  store accepts via its upsert* methods. */
+ *  store accepts via its upsert* methods. The `quality` field is an
+ *  internal operator surface (Module 15); the `/v1` API never exposes it. */
 export interface MaterializedOutputs {
   readonly email: import('../../../src/domain').BrokerEmail
   readonly attachments: readonly import('../../../src/domain').Attachment[]
@@ -183,6 +184,7 @@ export interface MaterializedOutputs {
   readonly summaries: readonly import('../../../src/domain').ReportSummary[]
   readonly evidence: readonly import('../../../src/domain').EvidenceSnippet[]
   readonly opinions: readonly import('../../../src/domain').BrokerStockOpinion[]
+  readonly quality: readonly import('./quality').MaterializationQuality[]
 }
 
 /** A pipeline run over a batch of jobs. Returned by `runner.runJobs()`. */

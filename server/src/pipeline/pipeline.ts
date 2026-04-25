@@ -48,7 +48,7 @@ import {
 } from './deterministic'
 import type { LlmProvider } from './enrich/provider'
 import { NoOpLlmProvider } from './enrich/noOpProvider'
-import { provFromAttachment, provFromBody } from './provenance'
+import { provFromAttachment, provFromBody, provFromLinkedPdf, provFromLinkedWebpage } from './provenance'
 import { PipelineError } from './errors'
 import { ReviewQueue } from './reviewQueue'
 import { materialize } from './materialize'
@@ -188,7 +188,18 @@ export class Pipeline {
         for (const s of out.summaries) this.store.upsertSummary(s)
         this.store.upsertEvidence(out.evidence)
         for (const o of out.opinions) this.store.upsertOpinion(o)
+        // Quality metadata (Module 15) — only HybridCanonicalStore
+        // implements `upsertQuality`; the base InMemoryStore ignores it.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const upsertQuality = (this.store as any).upsertQuality
+        if (typeof upsertQuality === 'function') {
+          for (const q of out.quality) upsertQuality.call(this.store, q)
+        }
       }
+      // Post-materialization review hooks (Module 15) — fire on every
+      // run regardless of store type so downstream operators see the
+      // signal whether or not persistence is wired.
+      enqueuePostMaterializationReviews(this.reviewQueue, artifact, out.quality)
 
       return { job, outcome: 'materialized_ready' }
     } catch (e) {
@@ -252,6 +263,7 @@ export class Pipeline {
           parsed,
           sectionText: sec.text,
           attachmentTexts,
+          linkedTexts,
           reportType,
           origin: 'digest_split',
           digestSection: sec.text.split('\n')[0]?.slice(0, 80) ?? undefined,
@@ -276,6 +288,7 @@ export class Pipeline {
       parsed,
       sectionText: parsed.bodyText,
       attachmentTexts,
+      linkedTexts,
       reportType,
       origin: hasAttachment ? 'direct_attachment' : 'direct_body',
     })]
@@ -288,13 +301,15 @@ export class Pipeline {
     readonly parsed: ParsedEmailArtifact
     readonly sectionText: string
     readonly attachmentTexts: ReadonlyMap<string, ExtractedTextArtifact>
+    readonly linkedTexts: ReadonlyMap<string, ExtractedTextArtifact>
     readonly reportType: ReportType
     readonly origin: ParsedReportCandidate['origin']
     readonly digestSection?: string
   }): ParsedReportCandidate {
     const sectionText = args.sectionText
     const attachmentText = [...args.attachmentTexts.values()].map((a) => a.text).join('\n\n')
-    const allText = `${args.parsed.subject}\n${sectionText}\n${attachmentText}`
+    const linkedText = [...args.linkedTexts.values()].map((l) => l.text).join('\n\n')
+    const allText = `${args.parsed.subject}\n${sectionText}\n${attachmentText}\n${linkedText}`
 
     const ratingResult = detectRating(allText)
     if (ratingResult.conflicting) {
@@ -355,6 +370,7 @@ export class Pipeline {
     const deterministicEvidence = mineDeterministicEvidence({
       bodyText: args.parsed.bodyText,
       attachmentTexts: args.attachmentTexts,
+      linkedTexts: args.linkedTexts,
       ticker: args.ticker,
     })
 
@@ -401,6 +417,37 @@ function advance(job: RawEmailArtifactJob, to: import('./states').ProcessingStat
   job.history.push({ at: nowIso(), state: to })
 }
 
+/** Module 15 — fire post-materialization review hooks based on the
+ *  per-report `MaterializationQuality`. Categories enqueued here are
+ *  recoverable signals an operator should look at, not pipeline failures.
+ *  Idempotent: ReviewQueue dedupes by (messageId, reasonCategory). */
+function enqueuePostMaterializationReviews(
+  reviewQueue: ReviewQueue,
+  artifact: RawEmailArtifact,
+  qualities: readonly import('./quality').MaterializationQuality[],
+): void {
+  for (const q of qualities) {
+    if (q.flags.missingTargetForRatedNote) {
+      reviewQueue.enqueue(
+        artifact.orgId, artifact, 'MISSING_TARGET_FOR_RATED',
+        `report ${q.reportId as unknown as string} has rating but no target price.`,
+      )
+    }
+    if (q.flags.noEvidenceForFields.length > 0) {
+      reviewQueue.enqueue(
+        artifact.orgId, artifact, 'EVIDENCE_MISMATCH',
+        `report ${q.reportId as unknown as string} populated [${q.flags.noEvidenceForFields.join(', ')}] without backing evidence.`,
+      )
+    }
+    if (q.tier === 'low' && q.flags.thesisShorterThan > 0) {
+      reviewQueue.enqueue(
+        artifact.orgId, artifact, 'LOW_QUALITY_SUMMARY',
+        `report ${q.reportId as unknown as string} thesis < ${q.flags.thesisShorterThan} chars and overall tier=low.`,
+      )
+    }
+  }
+}
+
 function nowIso(): Iso8601 {
   return new Date().toISOString()
 }
@@ -430,6 +477,7 @@ function composeOneLineSummary(args: {
 function mineDeterministicEvidence(args: {
   readonly bodyText: string
   readonly attachmentTexts: ReadonlyMap<string, ExtractedTextArtifact>
+  readonly linkedTexts: ReadonlyMap<string, ExtractedTextArtifact>
   readonly ticker: StockTicker | null
 }): readonly import('./models').EvidenceSpan[] {
   const out: import('./models').EvidenceSpan[] = []
@@ -450,11 +498,13 @@ function mineDeterministicEvidence(args: {
     })
   }
 
+  const TP_RE = /(?:TP|PT|target\s+price|target)\s*₹?\s?\d/i
+
   // Pull up to 2 attachment-anchored evidence sentences (target / rating).
   let anchored = 0
   for (const [name, att] of args.attachmentTexts) {
     const attSentences = att.text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean)
-    const tpSentence = attSentences.find((s) => /(?:TP|PT|target\s+price|target)\s*₹?\s?\d/i.test(s))
+    const tpSentence = attSentences.find((s) => TP_RE.test(s))
     if (tpSentence) {
       out.push({
         text: tpSentence,
@@ -466,5 +516,25 @@ function mineDeterministicEvidence(args: {
       if (anchored >= 2) break
     }
   }
+
+  // Linked artifact evidence — pull a target-anchored sentence from each
+  // linked artifact that contributed text. This makes
+  // `quality.sourcesUsed.linkedWebpage` / `linkedPdf` reflect actual
+  // contribution to the candidate.
+  for (const [url, link] of args.linkedTexts) {
+    const linkSentences = link.text.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean)
+    const tpOrTickerSentence = linkSentences.find((s) => TP_RE.test(s))
+      ?? (tickerStr ? linkSentences.find((s) => s.toLowerCase().includes(tickerStr)) : undefined)
+      ?? linkSentences[0]
+    if (!tpOrTickerSentence) continue
+    const isPdf = link.provenance.kind === 'linked_pdf'
+    out.push({
+      text: tpOrTickerSentence,
+      provenance: isPdf ? provFromLinkedPdf(url) : provFromLinkedWebpage(url),
+      supportingField: 'thesis',
+      fieldRef: '',
+    })
+  }
+
   return out
 }

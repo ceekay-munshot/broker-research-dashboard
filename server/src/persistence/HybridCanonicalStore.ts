@@ -51,6 +51,12 @@ export class HybridCanonicalStore extends InMemoryStore {
     this.repo.upsertOpinion(o)
   }
 
+  /** Module 15: persist quality metadata. The base `InMemoryStore`
+   *  doesn't carry quality records; we mirror them directly to the Repo. */
+  upsertQuality(q: import('../pipeline/quality').MaterializationQuality): void {
+    this.repo.upsertMaterializationQuality(q)
+  }
+
   /** Preload the in-memory cache for the given orgs from the repo.
    *  Call this on process startup so the `/v1` API serves instantly
    *  on a cold boot without waiting for a sync. */
