@@ -21,6 +21,10 @@ not the system of record. The intended production topology is:
 > measurement, gold promotion) are documented at
 > [`docs/corrections.md`](./corrections.md).
 
+> The real LLM enrichment provider, prompt registry, schemas, grounding,
+> caching, primary/fallback orchestration, and cost/quality controls
+> are documented at [`docs/llm.md`](./llm.md).
+
 ```
         ┌────────────────────────────────────┐
         │     External Upstream API          │

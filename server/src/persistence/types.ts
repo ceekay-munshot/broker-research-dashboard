@@ -29,6 +29,7 @@ import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
+import type { LlmCallRecord, LlmCacheEntry } from '../llm/types'
 
 // ── Raw artifact records (mirror of what the upstream sent us) ───────────
 
@@ -146,6 +147,18 @@ export interface Repo {
     readonly reviewItemsResolved?: number
     readonly aggregateQualityDelta?: number
   }): void
+
+  // LLM call records + cache (Module 17) ────────────────────────────────
+  appendLlmCallRecord(rec: LlmCallRecord): void
+  listLlmCallRecords(orgId: OrgId, limit?: number): readonly LlmCallRecord[]
+  /** All call records across orgs — used by `llm-stats` aggregation. */
+  listAllLlmCallRecords(limit?: number): readonly LlmCallRecord[]
+  upsertLlmCacheEntry(rec: LlmCacheEntry): void
+  getLlmCacheEntry(orgId: OrgId, key: string): LlmCacheEntry | null
+  /** Global lookup by cache key — the orchestrator's key is already
+   *  collision-resistant (sha256 over taskId+promptVersion+model+bundle).
+   *  Used by the provider's cache reader, which doesn't know orgId. */
+  findLlmCacheEntryByKey(key: string): LlmCacheEntry | null
 
   /** Hydration: dump everything for an org so `HybridCanonicalStore`
    *  can preload the in-memory cache on process startup. */

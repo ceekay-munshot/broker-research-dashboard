@@ -6,6 +6,7 @@ import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
+import type { LlmCallRecord, LlmCacheEntry } from '../llm/types'
 import type {
   PersistedJob, PersistedRawEmail, PersistedReviewItem,
   Repo, SyncCheckpoint,
@@ -27,6 +28,8 @@ export class InMemoryRepo implements Repo {
   private readonly canonicalOpinions: BrokerStockOpinion[] = []
   private readonly canonicalQuality = new Map<string, MaterializationQuality>()
   private readonly correctionRules = new Map<string, CorrectionRule>()
+  private readonly llmCallRecords: LlmCallRecord[] = []
+  private readonly llmCache = new Map<string, LlmCacheEntry>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -169,6 +172,25 @@ export class InMemoryRepo implements Repo {
       aggregateQualityDelta: cur.aggregateQualityDelta + (delta.aggregateQualityDelta ?? 0),
     }
     this.correctionRules.set(id, next)
+  }
+
+  // ── LLM (Module 17) ─────────────────────────────────────────────────
+  appendLlmCallRecord(rec: LlmCallRecord): void { this.llmCallRecords.push(rec) }
+  listLlmCallRecords(orgId: OrgId, limit?: number): readonly LlmCallRecord[] {
+    const all = this.llmCallRecords.filter((r) => r.orgId === orgId).sort((a, b) => b.at.localeCompare(a.at))
+    return limit ? all.slice(0, limit) : all
+  }
+  listAllLlmCallRecords(limit?: number): readonly LlmCallRecord[] {
+    const all = [...this.llmCallRecords].sort((a, b) => b.at.localeCompare(a.at))
+    return limit ? all.slice(0, limit) : all
+  }
+  upsertLlmCacheEntry(rec: LlmCacheEntry): void { this.llmCache.set(rec.key, rec) }
+  getLlmCacheEntry(orgId: OrgId, key: string): LlmCacheEntry | null {
+    const e = this.llmCache.get(key)
+    return e && e.orgId === orgId ? e : null
+  }
+  findLlmCacheEntryByKey(key: string): LlmCacheEntry | null {
+    return this.llmCache.get(key) ?? null
   }
 
   flush(): void { /* noop */ }

@@ -18,6 +18,7 @@
     "test:sync":     "tsx server/src/sync/__tests__/sync.ts",
     "test:eval":     "tsx server/src/eval/__tests__/eval.ts",
     "test:corrections": "tsx server/src/corrections/__tests__/corrections.ts",
+    "test:llm":      "tsx server/src/llm/__tests__/llm.ts",
     "ops":           "tsx server/src/cli/ops.ts",
     "upstream:compare": "tsx src/adapters/upstream/__tests__/compare.ts",
     "upstream:ready":   "tsx src/adapters/upstream/__tests__/readiness.ts",

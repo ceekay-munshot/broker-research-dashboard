@@ -19,9 +19,11 @@ import { join } from 'node:path'
 import type { OrgId } from '../../../src/domain'
 import { Pipeline } from '../pipeline/pipeline'
 import { ReviewQueue } from '../pipeline/reviewQueue'
+import { buildLlmProvider } from '../pipeline/enrich/factory'
 import {
   HybridCanonicalStore, createDefaultRepo, type Repo,
 } from '../persistence'
+import { summarizeCalls, listPrompts } from '../llm'
 import {
   MockRawUpstreamClient, type RawArtifactRow,
   syncOnce, replayOne, replayAllFailed, snapshotStatus,
@@ -46,6 +48,8 @@ type Subcommand =
   // Module 16
   | 'correct' | 'correct-rule' | 'list-corrections' | 'disable-correction'
   | 'replay-with-corrections' | 'correction-impact' | 'promote-to-gold'
+  // Module 17
+  | 'prompt-list' | 'llm-stats' | 'eval-with-llm'
   | 'help'
 
 interface Args {
@@ -116,7 +120,8 @@ async function main(): Promise<void> {
   const store = new HybridCanonicalStore(repo)
   store.hydrateFrom(organizations.map((o) => o.id))
   const reviewQueue = new ReviewQueue()
-  const pipeline = new Pipeline({ store, reviewQueue })
+  const llmProvider = buildLlmProvider({ repo })
+  const pipeline = new Pipeline({ store, reviewQueue, llmProvider })
 
   switch (args.cmd) {
     case 'sync':
@@ -175,6 +180,15 @@ async function main(): Promise<void> {
       break
     case 'promote-to-gold':
       cmdPromoteToGold(args, repo)
+      break
+    case 'prompt-list':
+      cmdPromptList()
+      break
+    case 'llm-stats':
+      cmdLlmStats(args, repo)
+      break
+    case 'eval-with-llm':
+      await cmdEvalWithLlm(args, repo)
       break
     case 'help':
     default:
@@ -459,6 +473,77 @@ function cmdCorrectionImpact(args: Args, repo: Repo): void {
   }
 }
 
+// ── Module 17 — prompt registry / LLM accounting / eval with LLM ──────
+
+function cmdPromptList(): void {
+  const prompts = listPrompts()
+  console.log(`${prompts.length} registered prompt(s):`)
+  for (const p of prompts) {
+    console.log(`  ${p.id.padEnd(22)} ${p.version}  ` +
+      `recommended=${p.recommended.provider}/${p.recommended.model}` +
+      (p.fallback ? `  fallback=${p.fallback.provider}/${p.fallback.model}` : '') +
+      `  T=${p.temperature}  max=${p.maxTokens}`)
+    console.log(`    ${p.description}`)
+    console.log(`    grounded fields: [${p.groundingFields.join(', ')}]`)
+  }
+}
+
+function cmdLlmStats(args: Args, repo: Repo): void {
+  // Default: per-org. With `--all`, summarise across orgs.
+  const records = (args.actor === 'all-orgs'
+    ? repo.listAllLlmCallRecords()
+    : repo.listLlmCallRecords(args.orgId))
+  if (records.length === 0) {
+    console.log('no LLM call records yet (deterministic-only or LLM_DISABLED).')
+    return
+  }
+  const summary = summarizeCalls(records)
+  const o = summary.overall
+  const cacheRate = o.calls > 0 ? Math.round((o.cacheHits / o.calls) * 100) : 0
+  const groundRate = o.successes > 0 ? Math.round((o.groundingPasses / o.successes) * 100) : 0
+  const avgLatency = o.calls > 0 ? Math.round(o.totalLatencyMs / o.calls) : 0
+  console.log(`overall: calls=${o.calls}  ok=${o.successes}  ` +
+    `cache=${o.cacheHits}(${cacheRate}%)  grounded=${o.groundingPasses}/${o.successes}(${groundRate}%)  ` +
+    `fallback=${o.fallbackUses}  avgLatency=${avgLatency}ms  ` +
+    `tokens(in/out)=${o.tokensIn}/${o.tokensOut}`)
+  for (const [label, list] of [
+    ['provider', summary.byProvider],
+    ['model',    summary.byModel],
+    ['task',     summary.byTask],
+    ['version',  summary.byPromptVersion],
+  ] as const) {
+    if (list.length === 0) continue
+    console.log(`\nby ${label}:`)
+    for (const b of list) {
+      const tokens = `${b.tokensIn}/${b.tokensOut}`
+      const cr = b.calls > 0 ? Math.round((b.cacheHits / b.calls) * 100) : 0
+      console.log(`  ${b.key.padEnd(40)}  calls=${String(b.calls).padStart(4)}  ok=${b.successes}  ` +
+        `cache=${b.cacheHits}(${cr}%)  fb=${b.fallbackUses}  tokens=${tokens}`)
+    }
+  }
+}
+
+async function cmdEvalWithLlm(args: Args, repo: Repo): Promise<void> {
+  // Side-by-side eval: deterministic-only vs LLM-enabled.
+  const detProvider = buildLlmProvider({ repo, forceNoOp: true })
+  const llmProvider = buildLlmProvider({ repo })
+  const detEvals = await runEvalSuite({ nameFilter: args.nameFilter, llmProvider: detProvider })
+  const llmEvals = await runEvalSuite({ nameFilter: args.nameFilter, llmProvider })
+  const detCards = aggregateScorecards(detEvals)
+  const llmCards = aggregateScorecards(llmEvals)
+  const dO = detCards.overall, lO = llmCards.overall
+  console.log(`deterministic-only: ${dO.passed}/${dO.fixtures}  score=${dO.score.toFixed(2)}  llm-fields=${dO.llmFieldsCount}`)
+  console.log(`with LLM provider:  ${lO.passed}/${lO.fixtures}  score=${lO.score.toFixed(2)}  llm-fields=${lO.llmFieldsCount}`)
+  const delta = (lO.score - dO.score)
+  const sign = delta > 0 ? '+' : ''
+  console.log(`Δscore: ${sign}${delta.toFixed(2)}  ` +
+    `Δpassed: ${sign}${lO.passed - dO.passed}  ` +
+    `Δllm-fields: ${sign}${lO.llmFieldsCount - dO.llmFieldsCount}`)
+  if (lO.score + 0.001 < dO.score) {
+    console.log(`(LLM run regressed; review the LlmCallRecord trail with \`llm-stats\`.)`)
+  }
+}
+
 function cmdPromoteToGold(args: Args, repo: Repo): void {
   if (!args.artifactId) { console.error('promote-to-gold: --artifact=<rawEmailId> required'); process.exit(2) }
   const draft = promoteToGoldFixture(repo, args.orgId, args.artifactId, {
@@ -543,7 +628,13 @@ function printHelp(): void {
   npm run ops -- correction-impact
   npm run ops -- promote-to-gold --artifact=<rawId> [--name="..."] [--profile=<>] [--out=<path>]
 
+  npm run ops -- prompt-list
+  npm run ops -- llm-stats         [--actor=all-orgs] [--org=<orgId>]
+  npm run ops -- eval-with-llm     [--name=<substring>]
+
 Correction types: broker, ticker, rating, target, prior-target, report-type.
+
+LLM provider env: OPENAI_API_KEY / ANTHROPIC_API_KEY (optional). LLM_DISABLED=1 forces no-op.
 
 Default org: org_vimana. SERVER_PERSISTENCE selects the repo (file | memory | sqlite).`)
 }

@@ -21,6 +21,7 @@ import type {
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
+import type { LlmCallRecord, LlmCacheEntry } from '../llm/types'
 
 const TABLES = [
   'rawEmails', 'jobs', 'reviewQueue', 'checkpoints',
@@ -28,6 +29,7 @@ const TABLES = [
   'canonicalSummaries', 'canonicalEvidence', 'canonicalOpinions',
   'canonicalQuality',
   'correctionRules',
+  'llmCallRecords', 'llmCache',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -44,6 +46,8 @@ interface Snapshot {
   canonicalOpinions: BrokerStockOpinion[]
   canonicalQuality: MaterializationQuality[]
   correctionRules: CorrectionRule[]
+  llmCallRecords: LlmCallRecord[]
+  llmCache: LlmCacheEntry[]
 }
 
 export interface JsonFileRepoOptions {
@@ -125,6 +129,14 @@ export class JsonFileRepo implements Repo {
     this.mem.bumpCorrectionImpact(orgId, id, delta); this.touch('correctionRules')
   }
 
+  // LLM (Module 17)
+  appendLlmCallRecord(rec: LlmCallRecord) { this.mem.appendLlmCallRecord(rec); this.touch('llmCallRecords') }
+  listLlmCallRecords(orgId: OrgId, limit?: number) { return this.mem.listLlmCallRecords(orgId, limit) }
+  listAllLlmCallRecords(limit?: number) { return this.mem.listAllLlmCallRecords(limit) }
+  upsertLlmCacheEntry(rec: LlmCacheEntry) { this.mem.upsertLlmCacheEntry(rec); this.touch('llmCache') }
+  getLlmCacheEntry(orgId: OrgId, key: string) { return this.mem.getLlmCacheEntry(orgId, key) }
+  findLlmCacheEntryByKey(key: string) { return this.mem.findLlmCacheEntryByKey(key) }
+
   loadCanonicalForOrg(orgId: OrgId) { return this.mem.loadCanonicalForOrg(orgId) }
 
   // ── Disk I/O (atomic write per table) ────────────────────────────────
@@ -161,6 +173,8 @@ export class JsonFileRepo implements Repo {
       canonicalOpinions: BrokerStockOpinion[]
       canonicalQuality: Map<string, MaterializationQuality>
       correctionRules: Map<string, CorrectionRule>
+      llmCallRecords: LlmCallRecord[]
+      llmCache: Map<string, LlmCacheEntry>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -175,6 +189,8 @@ export class JsonFileRepo implements Repo {
       canonicalOpinions:    [...m.canonicalOpinions],
       canonicalQuality:     [...m.canonicalQuality.values()],
       correctionRules:      [...m.correctionRules.values()],
+      llmCallRecords:       [...m.llmCallRecords],
+      llmCache:             [...m.llmCache.values()],
     }
   }
 
@@ -200,6 +216,8 @@ export class JsonFileRepo implements Repo {
           case 'canonicalOpinions':    this.mem.upsertOpinion(rec as BrokerStockOpinion); break
           case 'canonicalQuality':     this.mem.upsertMaterializationQuality(rec as MaterializationQuality); break
           case 'correctionRules':      this.mem.upsertCorrectionRule(rec as CorrectionRule); break
+          case 'llmCallRecords':       this.mem.appendLlmCallRecord(rec as LlmCallRecord); break
+          case 'llmCache':             this.mem.upsertLlmCacheEntry(rec as LlmCacheEntry); break
         }
       }
     }
