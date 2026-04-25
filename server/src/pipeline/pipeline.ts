@@ -49,6 +49,7 @@ import {
 import type { LlmProvider } from './enrich/provider'
 import { NoOpLlmProvider } from './enrich/noOpProvider'
 import { provFromAttachment, provFromBody, provFromLinkedPdf, provFromLinkedWebpage } from './provenance'
+import { applyArtifactCorrections, applyCandidateCorrections } from '../corrections/apply'
 import { PipelineError } from './errors'
 import { ReviewQueue } from './reviewQueue'
 import { materialize } from './materialize'
@@ -66,6 +67,12 @@ export interface PipelineOptions {
   readonly store?: InMemoryStore
   /** Anchor for "now" used by stages that need a clock. */
   readonly now?: Date
+  /** Module 16: indexed correction rules. When provided, the pipeline
+   *  applies them between extraction and enrichment. */
+  readonly corrections?: import('../corrections/types').CorrectionRuleSet
+  /** Called once per fired rule application during the run. Lets the
+   *  caller persist `applicationCount` / `correctedFields` deltas. */
+  readonly onCorrectionApplied?: (a: import('../corrections/types').CorrectionApplication) => void
 }
 
 export interface PipelineRunResult {
@@ -79,6 +86,8 @@ export class Pipeline {
   readonly llmProvider: LlmProvider
   readonly reviewQueue: ReviewQueue
   readonly store: InMemoryStore | null
+  readonly corrections: import('../corrections/types').CorrectionRuleSet | null
+  readonly onCorrectionApplied: ((a: import('../corrections/types').CorrectionApplication) => void) | null
 
   constructor(opts: PipelineOptions = {}) {
     this.attachmentExtractor = opts.attachmentExtractor ?? new CachedTextAttachmentExtractor()
@@ -86,9 +95,19 @@ export class Pipeline {
     this.llmProvider = opts.llmProvider ?? new NoOpLlmProvider()
     this.reviewQueue = opts.reviewQueue ?? new ReviewQueue()
     this.store = opts.store ?? null
+    this.corrections = opts.corrections ?? null
+    this.onCorrectionApplied = opts.onCorrectionApplied ?? null
   }
 
+  /** Tracks fields per (reportId-key) corrected during the active run.
+   *  Read by the materializer-side hook below to enrich the
+   *  `MaterializationQuality.correctedFields` list. */
+  private correctedFieldsByCandidate = new Map<string, string[]>()
+
   async run(artifact: RawEmailArtifact): Promise<PipelineRunResult> {
+    // Reset per-run scratch space.
+    this.correctedFieldsByCandidate = new Map<string, string[]>()
+
     const job: RawEmailArtifactJob = {
       artifact,
       state: 'fetched_raw',
@@ -97,13 +116,26 @@ export class Pipeline {
 
     try {
       // Stage 1: parse email envelope.
-      const parsed = extractEmailEnvelope(artifact)
+      let parsed = extractEmailEnvelope(artifact)
+      let workingArtifact = artifact
+
+      // Module 16: artifact-level corrections (linked include/exclude,
+      // etc.). Apply BEFORE candidate generation so downstream sees
+      // the corrected linked refs.
+      if (this.corrections) {
+        const r = applyArtifactCorrections(parsed, workingArtifact, this.corrections)
+        parsed = r.parsed
+        workingArtifact = r.artifact
+        for (const a of r.applications) {
+          this.onCorrectionApplied?.(a)
+        }
+      }
       job.parsedEmail = parsed
       advance(job, 'parsed_email')
 
       // Stage 2: attachment text extraction.
       const attachmentTexts = new Map<string, ExtractedTextArtifact>()
-      for (const ref of artifact.attachmentRefs) {
+      for (const ref of workingArtifact.attachmentRefs) {
         try {
           const out = await this.attachmentExtractor.extract(ref)
           attachmentTexts.set(ref.filename, out)
@@ -117,14 +149,14 @@ export class Pipeline {
 
       // Stage 3: linked-artifact extraction (optional + tolerant).
       const linkedTexts = new Map<string, ExtractedTextArtifact>()
-      for (const ref of artifact.linkedRefs) {
+      for (const ref of workingArtifact.linkedRefs) {
         try {
           const out = await this.linkedExtractor.extract(ref)
           linkedTexts.set(ref.url, out)
         } catch (e) {
           this.reviewQueue.enqueue(
-            artifact.orgId,
-            artifact,
+            workingArtifact.orgId,
+            workingArtifact,
             'BROKEN_LINKED_ARTIFACT',
             e instanceof Error ? e.message : String(e),
           )
@@ -134,12 +166,31 @@ export class Pipeline {
       advance(job, 'extracted_linked_artifact_text')
 
       // Stage 4: deterministic field extraction.
-      const candidates = this.buildDeterministicCandidates({
-        parsed, attachmentTexts, linkedTexts, raw: artifact,
+      let candidates = this.buildDeterministicCandidates({
+        parsed, attachmentTexts, linkedTexts, raw: workingArtifact,
       })
       if (candidates.length === 0) {
         return this.failJob(job, 'EMPTY_EXTRACTION', 'No usable text from any source.')
       }
+
+      // Module 16: candidate-level corrections. Apply BEFORE enrichment
+      // so the LLM sees corrected facts. Track corrected fields per
+      // (reportId-key) so the materializer's quality score reflects them.
+      if (this.corrections) {
+        const corrected: ParsedReportCandidate[] = []
+        for (let i = 0; i < candidates.length; i++) {
+          const c = candidates[i]!
+          const r = applyCandidateCorrections(c, workingArtifact, parsed, this.corrections)
+          corrected.push(r.candidate)
+          if (r.correctedFields.length > 0) {
+            const key = `${parsed.messageId}:${i}:${(r.candidate.ticker as unknown as string) ?? '_'}`
+            this.correctedFieldsByCandidate.set(key, [...r.correctedFields])
+          }
+          for (const a of r.applications) this.onCorrectionApplied?.(a)
+        }
+        candidates = corrected
+      }
+
       job.candidates = candidates
       advance(job, 'deterministic_fields_ready')
 
@@ -157,7 +208,7 @@ export class Pipeline {
         } catch (e) {
           if (e instanceof PipelineError && e.category === 'LLM_FAILURE_FALLBACK') {
             this.reviewQueue.enqueue(
-              artifact.orgId, artifact, 'LLM_FAILURE_FALLBACK', e.detail,
+              workingArtifact.orgId, workingArtifact, 'LLM_FAILURE_FALLBACK', e.detail,
             )
             // Continue with deterministic-only candidate.
             enriched.push({ candidate: c, enrichment: null })
@@ -171,11 +222,12 @@ export class Pipeline {
 
       // Stage 6: materialize → canonical /v1 entities.
       const out = materialize({
-        orgId: artifact.orgId,
+        orgId: workingArtifact.orgId,
         parsedEmail: parsed,
-        attachmentRefs: artifact.attachmentRefs,
+        attachmentRefs: workingArtifact.attachmentRefs,
         enriched,
-        receivedAt: artifact.receivedAt,
+        receivedAt: workingArtifact.receivedAt,
+        correctedFieldsByKey: this.correctedFieldsByCandidate,
       })
       job.materialized = out
       advance(job, 'materialized_ready')

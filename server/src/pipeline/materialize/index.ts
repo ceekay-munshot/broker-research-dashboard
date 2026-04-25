@@ -35,6 +35,10 @@ export interface MaterializeInput {
   readonly attachmentRefs: readonly RawAttachmentRef[]
   readonly enriched: readonly EnrichedReportCandidate[]
   readonly receivedAt: string
+  /** Module 16: per-candidate fields the corrections layer overrode.
+   *  Keyed by `${messageId}:${i}:${ticker ?? '_'}`. Surfaces in
+   *  `MaterializationQuality.correctedFields` for operator visibility. */
+  readonly correctedFieldsByKey?: ReadonlyMap<string, readonly string[]>
 }
 
 export interface MaterializeResult {
@@ -161,13 +165,16 @@ export function materialize(input: MaterializeInput): MaterializeResult {
       })
     }
 
-    // ── MaterializationQuality (Module 15) ──────────────────────────
+    // ── MaterializationQuality (Module 15 + 16) ────────────────────
+    const correctedKey = `${input.parsedEmail.messageId}:${i}:${ec.candidate.ticker ?? '_'}`
+    const correctedFields = input.correctedFieldsByKey?.get(correctedKey) ?? []
     quality.push(scoreMaterializationQuality({
       orgId: input.orgId,
       enriched: ec,
       reportId,
       evidenceSpans: allEvidenceSpans,
       thesis: summary.thesis,
+      correctedFields,
     }))
   }
 

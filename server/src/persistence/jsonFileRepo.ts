@@ -20,12 +20,14 @@ import type {
   OrgId, ReportId, ResearchReport, ReportSummary,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
+import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
 
 const TABLES = [
   'rawEmails', 'jobs', 'reviewQueue', 'checkpoints',
   'canonicalEmails', 'canonicalAttachments', 'canonicalReports',
   'canonicalSummaries', 'canonicalEvidence', 'canonicalOpinions',
   'canonicalQuality',
+  'correctionRules',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -41,6 +43,7 @@ interface Snapshot {
   canonicalEvidence: EvidenceSnippet[]
   canonicalOpinions: BrokerStockOpinion[]
   canonicalQuality: MaterializationQuality[]
+  correctionRules: CorrectionRule[]
 }
 
 export interface JsonFileRepoOptions {
@@ -111,6 +114,17 @@ export class JsonFileRepo implements Repo {
     return this.mem.listMaterializationQuality(orgId)
   }
 
+  // Corrections (Module 16)
+  upsertCorrectionRule(rec: CorrectionRule) { this.mem.upsertCorrectionRule(rec); this.touch('correctionRules') }
+  getCorrectionRule(orgId: OrgId, id: string) { return this.mem.getCorrectionRule(orgId, id) }
+  listCorrectionRules(orgId: OrgId, opts?: { enabledOnly?: boolean }) { return this.mem.listCorrectionRules(orgId, opts) }
+  appendCorrectionAudit(orgId: OrgId, id: string, entry: CorrectionAuditEntry, patch?: { enabled?: boolean; supersededBy?: string }) {
+    this.mem.appendCorrectionAudit(orgId, id, entry, patch); this.touch('correctionRules')
+  }
+  bumpCorrectionImpact(orgId: OrgId, id: string, delta: { applicationCount?: number; reviewItemsResolved?: number; aggregateQualityDelta?: number }) {
+    this.mem.bumpCorrectionImpact(orgId, id, delta); this.touch('correctionRules')
+  }
+
   loadCanonicalForOrg(orgId: OrgId) { return this.mem.loadCanonicalForOrg(orgId) }
 
   // ── Disk I/O (atomic write per table) ────────────────────────────────
@@ -146,6 +160,7 @@ export class JsonFileRepo implements Repo {
       canonicalEvidence: Map<string, EvidenceSnippet>
       canonicalOpinions: BrokerStockOpinion[]
       canonicalQuality: Map<string, MaterializationQuality>
+      correctionRules: Map<string, CorrectionRule>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -159,6 +174,7 @@ export class JsonFileRepo implements Repo {
       canonicalEvidence:    [...m.canonicalEvidence.values()],
       canonicalOpinions:    [...m.canonicalOpinions],
       canonicalQuality:     [...m.canonicalQuality.values()],
+      correctionRules:      [...m.correctionRules.values()],
     }
   }
 
@@ -183,6 +199,7 @@ export class JsonFileRepo implements Repo {
           case 'canonicalEvidence':    this.mem.upsertEvidence([rec as EvidenceSnippet]); break
           case 'canonicalOpinions':    this.mem.upsertOpinion(rec as BrokerStockOpinion); break
           case 'canonicalQuality':     this.mem.upsertMaterializationQuality(rec as MaterializationQuality); break
+          case 'correctionRules':      this.mem.upsertCorrectionRule(rec as CorrectionRule); break
         }
       }
     }

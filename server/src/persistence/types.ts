@@ -28,6 +28,7 @@ import type {
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
 import type { MaterializationQuality } from '../pipeline/quality'
+import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
 
 // ── Raw artifact records (mirror of what the upstream sent us) ───────────
 
@@ -127,6 +128,24 @@ export interface Repo {
   upsertMaterializationQuality(rec: MaterializationQuality): void
   getMaterializationQuality(orgId: OrgId, reportId: ReportId): MaterializationQuality | null
   listMaterializationQuality(orgId: OrgId): readonly MaterializationQuality[]
+
+  // Correction rules (Module 16) ────────────────────────────────────────
+  upsertCorrectionRule(rec: CorrectionRule): void
+  getCorrectionRule(orgId: OrgId, id: string): CorrectionRule | null
+  listCorrectionRules(orgId: OrgId, opts?: { readonly enabledOnly?: boolean }): readonly CorrectionRule[]
+  /** Append an audit entry + optionally toggle `enabled` / `supersededBy`. */
+  appendCorrectionAudit(orgId: OrgId, id: string, entry: CorrectionAuditEntry, patch?: {
+    readonly enabled?: boolean
+    readonly supersededBy?: string
+  }): void
+  /** Bump `applicationCount` (and optionally `reviewItemsResolved` /
+   *  aggregate quality delta). Idempotent at runtime; persisted state
+   *  reflects the latest cumulative totals. */
+  bumpCorrectionImpact(orgId: OrgId, id: string, delta: {
+    readonly applicationCount?: number
+    readonly reviewItemsResolved?: number
+    readonly aggregateQualityDelta?: number
+  }): void
 
   /** Hydration: dump everything for an org so `HybridCanonicalStore`
    *  can preload the in-memory cache on process startup. */

@@ -5,6 +5,7 @@ import type {
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
 import type { MaterializationQuality } from '../pipeline/quality'
+import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
 import type {
   PersistedJob, PersistedRawEmail, PersistedReviewItem,
   Repo, SyncCheckpoint,
@@ -25,6 +26,7 @@ export class InMemoryRepo implements Repo {
   private readonly canonicalEvidence = new Map<string, EvidenceSnippet>()
   private readonly canonicalOpinions: BrokerStockOpinion[] = []
   private readonly canonicalQuality = new Map<string, MaterializationQuality>()
+  private readonly correctionRules = new Map<string, CorrectionRule>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -127,6 +129,46 @@ export class InMemoryRepo implements Repo {
       evidence:    [...this.canonicalEvidence.values()].filter((e) => e.orgId === orgId),
       opinions:    this.canonicalOpinions.filter((o) => o.orgId === orgId),
     }
+  }
+
+  // ── Correction rules (Module 16) ────────────────────────────────────
+  upsertCorrectionRule(rec: CorrectionRule): void { this.correctionRules.set(rec.id, rec) }
+  getCorrectionRule(orgId: OrgId, id: string): CorrectionRule | null {
+    const r = this.correctionRules.get(id)
+    return r && r.orgId === orgId ? r : null
+  }
+  listCorrectionRules(orgId: OrgId, opts?: { enabledOnly?: boolean }): readonly CorrectionRule[] {
+    let arr = [...this.correctionRules.values()].filter((r) => r.orgId === orgId)
+    if (opts?.enabledOnly) arr = arr.filter((r) => r.enabled && !r.supersededBy)
+    arr.sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+    return arr
+  }
+  appendCorrectionAudit(
+    orgId: OrgId, id: string, entry: CorrectionAuditEntry,
+    patch?: { enabled?: boolean; supersededBy?: string },
+  ): void {
+    const cur = this.getCorrectionRule(orgId, id)
+    if (!cur) return
+    const next: CorrectionRule = {
+      ...cur,
+      enabled: patch?.enabled ?? cur.enabled,
+      supersededBy: patch?.supersededBy ?? cur.supersededBy,
+      audit: [...cur.audit, entry],
+    }
+    this.correctionRules.set(id, next)
+  }
+  bumpCorrectionImpact(orgId: OrgId, id: string, delta: {
+    applicationCount?: number; reviewItemsResolved?: number; aggregateQualityDelta?: number
+  }): void {
+    const cur = this.getCorrectionRule(orgId, id)
+    if (!cur) return
+    const next: CorrectionRule = {
+      ...cur,
+      applicationCount:      cur.applicationCount      + (delta.applicationCount      ?? 0),
+      reviewItemsResolved:   cur.reviewItemsResolved   + (delta.reviewItemsResolved   ?? 0),
+      aggregateQualityDelta: cur.aggregateQualityDelta + (delta.aggregateQualityDelta ?? 0),
+    }
+    this.correctionRules.set(id, next)
   }
 
   flush(): void { /* noop */ }

@@ -31,12 +31,21 @@ import { VIMANA_ORG_ID } from '../../../src/mocks/organizations'
 import type { RawEmailArtifact } from '../pipeline/models'
 import { runEvalSuite, aggregateScorecards, diffSnapshots } from '../eval'
 import { severityFor } from '../pipeline/errors'
+import {
+  indexRules, promoteToGoldFixture,
+  type CorrectionRule, type CorrectionPayload, type CorrectionScope,
+} from '../corrections'
+import { writeFileSync } from 'node:fs'
+import type { BrokerId, Rating, ReportType, StockTicker } from '../../../src/domain'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
   | 'list-failures' | 'list-review' | 'clear-review' | 'status'
   // Module 15
   | 'eval' | 'scorecard' | 'field-stats' | 'top-failures' | 'diff'
+  // Module 16
+  | 'correct' | 'correct-rule' | 'list-corrections' | 'disable-correction'
+  | 'replay-with-corrections' | 'correction-impact' | 'promote-to-gold'
   | 'help'
 
 interface Args {
@@ -48,8 +57,18 @@ interface Args {
   // Module 15 flags
   readonly nameFilter?: string
   readonly bucket?: 'broker' | 'profile' | 'source' | 'reportType' | 'enrichment'
-  readonly before?: string                  // path to snapshot JSON
-  readonly after?: string                   // path to snapshot JSON
+  readonly before?: string
+  readonly after?: string
+  // Module 16 flags
+  readonly type?: string                    // correction type
+  readonly value?: string                   // correction value (rating, ticker, etc.)
+  readonly artifactId?: string
+  readonly broker?: string
+  readonly profile?: string
+  readonly subjectRegex?: string
+  readonly reusable?: boolean
+  readonly actor?: string
+  readonly outPath?: string                 // promote-to-gold output
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -79,6 +98,15 @@ function parseArgs(argv: readonly string[]): Args {
     bucket,
     before: flags.before as string | undefined,
     after: flags.after as string | undefined,
+    type: flags.type as string | undefined,
+    value: flags.value as string | undefined,
+    artifactId: flags.artifact as string | undefined,
+    broker: flags.broker as string | undefined,
+    profile: flags.profile as string | undefined,
+    subjectRegex: flags['subject-regex'] as string | undefined,
+    reusable: flags.reusable === true,
+    actor: (flags.actor as string | undefined) ?? 'cli-operator',
+    outPath: flags.out as string | undefined,
   }
 }
 
@@ -126,6 +154,27 @@ async function main(): Promise<void> {
       break
     case 'diff':
       cmdDiff(args)
+      break
+    case 'correct':
+      cmdCorrect(args, repo, /* reusable= */ false)
+      break
+    case 'correct-rule':
+      cmdCorrect(args, repo, /* reusable= */ true)
+      break
+    case 'list-corrections':
+      cmdListCorrections(args, repo)
+      break
+    case 'disable-correction':
+      cmdDisableCorrection(args, repo)
+      break
+    case 'replay-with-corrections':
+      await cmdReplayWithCorrections(args, repo, store)
+      break
+    case 'correction-impact':
+      cmdCorrectionImpact(args, repo)
+      break
+    case 'promote-to-gold':
+      cmdPromoteToGold(args, repo)
       break
     case 'help':
     default:
@@ -321,6 +370,154 @@ function cmdDiff(args: Args): void {
   }
 }
 
+// ── Module 16 — corrections / adjudication ─────────────────────────────
+
+function cmdCorrect(args: Args, repo: Repo, reusable: boolean): void {
+  if (!args.type || args.value === undefined) {
+    console.error('correct: --type=<rating|target|prior-target|broker|ticker|report-type> --value=<...> required')
+    process.exit(2)
+  }
+  const payload = parsePayload(args.type, args.value)
+  if (!payload) { console.error(`correct: unknown --type=${args.type}`); process.exit(2) }
+
+  const scope: CorrectionScope = reusable
+    ? buildReusableScope(args)
+    : buildOneOffScope(args)
+  if (Object.keys(scope).length === 0) {
+    console.error('correct: scope is empty. one-off needs --artifact=<id>; reusable needs --broker=<> or --profile=<> or --subject-regex=<>')
+    process.exit(2)
+  }
+
+  const id = `cor_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`
+  const now = new Date().toISOString()
+  const rule: CorrectionRule = {
+    id,
+    orgId: args.orgId,
+    isReusable: reusable,
+    scope,
+    payload,
+    createdAt: now,
+    createdBy: args.actor ?? 'cli-operator',
+    note: args.note ?? '',
+    enabled: true,
+    applicationCount: 0,
+    reviewItemsResolved: 0,
+    aggregateQualityDelta: 0,
+    audit: [{ at: now, actor: args.actor ?? 'cli-operator', action: 'created', note: args.note }],
+  }
+  repo.upsertCorrectionRule(rule)
+  repo.flush()
+  console.log(`[correct] ${id}  ${reusable ? 'reusable' : 'one-off'}  payload=${payload.kind}  scope=${JSON.stringify(scope)}`)
+}
+
+function cmdListCorrections(args: Args, repo: Repo): void {
+  const items = repo.listCorrectionRules(args.orgId)
+  if (items.length === 0) { console.log('no corrections defined'); return }
+  console.log(`${items.length} correction rule(s):`)
+  for (const r of items) {
+    const status = !r.enabled ? 'disabled' : r.supersededBy ? `superseded by ${r.supersededBy}` : 'active'
+    console.log(`  ${r.id}  ${r.isReusable ? 'reusable' : 'one-off '}  ${r.payload.kind.padEnd(28)}  ${status}  app=${r.applicationCount}  resolved=${r.reviewItemsResolved}`)
+    if (r.note) console.log(`        note: ${r.note}`)
+  }
+}
+
+function cmdDisableCorrection(args: Args, repo: Repo): void {
+  if (!args.id) { console.error('disable-correction: --id=<correctionId> required'); process.exit(2) }
+  const now = new Date().toISOString()
+  repo.appendCorrectionAudit(args.orgId, args.id, {
+    at: now, actor: args.actor ?? 'cli-operator', action: 'disabled', note: args.note,
+  }, { enabled: false })
+  repo.flush()
+  console.log(`[disable-correction] ${args.id} disabled`)
+}
+
+async function cmdReplayWithCorrections(args: Args, repo: Repo, store: HybridCanonicalStore): Promise<void> {
+  if (!args.artifactId) { console.error('replay-with-corrections: --artifact=<rawEmailId> required'); process.exit(2) }
+  const raw = repo.getRawEmail(args.orgId, args.artifactId)
+  if (!raw) { console.error(`raw artifact ${args.artifactId} not found`); process.exit(2) }
+  const rules = indexRules(repo.listCorrectionRules(args.orgId, { enabledOnly: true }))
+  const reviewQueue = new ReviewQueue()
+  const pipeline = new Pipeline({
+    store, reviewQueue, corrections: rules,
+    onCorrectionApplied: (a) => repo.bumpCorrectionImpact(args.orgId, a.ruleId, { applicationCount: 1 }),
+  })
+  const result = await pipeline.run(raw.artifact)
+  repo.updateRawEmailState(args.orgId, raw.id, result.job.state, result.job.error?.category ?? null, result.job.error?.detail ?? null)
+  repo.flush()
+  const correctedKeys = result.job.materialized?.quality.flatMap((q) => q.correctedFields) ?? []
+  console.log(`[replay-with-corrections] ${raw.id} → ${result.outcome}  corrected_fields=[${[...new Set(correctedKeys)].join(', ')}]`)
+}
+
+function cmdCorrectionImpact(args: Args, repo: Repo): void {
+  const rules = repo.listCorrectionRules(args.orgId)
+  if (rules.length === 0) { console.log('no corrections defined'); return }
+  // Top by applicationCount
+  const sorted = [...rules].sort((a, b) => b.applicationCount - a.applicationCount)
+  console.log('top corrections by impact:')
+  for (const r of sorted) {
+    console.log(`  ${r.id}  app=${r.applicationCount}  resolved=${r.reviewItemsResolved}  Δquality=${r.aggregateQualityDelta.toFixed(2)}  ${r.payload.kind}`)
+  }
+}
+
+function cmdPromoteToGold(args: Args, repo: Repo): void {
+  if (!args.artifactId) { console.error('promote-to-gold: --artifact=<rawEmailId> required'); process.exit(2) }
+  const draft = promoteToGoldFixture(repo, args.orgId, args.artifactId, {
+    name: args.note ?? `promoted-${args.artifactId}`,
+    profile: args.profile,
+    notes: args.note,
+  })
+  if (!draft) { console.error(`raw artifact ${args.artifactId} not found`); process.exit(2) }
+  const out = JSON.stringify(draft, null, 2)
+  if (args.outPath) {
+    writeFileSync(args.outPath, out, 'utf8')
+    console.log(`[promote-to-gold] wrote ${args.outPath}`)
+  } else {
+    console.log(out)
+  }
+}
+
+// ── Helpers for correction parsing ─────────────────────────────────────
+
+function parsePayload(type: string, value: string): CorrectionPayload | null {
+  switch (type) {
+    case 'broker':         return { kind: 'broker_override',       brokerId: value as unknown as BrokerId }
+    case 'ticker':         return { kind: 'ticker_override',       ticker: value as unknown as StockTicker }
+    case 'rating': {
+      const allowed: readonly Rating[] = ['Buy', 'Overweight', 'Hold', 'Underweight', 'Sell', 'Not Rated']
+      if (!allowed.includes(value as Rating)) return null
+      return { kind: 'rating_override', rating: value as Rating }
+    }
+    case 'target':
+    case 'target-price': {
+      const n = Number(value); if (!Number.isFinite(n)) return null
+      return { kind: 'target_price_override', targetPrice: n }
+    }
+    case 'prior-target': {
+      if (value === 'null' || value === '') return { kind: 'prior_target_override', priorTargetPrice: null }
+      const n = Number(value); if (!Number.isFinite(n)) return null
+      return { kind: 'prior_target_override', priorTargetPrice: n }
+    }
+    case 'report-type': {
+      return { kind: 'report_type_override', reportType: value as ReportType }
+    }
+    default: return null
+  }
+}
+
+function buildOneOffScope(args: Args): CorrectionScope {
+  const scope: CorrectionScope = {}
+  if (args.artifactId) (scope as { artifactId?: string }).artifactId = args.artifactId
+  return scope
+}
+
+function buildReusableScope(args: Args): CorrectionScope {
+  const scope: CorrectionScope = {}
+  if (args.broker)        (scope as { brokerId?: BrokerId }).brokerId = args.broker as unknown as BrokerId
+  if (args.profile)       (scope as { parserProfile?: string }).parserProfile = args.profile
+  if (args.subjectRegex)  (scope as { subjectRegex?: string }).subjectRegex = args.subjectRegex
+  return scope
+}
+
 function printHelp(): void {
   console.log(`live-sync + eval ops CLI
 
@@ -337,6 +534,16 @@ function printHelp(): void {
   npm run ops -- field-stats
   npm run ops -- top-failures [--org=<orgId>]
   npm run ops -- diff --before=<snapshot.json> --after=<snapshot.json>
+
+  npm run ops -- correct --type=<type> --value=<v> --artifact=<rawId> [--note="..."]
+  npm run ops -- correct-rule --type=<type> --value=<v> [--broker=<>|--profile=<>|--subject-regex=<>] [--note="..."]
+  npm run ops -- list-corrections
+  npm run ops -- disable-correction --id=<correctionId> [--note="..."]
+  npm run ops -- replay-with-corrections --artifact=<rawId>
+  npm run ops -- correction-impact
+  npm run ops -- promote-to-gold --artifact=<rawId> [--name="..."] [--profile=<>] [--out=<path>]
+
+Correction types: broker, ticker, rating, target, prior-target, report-type.
 
 Default org: org_vimana. SERVER_PERSISTENCE selects the repo (file | memory | sqlite).`)
 }

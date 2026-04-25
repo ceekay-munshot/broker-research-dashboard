@@ -75,6 +75,11 @@ export interface MaterializationQuality {
     readonly thesisShorterThan: number   // chars; 0 ⇒ no flag
     readonly noEvidenceForFields: readonly string[]
   }
+
+  // ── Module 16: operator corrections ────────────────────────────────
+  /** Field names the corrections layer overrode for this report. The
+   *  `/v1` API does NOT expose this — operator-only surface. */
+  readonly correctedFields: readonly string[]
 }
 
 // ── Scoring entry point ──────────────────────────────────────────────────
@@ -85,6 +90,8 @@ export interface QualityScoreInput {
   readonly reportId: ReportId
   readonly evidenceSpans: readonly EvidenceSpan[]
   readonly thesis: string
+  /** Module 16: fields the corrections layer overrode. */
+  readonly correctedFields?: readonly string[]
 }
 
 export function scoreMaterializationQuality(input: QualityScoreInput): MaterializationQuality {
@@ -178,6 +185,7 @@ export function scoreMaterializationQuality(input: QualityScoreInput): Materiali
     evidenceCount: input.evidenceSpans.length,
     evidenceCoverage: round2(evidenceCoverage),
     flags,
+    correctedFields: input.correctedFields ?? [],
   }
 }
 

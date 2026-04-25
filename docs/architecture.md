@@ -16,6 +16,11 @@ not the system of record. The intended production topology is:
 > diagnostics (eval / scorecards / field-stats / replay-diff) are
 > documented at [`docs/eval.md`](./eval.md).
 
+> The review-adjudication, correction-memory, and replay-learning
+> loop (durable correction rules, deterministic apply, impact
+> measurement, gold promotion) are documented at
+> [`docs/corrections.md`](./corrections.md).
+
 ```
         ┌────────────────────────────────────┐
         │     External Upstream API          │
