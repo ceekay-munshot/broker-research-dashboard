@@ -1,0 +1,55 @@
+{
+  "cursor": null,
+  "items": [
+    {
+      "upstreamId": "raw_up_001",
+      "artifact": {
+        "id": "raw_001",
+        "receivedAt": "2026-04-22T09:30:00.000Z",
+        "orgId": "org_vimana",
+        "envelope": {
+          "messageId": "<20260422-direct-tcs@kotak.com>",
+          "from": "Kotak Research <research@kotak.com>",
+          "to": "vimana@vimanacapital.com",
+          "subject": "TCS — 4QFY26 Result Update; raises TP to ₹4,200",
+          "receivedAt": "2026-04-22T09:30:00.000Z",
+          "bodyText": "We maintain Buy on TCS and raise TP to ₹4,200 from ₹4,050. Q4 revenue beat consensus by 2.3% on BFSI strength. EBIT margin at 24.6%.",
+          "bodyHtml": null,
+          "forwardedBy": []
+        },
+        "attachmentRefs": [
+          {
+            "filename": "TCS-4QFY26.pdf",
+            "mimeType": "application/pdf",
+            "sizeBytes": 123456,
+            "storageRef": "fixture://batch1/TCS-4QFY26.pdf",
+            "pageCount": 14,
+            "language": "en",
+            "text": "TCS — 4QFY26 Result Update. Recommendation: Buy. PT ₹4,200 (prior ₹4,050). Risks: US discretionary slowdown."
+          }
+        ],
+        "linkedRefs": []
+      }
+    },
+    {
+      "upstreamId": "raw_up_002",
+      "artifact": {
+        "id": "raw_002",
+        "receivedAt": "2026-04-22T11:15:00.000Z",
+        "orgId": "org_vimana",
+        "envelope": {
+          "messageId": "<20260422-iifl-flash@iifl.com>",
+          "from": "IIFL Research <research@iifl.com>",
+          "to": "vimana@vimanacapital.com",
+          "subject": "MARUTI — Flash: pricing pressure; PT ₹11,000",
+          "receivedAt": "2026-04-22T11:15:00.000Z",
+          "bodyText": "We maintain Hold on MARUTI with revised PT ₹11,000 (from ₹11,500). Q1 retail share lost ~120 bps.",
+          "bodyHtml": null,
+          "forwardedBy": []
+        },
+        "attachmentRefs": [],
+        "linkedRefs": []
+      }
+    }
+  ]
+}

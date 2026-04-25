@@ -1,16 +1,24 @@
-import { InMemoryStore } from './store/InMemoryStore'
 import { runIngestion } from './ingestion'
 import { startApiServer } from './api/server'
+import { HybridCanonicalStore, createDefaultRepo } from './persistence'
+import { organizations } from './config/organizations'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
+//
+// As of Module 14, the server boots a `HybridCanonicalStore` backed by
+// the configured `Repo` (default: JsonFileRepo at SERVER_DATA_DIR).
+// The store hydrates from the repo on cold start, so the API serves
+// previously-materialized records instantly without waiting for a sync.
 
 async function main(): Promise<void> {
   const args = new Set(process.argv.slice(2))
   const ingestOnly = args.has('--ingest-only')
   const port = Number(process.env.SERVER_PORT ?? 4000)
 
-  const store = new InMemoryStore()
+  const repo = createDefaultRepo()
+  const store = new HybridCanonicalStore(repo)
+  store.hydrateFrom(organizations.map((o) => o.id))
 
   console.log('┌─ ingestion ────────────────────────────────────────────')
   const report = await runIngestion(store)

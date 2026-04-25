@@ -8,6 +8,10 @@ not the system of record. The intended production topology is:
 > frontend consumes is documented separately:
 > [`docs/pipeline.md`](./pipeline.md).
 
+> The live operational layer — durable persistence, incremental sync,
+> idempotency, and replay/reprocess tooling — is documented at
+> [`docs/live-sync.md`](./live-sync.md).
+
 ```
         ┌────────────────────────────────────┐
         │     External Upstream API          │

@@ -1,0 +1,55 @@
+{
+  "cursor": "cursor-after-batch-1",
+  "items": [
+    {
+      "upstreamId": "raw_up_001",
+      "artifact": {
+        "id": "raw_001",
+        "receivedAt": "2026-04-22T09:30:00.000Z",
+        "orgId": "org_vimana",
+        "envelope": {
+          "messageId": "<20260422-direct-tcs@kotak.com>",
+          "from": "Kotak Research <research@kotak.com>",
+          "to": "vimana@vimanacapital.com",
+          "subject": "TCS — 4QFY26 Result Update; raises TP to ₹4,200",
+          "receivedAt": "2026-04-22T09:30:00.000Z",
+          "bodyText": "We maintain Buy on TCS and raise TP to ₹4,200 from ₹4,050. Q4 revenue beat consensus by 2.3% on BFSI strength. EBIT margin at 24.6%.",
+          "bodyHtml": null,
+          "forwardedBy": []
+        },
+        "attachmentRefs": [
+          {
+            "filename": "TCS-4QFY26.pdf",
+            "mimeType": "application/pdf",
+            "sizeBytes": 123456,
+            "storageRef": "fixture://batch1/TCS-4QFY26.pdf",
+            "pageCount": 14,
+            "language": "en",
+            "text": "TCS — 4QFY26 Result Update. Recommendation: Buy. PT ₹4,200 (prior ₹4,050). Risks: US discretionary slowdown."
+          }
+        ],
+        "linkedRefs": []
+      }
+    },
+    {
+      "upstreamId": "raw_up_003",
+      "artifact": {
+        "id": "raw_003",
+        "receivedAt": "2026-04-23T07:00:00.000Z",
+        "orgId": "org_vimana",
+        "envelope": {
+          "messageId": "<20260423-jmfl-morning@jmfl.com>",
+          "from": "JMFL Morning Brief <morning@jmfl.com>",
+          "to": "vimana@vimanacapital.com",
+          "subject": "JMFL Morning Brief 23 Apr 2026",
+          "receivedAt": "2026-04-23T07:00:00.000Z",
+          "bodyText": "JMFL Morning Brief — 23 Apr 2026.\n\nLT: Buy. PT ₹4,500. Order book strong.\n\nMARUTI: Sell. PT ₹10,800 from ₹11,000. Pricing pressure intensifies.\n",
+          "bodyHtml": null,
+          "forwardedBy": []
+        },
+        "attachmentRefs": [],
+        "linkedRefs": []
+      }
+    }
+  ]
+}
