@@ -7,6 +7,8 @@ import { useAlertFeed } from '../../hooks/useAlertFeed'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import BookBadge from '../portfolio/BookBadge'
 import AlertBanner from '../alerts/AlertBanner'
+import RankCompareChip from '../adaptiveRanking/RankCompareChip'
+import { adaptiveRankingFlags } from '../../engine'
 
 interface MyBookProps {
   readonly onSelectReport: (id: ReportId) => void
@@ -186,6 +188,10 @@ function ActivityRow({
         <BookBadge membership={row.membership} direction={row.relevance.direction} weightPct={row.relevance.weightPct} conviction={row.relevance.conviction} compact/>
 
         <RelevanceChip bucket={bucket}/>
+
+        {adaptiveRankingFlags().showCompare && row.adaptive && row.adaptive.adjustment.applied && (
+          <RankCompareChip annotation={row.adaptive} compact/>
+        )}
 
         <span className={`flex-1 truncate text-[12px] ${STANCE_TEXT_COLOR[row.stance]}`} title={row.headline}>
           {row.headline}

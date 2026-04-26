@@ -5,6 +5,7 @@ import type {
   AlertEvent, AlertDigest, AlertSeverity, AlertTriggerKind,
   PortfolioMembership, ReportId, StockTicker, BrokerId,
 } from '../../domain'
+import type { AdaptiveAnnotation } from '../adaptiveRanking'
 
 export interface AlertCardViewModel {
   readonly id: AlertEvent['id']
@@ -22,6 +23,9 @@ export interface AlertCardViewModel {
   readonly ticker: StockTicker | null
   readonly brokerId: BrokerId | null
   readonly reportId: ReportId | null
+  /** Module 23 — calibration-aware adjustment + rank delta. Null when
+   *  calibration data isn't available (degraded). */
+  readonly adaptive: AdaptiveAnnotation | null
 }
 
 export interface AlertGroup {

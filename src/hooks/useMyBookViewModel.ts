@@ -4,6 +4,7 @@
 
 import type {
   BrokerStockOpinion, ReportSummary, PortfolioSnapshot,
+  CalibrationSnapshot, PostEventReview,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from './useAdapterQuery'
@@ -53,6 +54,23 @@ export function useMyBookViewModel(): QueryResult<MyBookViewModel> {
     [],
   )
 
+  // Module 23 — calibration + post-event reviews drive adaptive ranking.
+  // Both are tolerated as missing.
+  const calibrationQ = useAdapterQuery<CalibrationSnapshot | null>(
+    async (a, s) => {
+      try { return await a.getCalibrationSnapshot(s) }
+      catch { return null }
+    },
+    [],
+  )
+  const postEventReviewsQ = useAdapterQuery<readonly PostEventReview[]>(
+    async (a, s) => {
+      try { return await a.listPostEventReviews(s) }
+      catch { return [] }
+    },
+    [],
+  )
+
   const requiredLoading = brokers.loading || sectors.loading || stocks.loading || reports.loading || snapshot.loading
   const requiredError = brokers.error ?? sectors.error ?? stocks.error ?? reports.error
   if (requiredLoading) return { data: null, loading: true, error: null }
@@ -77,6 +95,8 @@ export function useMyBookViewModel(): QueryResult<MyBookViewModel> {
     brokers: brokers.data ?? [],
     stocks: stocks.data ?? [],
     degradations,
+    calibration: calibrationQ.data ?? null,
+    postEventReviews: postEventReviewsQ.data ?? null,
   })
 
   return { data: vm, loading: false, error: null }

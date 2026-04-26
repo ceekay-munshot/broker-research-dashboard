@@ -62,6 +62,10 @@ import {
   cmdPostEventReplay,
   type PostEventCliFlags,
 } from './postEventReview'
+import {
+  cmdAdaptiveFlags, cmdAdaptiveInspect, cmdAdaptivePreview, cmdAdaptiveCompare,
+  type AdaptiveCliFlags,
+} from './adaptiveRanking'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -88,6 +92,8 @@ type Subcommand =
   | 'postevent:review' | 'postevent:run-due' | 'postevent:list'
   | 'postevent:compare' | 'postevent:brokers' | 'postevent:weak'
   | 'postevent:replay'
+  // Module 23
+  | 'adaptive:flags' | 'adaptive:inspect' | 'adaptive:preview' | 'adaptive:compare'
   | 'help'
 
 interface Args {
@@ -350,6 +356,19 @@ async function main(): Promise<void> {
     case 'postevent:replay':
       await cmdPostEventReplay(asPostEventFlags(args), store)
       break
+    // Module 23 — adaptive ranking
+    case 'adaptive:flags':
+      cmdAdaptiveFlags(asAdaptiveFlags(args))
+      break
+    case 'adaptive:inspect':
+      cmdAdaptiveInspect(asAdaptiveFlags(args), store)
+      break
+    case 'adaptive:preview':
+      cmdAdaptivePreview(asAdaptiveFlags(args), store)
+      break
+    case 'adaptive:compare':
+      cmdAdaptiveCompare(asAdaptiveFlags(args), store)
+      break
     case 'help':
     default:
       printHelp()
@@ -395,6 +414,14 @@ function asPostEventFlags(args: Args): PostEventCliFlags {
   return {
     orgId: args.orgId,
     catalystId: args.catalystId,
+    limit: args.limit,
+  }
+}
+
+function asAdaptiveFlags(args: Args): AdaptiveCliFlags {
+  return {
+    orgId: args.orgId,
+    brokerId: args.broker,
     limit: args.limit,
   }
 }
@@ -864,6 +891,11 @@ function printHelp(): void {
   npm run ops -- postevent:brokers       [--org=<orgId>]
   npm run ops -- postevent:weak          [--org=<orgId>]
   npm run ops -- postevent:replay        [--org=<orgId>]
+
+  npm run ops -- adaptive:flags
+  npm run ops -- adaptive:inspect        --broker=<brokerId> [--org=<orgId>]
+  npm run ops -- adaptive:preview        [--org=<orgId>] [--limit=<n>]
+  npm run ops -- adaptive:compare        [--org=<orgId>] [--limit=<n>]
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

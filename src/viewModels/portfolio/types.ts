@@ -47,6 +47,7 @@ export interface MyBookPositionCardViewModel {
 export interface MyBookActivityRow {
   readonly reportId: ReportId
   readonly ticker: StockTicker
+  readonly brokerId: import('../../domain').BrokerId | null
   readonly brokerShortName: string
   readonly brokerColor: string | null
   readonly headline: string
@@ -59,6 +60,8 @@ export interface MyBookActivityRow {
   readonly targetCurrency: string | null
   readonly priorTargetPrice: number | null
   readonly membership: 'held' | 'watchlist' | 'adjacent'
+  /** Module 23 — adaptive ranking annotation. Null when no signal. */
+  readonly adaptive: import('../adaptiveRanking').AdaptiveAnnotation | null
 }
 
 export interface MyBookSection<T> {

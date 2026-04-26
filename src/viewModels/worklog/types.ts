@@ -111,6 +111,10 @@ export interface WorklogItem {
   /** Portfolio overlay (Module 18). Null when no portfolio is configured;
    *  membership/relevance are populated when one is. */
   readonly book: WorklogBookOverlay | null
+
+  /** Module 23 — calibration-aware adaptive-ranking annotation. Always
+   *  present so consumers can branch on `applied`. */
+  readonly adaptive: WorklogAdaptiveAnnotation | null
 }
 
 /** The portfolio decoration on a single worklog item. */
@@ -118,6 +122,10 @@ export interface WorklogBookOverlay {
   readonly membership: PortfolioMembership
   readonly relevance: PortfolioRelevance
 }
+
+/** Optional Module-23 adaptive-ranking annotation. Always present on
+ *  the item; null when adaptive ranking is off or no signal applied. */
+export type WorklogAdaptiveAnnotation = import('../adaptiveRanking').AdaptiveAnnotation
 
 // ── Daily summary header ─────────────────────────────────────────────────
 

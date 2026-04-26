@@ -6,6 +6,8 @@ import { STANCE_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import BrokerRecentChanges from '../broker/BrokerRecentChanges'
 import BookBadge from '../portfolio/BookBadge'
+import RankCompareChip from '../adaptiveRanking/RankCompareChip'
+import { adaptiveRankingFlags } from '../../engine'
 
 interface ByBrokerProps {
   readonly filters: FiltersState
@@ -181,6 +183,9 @@ function BookActivityRow({
         :                                       'border-line/10 text-slate-500'
       }`}>{item.relevanceBucket}</span>
       {item.isOutlier && <span className="chip text-[9px] border border-amber-500/40 text-amber-300">outlier</span>}
+      {adaptiveRankingFlags().showCompare && item.adaptive && item.adaptive.adjustment.applied && (
+        <RankCompareChip annotation={item.adaptive} compact/>
+      )}
       <span className={`flex-1 truncate ${STANCE_TEXT_COLOR[item.stance]}`} title={item.bookSummary}>{item.headline}</span>
     </button>
   )

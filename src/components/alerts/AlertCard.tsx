@@ -2,6 +2,8 @@ import type { AlertCardViewModel } from '../../viewModels/alerts'
 import type { ReportId, StockTicker } from '../../domain'
 import SeverityBadge from './SeverityBadge'
 import BookBadge from '../portfolio/BookBadge'
+import RankCompareChip from '../adaptiveRanking/RankCompareChip'
+import { adaptiveRankingFlags } from '../../engine'
 
 interface AlertCardProps {
   readonly card: AlertCardViewModel
@@ -48,6 +50,9 @@ export default function AlertCard({ card, onSelectReport, onSelectTicker }: Aler
             conviction={card.bookConviction}
             compact
           />
+        )}
+        {adaptiveRankingFlags().showCompare && card.adaptive && card.adaptive.adjustment.applied && (
+          <RankCompareChip annotation={card.adaptive} compact/>
         )}
         <span className="ml-auto text-[10.5px] text-slate-500 num">{formatTime(card.generatedAt)}</span>
       </div>

@@ -1,8 +1,12 @@
 import type {
   Broker, ResearchReport, ReportSummary, Stance,
   BrokerId, PortfolioSnapshot, BrokerStockOpinion, Stock,
+  CalibrationSnapshot, PostEventReview,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
+import {
+  adaptiveRankingFlags, computeRankAdjustment,
+} from '../engine'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import {
   buildFeedItem, indexBy, type FeedItemViewModel,
@@ -10,6 +14,7 @@ import {
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint, resolveSince } from '../app/filters'
 import { buildPortfolioOverlay } from './portfolio'
+import type { AdaptiveAnnotation } from './adaptiveRanking'
 
 export interface BrokerCardViewModel {
   readonly brokerId: BrokerId
@@ -37,6 +42,10 @@ export interface BrokerBookActivityItem extends FeedItemViewModel {
   readonly relevanceBucket: 'critical' | 'high' | 'medium' | 'low' | 'none'
   readonly bookSummary: string
   readonly isOutlier: boolean
+  /** Module 23 — calibration-aware adjustment + rank delta vs baseline. */
+  readonly adaptive: AdaptiveAnnotation | null
+  /** Numeric baseline derived from relevance bucket — kept for sorting. */
+  readonly relevanceBaseline: number
 }
 
 export interface ByBrokerViewModel {
@@ -54,6 +63,21 @@ interface Inputs {
     readonly opinions: readonly BrokerStockOpinion[]
     readonly closures: readonly ConflictClosure[]
     readonly stocks: readonly Stock[]
+  }
+  /** Module 23 — calibration snapshot for adaptive ranking. */
+  readonly calibration?: CalibrationSnapshot | null
+  /** Module 23 — post-event reviews for catalyst/event sources. */
+  readonly postEventReviews?: readonly PostEventReview[] | null
+}
+
+/** Numeric baseline for relevance buckets so the engine has a scalar to nudge. */
+function bucketBaseline(b: 'critical' | 'high' | 'medium' | 'low' | 'none'): number {
+  switch (b) {
+    case 'critical': return 80
+    case 'high':     return 60
+    case 'medium':   return 40
+    case 'low':      return 20
+    case 'none':     return 0
   }
 }
 
@@ -73,6 +97,11 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
         stocks: inputs.portfolio.stocks,
       })
     : null
+
+  // Module 23 — calibration-aware adaptive ranking inputs.
+  const flags = adaptiveRankingFlags()
+  const calibration = inputs.calibration ?? null
+  const postEventReviews = inputs.postEventReviews ?? null
 
   const cards = brokers.map<BrokerCardViewModel>((broker) => {
     const theirs = inputs.reports
@@ -123,6 +152,23 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
             : false
           if (isOutlier) outlierCount++
           const feed = buildFeedItem(r, summaryByReport.get(r.id as string) ?? null, broker)
+          const relevanceBaseline = bucketBaseline(rel.bucket)
+          let adaptive: AdaptiveAnnotation | null = null
+          if (calibration) {
+            const adjustment = computeRankAdjustment({
+              baselineScore: relevanceBaseline,
+              brokerId: broker.id,
+              alertKind: null,
+              catalystType: null,
+              calibration,
+              postEventReviews,
+            })
+            adaptive = {
+              adjustment,
+              rankDelta: 0,
+              moved: adjustment.delta !== 0,
+            }
+          }
           items.push({
             ...feed,
             ticker: t,
@@ -130,21 +176,47 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
             relevanceBucket: rel.bucket,
             bookSummary: rel.bookSummary,
             isOutlier,
+            adaptive,
+            relevanceBaseline,
           })
         }
       }
-      items.sort((a, b) => {
+      // Build baseline + adaptive orderings to derive rank deltas.
+      const baselineSorted = [...items].sort((a, b) => {
         const order = { critical: 0, high: 1, medium: 2, low: 3, none: 4 }
         const ar = order[a.relevanceBucket]
         const br = order[b.relevanceBucket]
         if (ar !== br) return ar - br
         return b.publishedAt.localeCompare(a.publishedAt)
       })
+      const adaptiveSorted = [...items].sort((a, b) => {
+        const aScore = a.adaptive ? a.adaptive.adjustment.adjustedScore : a.relevanceBaseline
+        const bScore = b.adaptive ? b.adaptive.adjustment.adjustedScore : b.relevanceBaseline
+        if (aScore !== bScore) return bScore - aScore
+        return b.publishedAt.localeCompare(a.publishedAt)
+      })
+      const baseIdx = new Map<string, number>()
+      baselineSorted.forEach((it, i) => baseIdx.set(`${it.reportId}:${it.ticker as unknown as string}`, i))
+      const adaptIdx = new Map<string, number>()
+      adaptiveSorted.forEach((it, i) => adaptIdx.set(`${it.reportId}:${it.ticker as unknown as string}`, i))
+      const stamped = (flags.enabled ? adaptiveSorted : baselineSorted).map((it) => {
+        if (!it.adaptive) return it
+        const k = `${it.reportId}:${it.ticker as unknown as string}`
+        const rankDelta = (baseIdx.get(k) ?? 0) - (adaptIdx.get(k) ?? 0)
+        return {
+          ...it,
+          adaptive: {
+            ...it.adaptive,
+            rankDelta,
+            moved: it.adaptive.adjustment.delta !== 0 || rankDelta !== 0,
+          },
+        }
+      })
       return {
         hasPortfolio: true,
-        onBookCount: items.length,
+        onBookCount: stamped.length,
         outlierOnBookCount: outlierCount,
-        latestOnBook: items.slice(0, 3),
+        latestOnBook: stamped.slice(0, 3),
       }
     })()
 
@@ -205,6 +277,12 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
   const portfolioQ = useAdapterQuery<PortfolioSnapshot | null>(
     async (a, s) => { try { return await a.getPortfolioSnapshot(s) } catch { return null } }, [],
   )
+  const calibrationQ = useAdapterQuery<CalibrationSnapshot | null>(
+    async (a, s) => { try { return await a.getCalibrationSnapshot(s) } catch { return null } }, [],
+  )
+  const postEventReviewsQ = useAdapterQuery<readonly PostEventReview[]>(
+    async (a, s) => { try { return await a.listPostEventReviews(s) } catch { return [] } }, [],
+  )
 
   const loading = brokers.loading || reportsPage.loading || summariesQuery.loading || stocks.loading
   const error = brokers.error ?? reportsPage.error ?? summariesQuery.error ?? stocks.error
@@ -226,6 +304,8 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
       closures: closuresQ.data ?? [],
       stocks: stocks.data,
     },
+    calibration: calibrationQ.data ?? null,
+    postEventReviews: postEventReviewsQ.data ?? null,
   })
   return { data: vm, loading: false, error: null }
 }

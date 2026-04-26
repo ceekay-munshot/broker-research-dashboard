@@ -1,19 +1,31 @@
 import type {
-  AlertDigest, AlertEvent,
+  AlertDigest, AlertEvent, CalibrationSnapshot, PostEventReview,
 } from '../../domain'
 import type {
   AlertCardViewModel, BriefingSectionViewModel, BriefingViewModel,
 } from './types'
-import { alertToCard, buildAlertsFeedViewModel } from './feedBuilder'
+import { buildAlertsFeedViewModel } from './feedBuilder'
 
 export interface BriefingInputs {
   readonly digest: AlertDigest | null
   readonly alerts: readonly AlertEvent[]
   readonly degradations?: readonly string[]
+  /** Module 23 — calibration snapshot drives adaptive-ranking adjustments. */
+  readonly calibration?: CalibrationSnapshot | null
+  /** Module 23 — post-event reviews feed catalyst-type and broker-event sources. */
+  readonly postEventReviews?: readonly PostEventReview[] | null
 }
 
 export function buildBriefingViewModel(inputs: BriefingInputs): BriefingViewModel {
-  const counts = buildAlertsFeedViewModel({ alerts: inputs.alerts }).counts
+  // Reuse the feed builder so the briefing inherits the same annotated +
+  // ranked cards. Section-level items remain in digest order — but each
+  // card carries its calibration adjustment + rank delta.
+  const feed = buildAlertsFeedViewModel({
+    alerts: inputs.alerts,
+    calibration: inputs.calibration ?? null,
+    postEventReviews: inputs.postEventReviews ?? null,
+  })
+  const counts = feed.counts
 
   if (!inputs.digest) {
     return {
@@ -28,7 +40,9 @@ export function buildBriefingViewModel(inputs: BriefingInputs): BriefingViewMode
   }
 
   const alertById = new Map<string, AlertCardViewModel>()
-  for (const a of inputs.alerts) alertById.set(a.id as unknown as string, alertToCard(a))
+  for (const g of feed.groups) {
+    for (const c of g.items) alertById.set(c.id as unknown as string, c)
+  }
 
   const sections: BriefingSectionViewModel[] = inputs.digest.sections.map((s) => ({
     key: s.key,

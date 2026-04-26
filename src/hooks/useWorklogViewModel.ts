@@ -7,6 +7,7 @@ import {
 import type {
   ReportSummary, EvidenceSnippet, BrokerStockOpinion,
   ResearchReport, BrokerEmail, PortfolioSnapshot,
+  CalibrationSnapshot, PostEventReview,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { buildPortfolioOverlay, EMPTY_PORTFOLIO_OVERLAY } from '../viewModels/portfolio'
@@ -97,6 +98,23 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     [],
   )
 
+  // Module 23 — calibration + post-event reviews drive the adaptive
+  // ranking annotation. Both are tolerated as missing.
+  const calibrationQ = useAdapterQuery<CalibrationSnapshot | null>(
+    async (a, s) => {
+      try { return await a.getCalibrationSnapshot(s) }
+      catch { return null }
+    },
+    [],
+  )
+  const postEventReviewsQ = useAdapterQuery<readonly PostEventReview[]>(
+    async (a, s) => {
+      try { return await a.listPostEventReviews(s) }
+      catch { return [] }
+    },
+    [],
+  )
+
   const requiredLoading = brokers.loading || sectors.loading || stocks.loading || reports.loading
   const requiredError   = brokers.error ?? sectors.error ?? stocks.error ?? reports.error
 
@@ -156,6 +174,8 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     filters,
     degradations,
     portfolio: overlay,
+    calibration: calibrationQ.data ?? null,
+    postEventReviews: postEventReviewsQ.data ?? null,
   })
   return { data: vm, loading: false, error: null }
 }

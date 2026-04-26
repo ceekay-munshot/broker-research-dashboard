@@ -10,15 +10,19 @@
 
 import type {
   Broker, BrokerStockOpinion, ReportSummary, ResearchReport,
-  Stock, PortfolioSnapshot,
+  Stock, PortfolioSnapshot, CalibrationSnapshot, PostEventReview,
 } from '../../domain'
 import type { ConflictClosure } from '../../engine/types'
+import {
+  adaptiveRankingFlags, computeRankAdjustment,
+} from '../../engine'
 import { buildPortfolioOverlay } from './overlay'
 import type {
   MyBookActivityRow, MyBookPositionCardViewModel, MyBookSection,
   MyBookViewModel, PortfolioOverlay,
 } from './types'
 import { indexBy } from '../shared'
+import type { AdaptiveAnnotation } from '../adaptiveRanking'
 
 const DAY_MS = 86400e3
 
@@ -32,6 +36,10 @@ export interface MyBookInputs {
   readonly stocks: readonly Stock[]
   readonly now?: Date
   readonly degradations?: readonly string[]
+  /** Module 23 — calibration snapshot drives adaptive-ranking adjustments. */
+  readonly calibration?: CalibrationSnapshot | null
+  /** Module 23 — post-event reviews feed catalyst-type and broker-event sources. */
+  readonly postEventReviews?: readonly PostEventReview[] | null
 }
 
 export interface MyBookBuildOutput {
@@ -148,6 +156,7 @@ export function buildMyBookViewModel(inputs: MyBookInputs): MyBookBuildOutput {
       const row: MyBookActivityRow = {
         reportId: r.id,
         ticker: t,
+        brokerId: r.brokerId,
         brokerShortName: broker?.shortName ?? '—',
         brokerColor: broker?.brandColor ?? null,
         headline: r.tickers.length > 1 ? `${tk} — ${r.title}` : r.title,
@@ -160,6 +169,7 @@ export function buildMyBookViewModel(inputs: MyBookInputs): MyBookBuildOutput {
         targetCurrency: summary?.targetCurrency ?? null,
         priorTargetPrice: summary?.priorTargetPrice ?? null,
         membership: (ctx.membership === 'held' || ctx.membership === 'watchlist' || ctx.membership === 'adjacent') ? ctx.membership : 'adjacent',
+        adaptive: null, // populated below in the adaptive-ranking pass.
       }
 
       if (ageMs <= 1 * DAY_MS && (ctx.membership === 'held' || ctx.membership === 'watchlist')) {
@@ -177,9 +187,41 @@ export function buildMyBookViewModel(inputs: MyBookInputs): MyBookBuildOutput {
     }
   }
 
-  todayRows.sort((a, b) => b.relevance.score - a.relevance.score)
-  significantRows.sort((a, b) => b.relevance.score - a.relevance.score)
-  watchlistFresh.sort((a, b) => b.relevance.score - a.relevance.score)
+  // ── Module 23 — adaptive ranking annotation + sort ─────────────────────
+  // Annotate every row with a calibration-aware `adaptive` adjustment so the
+  // UI can render compare chips. The adaptive sort is gated by the feature
+  // flag — when off, the rows fall back to the baseline relevance ordering
+  // bit-for-bit. Compare chips remain visible in either mode.
+  const flags = adaptiveRankingFlags()
+  const calibration = inputs.calibration ?? null
+  const postEventReviews = inputs.postEventReviews ?? null
+  const annotateRow = (row: MyBookActivityRow): MyBookActivityRow => {
+    if (!calibration) return row
+    const adjustment = computeRankAdjustment({
+      baselineScore: row.relevance.score,
+      brokerId: row.brokerId,
+      alertKind: null,
+      catalystType: null,
+      calibration,
+      postEventReviews,
+    })
+    const adaptive: AdaptiveAnnotation = {
+      adjustment,
+      rankDelta: 0,
+      moved: adjustment.delta !== 0,
+    }
+    return { ...row, adaptive }
+  }
+  const annotatedToday = todayRows.map(annotateRow)
+  const annotatedSignificant = significantRows.map(annotateRow)
+  const annotatedWatchlist = watchlistFresh.map(annotateRow)
+
+  const finalToday = sortAndStampRankDelta(annotatedToday, flags.enabled)
+  const finalSignificant = sortAndStampRankDelta(annotatedSignificant, flags.enabled)
+  const finalWatchlist = sortAndStampRankDelta(annotatedWatchlist, flags.enabled)
+  todayRows.length = 0;          for (const r of finalToday)        todayRows.push(r)
+  significantRows.length = 0;    for (const r of finalSignificant)  significantRows.push(r)
+  watchlistFresh.length = 0;     for (const r of finalWatchlist)    watchlistFresh.push(r)
 
   // Risk-flagged positions for stale/thin coverage and unresolved divergence.
   const unresolvedCards = positionCards.filter((c) => c.hasUnresolvedDivergence)
@@ -259,4 +301,46 @@ function emptyHeadline(): MyBookViewModel['headline'] {
 
 function emptySection<T>(title: string, subtitle: string, emptyText: string): MyBookSection<T> {
   return { title, subtitle, items: [], emptyText }
+}
+
+// ── Module 23 — sort helper ─────────────────────────────────────────────
+//
+// Computes baseline + adaptive orderings for a list of activity rows, then
+// re-attaches `rankDelta` on each annotation. When the flag is off, the
+// returned ordering matches the baseline (relevance.score desc); when on,
+// the adjusted score takes over. Either way every row carries a `rankDelta`
+// so compare chips reflect the movement vs baseline.
+function sortAndStampRankDelta(
+  rows: readonly MyBookActivityRow[],
+  flagEnabled: boolean,
+): MyBookActivityRow[] {
+  if (rows.length === 0) return []
+  const baselineSorted = [...rows].sort((a, b) => b.relevance.score - a.relevance.score)
+  const adaptiveSorted = [...rows].sort((a, b) => {
+    const aScore = a.adaptive ? a.adaptive.adjustment.adjustedScore : a.relevance.score
+    const bScore = b.adaptive ? b.adaptive.adjustment.adjustedScore : b.relevance.score
+    return bScore - aScore
+  })
+  const baseIdx = new Map<string, number>()
+  baselineSorted.forEach((r, i) => baseIdx.set(rowKey(r), i))
+  const adaptIdx = new Map<string, number>()
+  adaptiveSorted.forEach((r, i) => adaptIdx.set(rowKey(r), i))
+  const stamped = (flagEnabled ? adaptiveSorted : baselineSorted).map((r) => {
+    if (!r.adaptive) return r
+    const k = rowKey(r)
+    const rankDelta = (baseIdx.get(k) ?? 0) - (adaptIdx.get(k) ?? 0)
+    return {
+      ...r,
+      adaptive: {
+        ...r.adaptive,
+        rankDelta,
+        moved: r.adaptive.adjustment.delta !== 0 || rankDelta !== 0,
+      },
+    }
+  })
+  return stamped
+}
+
+function rowKey(r: MyBookActivityRow): string {
+  return `${r.reportId}:${r.ticker as string}`
 }

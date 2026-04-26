@@ -1,6 +1,9 @@
 export type {
   CatalystCardViewModel, CatalystsViewModel, CatalystGroupKey,
-  PreEventBriefViewModel,
+  PreEventBriefViewModel, PreEventTopReadViewModel,
 } from './types'
 export { buildCatalystsViewModel } from './calendarBuilder'
-export { buildPreEventBriefViewModel } from './briefBuilder'
+export {
+  buildPreEventBriefViewModel,
+  type PreEventBriefBuilderExtras,
+} from './briefBuilder'

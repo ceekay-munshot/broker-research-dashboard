@@ -1,6 +1,8 @@
 import type { WorklogItem } from '../../viewModels/worklog'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import BookBadge from '../portfolio/BookBadge'
+import RankCompareChip from '../adaptiveRanking/RankCompareChip'
+import { adaptiveRankingFlags } from '../../engine'
 
 interface WorklogCardProps {
   readonly item: WorklogItem
@@ -84,6 +86,9 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
                 :                                             'text-slate-500'
               }`}>book·{item.book.relevance.bucket}</span>
             </>
+          )}
+          {adaptiveRankingFlags().showCompare && item.adaptive && item.adaptive.adjustment.applied && (
+            <><span>·</span><RankCompareChip annotation={item.adaptive} compact/></>
           )}
         </div>
         {item.book && item.book.membership !== 'none' && (

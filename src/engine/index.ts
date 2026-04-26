@@ -17,3 +17,13 @@ export { buildPortfolioCoverage } from './portfolioCoverage'
 export type {
   PortfolioCoverageInputs, PortfolioCoverageResult,
 } from './portfolioCoverage'
+export {
+  computeRankAdjustment, rankDeltasById, NO_ADJUSTMENT,
+} from './adaptiveRanking'
+export type {
+  AdjustmentInputs, RankAdjustment, AdjustmentReason, SuppressionReason, AdjustmentSource,
+} from './adaptiveRanking'
+export {
+  adaptiveRankingFlags, readAdaptiveRankingFlags, __setAdaptiveRankingFlagsForTesting,
+} from './adaptiveRankingFlags'
+export type { AdaptiveRankingFlags } from './adaptiveRankingFlags'

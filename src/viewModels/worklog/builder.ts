@@ -19,17 +19,21 @@
 import type {
   Broker, BrokerEmail, BrokerStockOpinion, EvidenceSnippet, ResearchReport,
   ReportSummary, Sector, Stock, BrokerId, StockTicker,
+  CalibrationSnapshot, PostEventReview,
 } from '../../domain'
 import type { ConflictClosure } from '../../engine/types'
 import { indexBy, groupBy } from '../shared'
 import type { PortfolioOverlay } from '../portfolio/types'
 import type {
   DailyWorklogSummary, DailyWorklogViewModel, WorklogFiltersState, WorklogGroup,
-  WorklogItem, WorklogOrigin, WorklogBookOverlay,
+  WorklogItem, WorklogOrigin, WorklogBookOverlay, WorklogAdaptiveAnnotation,
 } from './types'
 import { scoreWorklogItem } from './priority'
 import { dedupeWorklogItems } from './dedupe'
 import { buildBrokerMemoryViewModel } from '../brokerMemory/builder'
+import {
+  adaptiveRankingFlags, computeRankAdjustment,
+} from '../../engine'
 
 export interface WorklogBuilderInputs {
   readonly reports: readonly ResearchReport[]
@@ -50,6 +54,12 @@ export interface WorklogBuilderInputs {
    *  worklog item gets a `book` decoration and the bookFilter / bookFirst
    *  filter knobs apply. */
   readonly portfolio?: PortfolioOverlay
+  /** Calibration snapshot (Module 20). Drives Module-23 adaptive ranking
+   *  per-broker / per-alert-kind nudges. */
+  readonly calibration?: CalibrationSnapshot | null
+  /** Post-event reviews (Module 22). Drives event-driven correctness
+   *  contributions to the adaptive-ranking adjustment. */
+  readonly postEventReviews?: readonly PostEventReview[] | null
 }
 
 export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyWorklogViewModel {
@@ -205,6 +215,7 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
         priority,
         change,
         book,
+        adaptive: null, // populated below in a single pass after dedupe.
       }
       scored.push(item)
     }
@@ -213,21 +224,77 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
   // ── Step 5: dedupe. ────────────────────────────────────────────────────
   const { canonical: canonicalAll } = dedupeWorklogItems(scored)
 
-  // ── Step 8a: summary header (from today's *canonical* items, pre-filter).
-  const todayKey = toUtcDate(now.toISOString())
-  const todaysCanonical = canonicalAll.filter((i) => i.utcDate === todayKey)
-  const todaysRaw = scored.filter((i) => i.utcDate === todayKey)
-  const summary: DailyWorklogSummary = buildSummary(todayKey, todaysCanonical, todaysRaw)
+  // ── Step 5b: Module-23 adaptive ranking annotation.
+  //
+  // We always compute the annotation when calibration data is present —
+  // even when the flag is off — so consumers can render compare-mode
+  // chips. Sort behavior is gated by the flag below.
+  const flags = adaptiveRankingFlags()
+  const calibration = inputs.calibration ?? null
+  const postEventReviews = inputs.postEventReviews ?? null
+  const annotated: readonly WorklogItem[] = calibration
+    ? canonicalAll.map((it) => {
+        const adjustment = computeRankAdjustment({
+          baselineScore: it.priority.score,
+          brokerId: it.brokerId,
+          alertKind: null,
+          catalystType: null,
+          calibration,
+          postEventReviews,
+        })
+        const adaptive: WorklogAdaptiveAnnotation = {
+          adjustment,
+          rankDelta: 0, // computed below after sorting both orderings
+          moved: adjustment.delta !== 0,
+        }
+        return { ...it, adaptive }
+      })
+    : canonicalAll
 
-  // ── Step 6: filters (applied to canonical, not raw). ───────────────────
-  const filtered = canonicalAll.filter((it) => passesFilters(it, inputs.filters, now))
-
-  // ── Step 7: grouping + ordering. ───────────────────────────────────────
-  const sorted = [...filtered].sort(
+  // Compute baseline + adaptive orderings to derive rank deltas.
+  const baselineSorted = [...annotated].sort(
     inputs.filters.bookFirst && inputs.portfolio?.hasPortfolio
       ? compareByBookThenPriority
       : compareByPriorityThenRecency,
   )
+  const adaptiveSorted = [...annotated].sort(
+    inputs.filters.bookFirst && inputs.portfolio?.hasPortfolio
+      ? compareByBookThenPriorityAdaptive
+      : compareByPriorityThenRecencyAdaptive,
+  )
+  const baselineIdx = new Map<string, number>()
+  baselineSorted.forEach((it, i) => baselineIdx.set(it.id, i))
+  const adaptiveIdx = new Map<string, number>()
+  adaptiveSorted.forEach((it, i) => adaptiveIdx.set(it.id, i))
+
+  // Re-attach `rankDelta` on each annotation now that we have both orderings.
+  const withRankDelta: WorklogItem[] = annotated.map((it) => {
+    if (!it.adaptive) return it
+    const a = adaptiveIdx.get(it.id) ?? 0
+    const b = baselineIdx.get(it.id) ?? 0
+    const rankDelta = b - a
+    return { ...it, adaptive: { ...it.adaptive, rankDelta, moved: it.adaptive.adjustment.delta !== 0 || rankDelta !== 0 } }
+  })
+
+  // ── Step 8a: summary header (from today's *canonical* items, pre-filter).
+  const todayKey = toUtcDate(now.toISOString())
+  const todaysCanonical = withRankDelta.filter((i) => i.utcDate === todayKey)
+  const todaysRaw = scored.filter((i) => i.utcDate === todayKey)
+  const summary: DailyWorklogSummary = buildSummary(todayKey, todaysCanonical, todaysRaw)
+
+  // ── Step 6: filters (applied to canonical, not raw). ───────────────────
+  const filtered = withRankDelta.filter((it) => passesFilters(it, inputs.filters, now))
+
+  // ── Step 7: grouping + ordering. The adaptive ordering is used only
+  //    when the flag is on. Compare chips remain visible regardless.
+  const sortFn = flags.enabled
+    ? (inputs.filters.bookFirst && inputs.portfolio?.hasPortfolio
+        ? compareByBookThenPriorityAdaptive
+        : compareByPriorityThenRecencyAdaptive)
+    : (inputs.filters.bookFirst && inputs.portfolio?.hasPortfolio
+        ? compareByBookThenPriority
+        : compareByPriorityThenRecency)
+  const sorted = [...filtered].sort(sortFn)
   const groups = groupItems(sorted, inputs.filters.grouping)
 
   return {
@@ -346,6 +413,20 @@ function compareByBookThenPriority(a: WorklogItem, b: WorklogItem): number {
   const byBook = (b.book?.relevance.score ?? 0) - (a.book?.relevance.score ?? 0)
   if (byBook !== 0) return byBook
   return compareByPriorityThenRecency(a, b)
+}
+
+function compareByPriorityThenRecencyAdaptive(a: WorklogItem, b: WorklogItem): number {
+  const aScore = a.adaptive ? a.adaptive.adjustment.adjustedScore : a.priority.score
+  const bScore = b.adaptive ? b.adaptive.adjustment.adjustedScore : b.priority.score
+  const byScore = bScore - aScore
+  if (byScore !== 0) return byScore
+  return b.receivedAt.localeCompare(a.receivedAt)
+}
+
+function compareByBookThenPriorityAdaptive(a: WorklogItem, b: WorklogItem): number {
+  const byBook = (b.book?.relevance.score ?? 0) - (a.book?.relevance.score ?? 0)
+  if (byBook !== 0) return byBook
+  return compareByPriorityThenRecencyAdaptive(a, b)
 }
 
 function groupItems(items: readonly WorklogItem[], grouping: WorklogFiltersState['grouping']): readonly WorklogGroup[] {

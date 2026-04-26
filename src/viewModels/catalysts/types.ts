@@ -9,6 +9,7 @@ import type {
   EventRiskFlag, PortfolioMembership, PortfolioDirection, PortfolioConviction,
   PreEventBrief, ReportId, AlertId,
 } from '../../domain'
+import type { AdaptiveAnnotation } from '../adaptiveRanking'
 
 export interface CatalystCardViewModel {
   readonly catalystId: CatalystEvent['id']
@@ -51,6 +52,16 @@ export interface CatalystsViewModel {
 
 export type CatalystGroupKey = 'upcoming7d' | 'upcoming30d' | 'overdue' | 'later'
 
+/** A single "top read" report surfaced in the pre-event brief, paired
+ *  with its Module-23 adaptive annotation and the broker that issued it. */
+export interface PreEventTopReadViewModel {
+  readonly reportId: ReportId
+  readonly brokerId: import('../../domain').BrokerId | null
+  readonly brokerShortName: string | null
+  readonly title: string | null
+  readonly adaptive: AdaptiveAnnotation | null
+}
+
 export interface PreEventBriefViewModel {
   readonly hasBrief: boolean
   readonly brief: PreEventBrief | null
@@ -63,8 +74,12 @@ export interface PreEventBriefViewModel {
     readonly hasDivergence: boolean
   } | null
   readonly degradations: readonly string[]
-  /** Convenience: top reads ids surfaced from the brief's `top_reads` section. */
+  /** Convenience: top reads ids surfaced from the brief's `top_reads` section.
+   *  Order respects the adaptive sort when the flag is on, baseline otherwise. */
   readonly topReadReportIds: readonly ReportId[]
+  /** Module 23 — top reads with calibration-aware annotations. Paired ordering
+   *  with `topReadReportIds`. */
+  readonly topReads: readonly PreEventTopReadViewModel[]
   /** Alerts referenced anywhere in the brief — used for jumping into the briefing. */
   readonly referencedAlertIds: readonly AlertId[]
 }

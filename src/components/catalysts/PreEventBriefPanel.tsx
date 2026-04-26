@@ -2,6 +2,8 @@ import type { ReportId, StockTicker, CatalystId } from '../../domain'
 import { usePreEventBriefViewModel } from '../../hooks/usePreEventBriefViewModel'
 import CatalystTypeBadge from './CatalystTypeBadge'
 import BookBadge from '../portfolio/BookBadge'
+import RankCompareChip from '../adaptiveRanking/RankCompareChip'
+import { adaptiveRankingFlags } from '../../engine'
 
 interface PreEventBriefPanelProps {
   readonly catalystId: CatalystId | null
@@ -120,7 +122,24 @@ export default function PreEventBriefPanel({
                 {sec.bullets.map((b, i) => <li key={i}>{b}</li>)}
               </ul>
             )}
-            {sec.reportIds.length > 0 && (
+            {sec.reportIds.length > 0 && sec.key === 'top_reads' && data.topReads.length > 0 ? (
+              <div className="flex flex-col gap-1">
+                {data.topReads.map((tr) => (
+                  <div key={tr.reportId as unknown as string} className="flex items-center gap-1.5 text-[10.5px]">
+                    <button
+                      onClick={() => onSelectReport(tr.reportId)}
+                      className="chip border border-line/10 text-slate-300 hover:text-accent"
+                    >{tr.brokerShortName ?? 'open report'}</button>
+                    {tr.title && (
+                      <span className="text-slate-400 truncate max-w-[260px]" title={tr.title}>{tr.title}</span>
+                    )}
+                    {adaptiveRankingFlags().showCompare && tr.adaptive && tr.adaptive.adjustment.applied && (
+                      <RankCompareChip annotation={tr.adaptive} compact/>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ) : sec.reportIds.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {sec.reportIds.slice(0, 5).map((rid) => (
                   <button
