@@ -27,6 +27,7 @@ import Catalysts from './components/views/Catalysts'
 import SourceHealth from './components/views/SourceHealth'
 import Inbox from './components/views/Inbox'
 import Usage from './components/views/Usage'
+import ControlPlane from './components/views/ControlPlane'
 import { UsageBoot } from './usage/UsageContext'
 import { emitUsage } from './usage/UsageClient'
 import type { UsageSurface } from './domain'
@@ -167,6 +168,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'sources':    return <SourceHealth/>
     case 'inbox':      return <Inbox setActiveTab={setActiveTab}/>
     case 'usage':      return <Usage/>
+    case 'controlPlane': return <ControlPlane/>
   }
 }
 

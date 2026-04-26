@@ -16,7 +16,9 @@ export interface Organization {
   readonly defaultCurrency: string
 }
 
-export type UserRole = 'analyst' | 'pm' | 'admin' | 'viewer'
+/** User roles. Module 27 added `operator` for surfaces like Sources / Pilot
+ *  Analytics / Control Plane that aren't part of the analyst workflow. */
+export type UserRole = 'analyst' | 'pm' | 'admin' | 'viewer' | 'operator'
 
 export interface User {
   readonly id: UserId

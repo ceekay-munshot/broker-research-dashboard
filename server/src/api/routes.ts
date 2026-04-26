@@ -20,9 +20,15 @@ import type { Repo } from '../persistence'
 import type {
   DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
   UsageEvent,
+  FeatureFlagKey, AccessibleModule, SourceKind, SourceProviderMode,
+  RolloutState, ConfigAuditArea, UserRole,
 } from '../../../src/domain'
 import { asDeliveryAttemptId } from '../../../src/lib/ids'
 import { buildOrgUsageSnapshot, buildPilotRoiSnapshot } from '../usage'
+import {
+  resolveOrgSettings, setFeatureFlag, setModuleAccess, setSourceMode,
+  setRolloutState, OrgControlServiceError,
+} from '../orgControl'
 import {
   organizations, users, brokers, sectors, stocks,
 } from '../config/organizations'
@@ -428,6 +434,100 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     const days = Number(url.searchParams.get('windowDays') ?? '30') || 30
     const roi = buildPilotRoiSnapshot({ orgId: scope.orgId, repo: opts.repo, windowDays: days })
     reply.ok(res, roi)
+  })
+
+  // ── Org control plane (Module 27) ──────────────────────────────────
+  // For now we treat the active session as `admin` — until real auth is
+  // wired (out of scope), the actor role is the most permissive.
+  const ACTOR_ROLE: UserRole = 'admin'
+
+  r.get('/v1/org-control/settings', ({ res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const sourcesHealth = opts.sourceManager?.snapshot(scope.orgId) ?? null
+    const settings = resolveOrgSettings({
+      orgId: scope.orgId,
+      currentUserId: scope.actingUserId as unknown as string ?? null,
+      currentUserRole: ACTOR_ROLE,
+      repo: opts.repo,
+    }, sourcesHealth)
+    reply.ok(res, settings)
+  })
+
+  r.get('/v1/org-control/audit', ({ res, scope, url }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const area = (url.searchParams.get('area') ?? undefined) as ConfigAuditArea | undefined
+    const lim = Number(url.searchParams.get('limit') ?? '50') || 50
+    const items = opts.repo.listConfigAuditEntries(scope.orgId, { area, limit: lim })
+    reply.ok(res, { items })
+  })
+
+  r.post('/v1/org-control/flag', async ({ req, res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    let body: unknown
+    try { body = await readJsonBody(req) } catch { return reply.internal(res, 'invalid json body') }
+    const b = body as { key?: FeatureFlagKey; enabled?: boolean; reason?: string | null }
+    if (!b.key || typeof b.enabled !== 'boolean') return reply.internal(res, 'expected { key, enabled, reason? }')
+    try {
+      const next = setFeatureFlag({
+        orgId: scope.orgId, key: b.key, enabled: b.enabled,
+        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        reason: b.reason ?? null, repo: opts.repo,
+      })
+      reply.ok(res, next)
+    } catch (e) {
+      if (e instanceof OrgControlServiceError) return reply.forbidden(res, e.message)
+      throw e
+    }
+  })
+
+  r.post('/v1/org-control/module', async ({ req, res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const body = await readJsonBody(req) as { module?: AccessibleModule; enabled?: boolean; reason?: string | null }
+    if (!body.module || typeof body.enabled !== 'boolean') return reply.internal(res, 'expected { module, enabled, reason? }')
+    try {
+      const next = setModuleAccess({
+        orgId: scope.orgId, module: body.module, enabled: body.enabled,
+        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        reason: body.reason ?? null, repo: opts.repo,
+      })
+      reply.ok(res, next)
+    } catch (e) {
+      if (e instanceof OrgControlServiceError) return reply.forbidden(res, e.message)
+      throw e
+    }
+  })
+
+  r.post('/v1/org-control/source-mode', async ({ req, res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const body = await readJsonBody(req) as { sourceKind?: SourceKind; mode?: SourceProviderMode; reason?: string | null }
+    if (!body.sourceKind || !body.mode) return reply.internal(res, 'expected { sourceKind, mode, reason? }')
+    try {
+      const next = setSourceMode({
+        orgId: scope.orgId, sourceKind: body.sourceKind, mode: body.mode,
+        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        reason: body.reason ?? null, repo: opts.repo,
+      })
+      reply.ok(res, next)
+    } catch (e) {
+      if (e instanceof OrgControlServiceError) return reply.forbidden(res, e.message)
+      throw e
+    }
+  })
+
+  r.post('/v1/org-control/rollout-state', async ({ req, res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const body = await readJsonBody(req) as { state?: RolloutState | null; note?: string | null; reason?: string | null }
+    try {
+      setRolloutState({
+        orgId: scope.orgId, state: body.state ?? null, note: body.note ?? undefined,
+        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        reason: body.reason ?? null, repo: opts.repo,
+      })
+      reply.ok(res, { ok: true })
+    } catch (e) {
+      if (e instanceof OrgControlServiceError) return reply.forbidden(res, e.message)
+      throw e
+    }
   })
 
   // ── Delivery / inbox (Module 25) ───────────────────────────────────

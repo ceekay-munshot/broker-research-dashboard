@@ -12,6 +12,9 @@ import type {
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
   UsageEvent, UsageEventType, UsageSurface,
+  FeatureFlagAssignment, FeatureFlagKey, OrgModuleAccess, AccessibleModule,
+  PermissionGrant, ConfigAuditEntry, ConfigAuditArea, OrgIntegrationConfig,
+  DeliveryRoutingConfig, RolloutState, UserId,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -70,6 +73,16 @@ export class InMemoryRepo implements Repo {
 
   // Module 26 — usage events
   private readonly usageEvents: UsageEvent[] = []
+
+  // Module 27 — org control plane
+  private readonly featureFlagOverrides = new Map<string, FeatureFlagAssignment>()  // key: orgId::flagKey
+  private readonly moduleAccessOverrides = new Map<string, OrgModuleAccess>()       // key: orgId::module
+  private readonly integrationOverrides = new Map<string, OrgIntegrationConfig>()   // key: orgId::sourceKind
+  private readonly deliveryRoutingOverrides = new Map<string, DeliveryRoutingConfig>() // key: orgId::contentKind
+  private readonly permissionGrants = new Map<string, PermissionGrant>()            // key: id
+  private readonly configAuditEntries: ConfigAuditEntry[] = []
+  private readonly orgRolloutNotes = new Map<string, string>()
+  private readonly orgRolloutStateOverrides = new Map<string, RolloutState>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -582,6 +595,111 @@ export class InMemoryRepo implements Repo {
   }
   loadUsageForOrg(orgId: OrgId): { events: readonly UsageEvent[] } {
     return { events: this.listUsageEvents(orgId) }
+  }
+
+  // ── Module 27: org control plane ───────────────────────────────────
+  upsertFeatureFlagOverride(rec: FeatureFlagAssignment): void {
+    this.featureFlagOverrides.set(`${rec.orgId}::${rec.key}`, rec)
+  }
+  getFeatureFlagOverride(orgId: OrgId, key: FeatureFlagKey): FeatureFlagAssignment | null {
+    return this.featureFlagOverrides.get(`${orgId}::${key}`) ?? null
+  }
+  listFeatureFlagOverrides(orgId: OrgId): readonly FeatureFlagAssignment[] {
+    return [...this.featureFlagOverrides.values()].filter((r) => r.orgId === orgId)
+  }
+  upsertModuleAccessOverride(orgId: OrgId, rec: OrgModuleAccess): void {
+    this.moduleAccessOverrides.set(`${orgId}::${rec.module}`, rec)
+  }
+  getModuleAccessOverride(orgId: OrgId, module: AccessibleModule): OrgModuleAccess | null {
+    return this.moduleAccessOverrides.get(`${orgId}::${module}`) ?? null
+  }
+  listModuleAccessOverrides(orgId: OrgId): readonly OrgModuleAccess[] {
+    const out: OrgModuleAccess[] = []
+    for (const [k, v] of this.moduleAccessOverrides) {
+      if (k.startsWith(`${orgId}::`)) out.push(v)
+    }
+    return out
+  }
+  upsertIntegrationOverride(orgId: OrgId, rec: OrgIntegrationConfig): void {
+    this.integrationOverrides.set(`${orgId}::${rec.sourceKind}`, rec)
+  }
+  listIntegrationOverrides(orgId: OrgId): readonly OrgIntegrationConfig[] {
+    const out: OrgIntegrationConfig[] = []
+    for (const [k, v] of this.integrationOverrides) {
+      if (k.startsWith(`${orgId}::`)) out.push(v)
+    }
+    return out
+  }
+  getIntegrationOverride(orgId: OrgId, kind: SourceKind): OrgIntegrationConfig | null {
+    return this.integrationOverrides.get(`${orgId}::${kind}`) ?? null
+  }
+  upsertDeliveryRoutingOverride(orgId: OrgId, rec: DeliveryRoutingConfig): void {
+    this.deliveryRoutingOverrides.set(`${orgId}::${rec.contentKind}`, rec)
+  }
+  listDeliveryRoutingOverrides(orgId: OrgId): readonly DeliveryRoutingConfig[] {
+    const out: DeliveryRoutingConfig[] = []
+    for (const [k, v] of this.deliveryRoutingOverrides) {
+      if (k.startsWith(`${orgId}::`)) out.push(v)
+    }
+    return out
+  }
+  getDeliveryRoutingOverride(orgId: OrgId, kind: DeliveryContentKind): DeliveryRoutingConfig | null {
+    return this.deliveryRoutingOverrides.get(`${orgId}::${kind}`) ?? null
+  }
+  upsertOrgRolloutNote(orgId: OrgId, note: string | null): void {
+    if (note === null) this.orgRolloutNotes.delete(orgId as unknown as string)
+    else this.orgRolloutNotes.set(orgId as unknown as string, note)
+  }
+  getOrgRolloutNote(orgId: OrgId): string | null {
+    return this.orgRolloutNotes.get(orgId as unknown as string) ?? null
+  }
+  upsertRolloutStateOverride(orgId: OrgId, state: RolloutState | null): void {
+    if (state === null) this.orgRolloutStateOverrides.delete(orgId as unknown as string)
+    else this.orgRolloutStateOverrides.set(orgId as unknown as string, state)
+  }
+  getRolloutStateOverride(orgId: OrgId): RolloutState | null {
+    return this.orgRolloutStateOverrides.get(orgId as unknown as string) ?? null
+  }
+  upsertPermissionGrant(rec: PermissionGrant): void {
+    this.permissionGrants.set(rec.id as unknown as string, rec)
+  }
+  listPermissionGrants(orgId: OrgId, filter?: { userId?: UserId }): readonly PermissionGrant[] {
+    let arr = [...this.permissionGrants.values()].filter((r) => r.orgId === orgId)
+    if (filter?.userId) arr = arr.filter((r) => r.userId === filter.userId)
+    return arr
+  }
+  appendConfigAuditEntry(rec: ConfigAuditEntry): void {
+    this.configAuditEntries.push(rec)
+  }
+  listConfigAuditEntries(orgId: OrgId, filter?: {
+    area?: ConfigAuditArea; limit?: number
+  }): readonly ConfigAuditEntry[] {
+    let arr = this.configAuditEntries.filter((r) => r.orgId === orgId)
+    if (filter?.area) arr = arr.filter((r) => r.area === filter.area)
+    arr.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  loadOrgControlForOrg(orgId: OrgId): {
+    featureFlags: readonly FeatureFlagAssignment[]
+    moduleAccess: readonly OrgModuleAccess[]
+    integrations: readonly OrgIntegrationConfig[]
+    deliveryRouting: readonly DeliveryRoutingConfig[]
+    permissions: readonly PermissionGrant[]
+    audit: readonly ConfigAuditEntry[]
+    rolloutNote: string | null
+    rolloutStateOverride: RolloutState | null
+  } {
+    return {
+      featureFlags: this.listFeatureFlagOverrides(orgId),
+      moduleAccess: this.listModuleAccessOverrides(orgId),
+      integrations: this.listIntegrationOverrides(orgId),
+      deliveryRouting: this.listDeliveryRoutingOverrides(orgId),
+      permissions: this.listPermissionGrants(orgId),
+      audit: this.listConfigAuditEntries(orgId),
+      rolloutNote: this.getOrgRolloutNote(orgId),
+      rolloutStateOverride: this.getRolloutStateOverride(orgId),
+    }
   }
 
   flush(): void { /* noop */ }

@@ -12,6 +12,9 @@ import type {
   DeliveryTargetId, SubscriptionId, SuppressionId,
 } from '../domain/delivery'
 import type { UsageEventId, UsageSessionId } from '../domain/usage'
+import type {
+  FeatureFlagAssignmentId, PermissionGrantId, ConfigAuditEntryId,
+} from '../domain/orgControl'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
 // the compile-time type. Every entry point that receives a raw string (mock
@@ -54,3 +57,7 @@ export const asSuppressionId      = (s: string): SuppressionId      => s as Supp
 
 export const asUsageEventId   = (s: string): UsageEventId   => s as UsageEventId
 export const asUsageSessionId = (s: string): UsageSessionId => s as UsageSessionId
+
+export const asFeatureFlagAssignmentId = (s: string): FeatureFlagAssignmentId => s as FeatureFlagAssignmentId
+export const asPermissionGrantId       = (s: string): PermissionGrantId       => s as PermissionGrantId
+export const asConfigAuditEntryId      = (s: string): ConfigAuditEntryId      => s as ConfigAuditEntryId

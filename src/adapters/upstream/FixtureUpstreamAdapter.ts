@@ -247,6 +247,14 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async recordUsage(_scope: OrgScope, _events: readonly import('../../domain').UsageEvent[]): Promise<void> { /* fixture: no-op */ }
   async getOrgUsageSnapshot(_scope: OrgScope): Promise<import('../../domain').OrgUsageSnapshot | null> { return null }
   async getPilotRoiSnapshot(_scope: OrgScope): Promise<import('../../domain').PilotRoiSnapshot | null> { return null }
+
+  // ── Org control plane (Module 27) ──────────────────────────────────
+  async getOrgSettings(_scope: OrgScope): Promise<import('../../domain').OrgSettings | null> { return null }
+  async listConfigAuditEntries(_scope: OrgScope): Promise<readonly import('../../domain').ConfigAuditEntry[]> { return [] }
+  async setFeatureFlag(): Promise<void> { /* fixture: no-op */ }
+  async setModuleAccess(): Promise<void> { /* fixture: no-op */ }
+  async setSourceMode(): Promise<void> { /* fixture: no-op */ }
+  async setRolloutState(): Promise<void> { /* fixture: no-op */ }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

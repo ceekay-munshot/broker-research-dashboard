@@ -32,6 +32,9 @@ import type {
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
   UsageEvent, UsageEventType, UsageSurface,
+  FeatureFlagAssignment, FeatureFlagKey, OrgModuleAccess, AccessibleModule,
+  PermissionGrant, ConfigAuditEntry, ConfigAuditArea, OrgIntegrationConfig,
+  DeliveryRoutingConfig, RolloutState, UserId,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -324,6 +327,49 @@ export interface Repo {
     readonly limit?: number
   }): readonly UsageEvent[]
   loadUsageForOrg(orgId: OrgId): { readonly events: readonly UsageEvent[] }
+
+  // Org control plane (Module 27) ────────────────────────────────────────
+  /** Per-org override of a single feature flag. Absence ⇒ env default. */
+  upsertFeatureFlagOverride(rec: FeatureFlagAssignment): void
+  getFeatureFlagOverride(orgId: OrgId, key: FeatureFlagKey): FeatureFlagAssignment | null
+  listFeatureFlagOverrides(orgId: OrgId): readonly FeatureFlagAssignment[]
+  /** Per-org module access overrides. */
+  upsertModuleAccessOverride(orgId: OrgId, rec: OrgModuleAccess): void
+  getModuleAccessOverride(orgId: OrgId, module: AccessibleModule): OrgModuleAccess | null
+  listModuleAccessOverrides(orgId: OrgId): readonly OrgModuleAccess[]
+  /** Per-org integration config (source mode + freshness threshold). */
+  upsertIntegrationOverride(orgId: OrgId, rec: OrgIntegrationConfig): void
+  listIntegrationOverrides(orgId: OrgId): readonly OrgIntegrationConfig[]
+  getIntegrationOverride(orgId: OrgId, kind: SourceKind): OrgIntegrationConfig | null
+  /** Per-org delivery routing override. */
+  upsertDeliveryRoutingOverride(orgId: OrgId, rec: DeliveryRoutingConfig): void
+  listDeliveryRoutingOverrides(orgId: OrgId): readonly DeliveryRoutingConfig[]
+  getDeliveryRoutingOverride(orgId: OrgId, kind: DeliveryContentKind): DeliveryRoutingConfig | null
+  /** Free-form per-org rollout note + persisted rollout state override. */
+  upsertOrgRolloutNote(orgId: OrgId, note: string | null): void
+  getOrgRolloutNote(orgId: OrgId): string | null
+  upsertRolloutStateOverride(orgId: OrgId, state: RolloutState | null): void
+  getRolloutStateOverride(orgId: OrgId): RolloutState | null
+  /** Permission grants. */
+  upsertPermissionGrant(rec: PermissionGrant): void
+  listPermissionGrants(orgId: OrgId, filter?: { readonly userId?: UserId }): readonly PermissionGrant[]
+  /** Config audit trail. */
+  appendConfigAuditEntry(rec: ConfigAuditEntry): void
+  listConfigAuditEntries(orgId: OrgId, filter?: {
+    readonly area?: ConfigAuditArea
+    readonly limit?: number
+  }): readonly ConfigAuditEntry[]
+  /** Bulk hydration. */
+  loadOrgControlForOrg(orgId: OrgId): {
+    readonly featureFlags: readonly FeatureFlagAssignment[]
+    readonly moduleAccess: readonly OrgModuleAccess[]
+    readonly integrations: readonly OrgIntegrationConfig[]
+    readonly deliveryRouting: readonly DeliveryRoutingConfig[]
+    readonly permissions: readonly PermissionGrant[]
+    readonly audit: readonly ConfigAuditEntry[]
+    readonly rolloutNote: string | null
+    readonly rolloutStateOverride: RolloutState | null
+  }
 
   // Lifecycle ───────────────────────────────────────────────────────────
   /** Best-effort flush of any in-memory buffers to durable storage.

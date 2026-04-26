@@ -58,6 +58,12 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   recordUsage:              'usageEvents',
   getOrgUsageSnapshot:      'usageSnapshot',
   getPilotRoiSnapshot:      'usageRoi',
+  getOrgSettings:           'orgSettings',
+  listConfigAuditEntries:   'orgAudit',
+  setFeatureFlag:           'orgFlag',
+  setModuleAccess:          'orgModuleAccess',
+  setSourceMode:            'orgSourceMode',
+  setRolloutState:          'orgRolloutState',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

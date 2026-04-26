@@ -23,3 +23,12 @@ export type * from './delivery'
 export { DELIVERY_CONTENT_KINDS, DELIVERY_WORKFLOW_CHANNELS } from './delivery'
 export type * from './usage'
 export { USAGE_EVENT_TYPES, USAGE_SURFACES } from './usage'
+// orgControl: skip type re-export of UserRole (already exported by ./organization).
+export type {
+  FeatureFlagAssignmentId, PermissionGrantId, ConfigAuditEntryId,
+  FeatureFlagKey, FeatureFlagSource, FeatureFlagAssignment,
+  AccessibleModule, OrgModuleAccess, PermissionGrant,
+  OrgIntegrationConfig, DeliveryRoutingConfig, RolloutState,
+  ConfigAuditArea, ConfigAuditEntry, AccessScope, OrgSettings,
+} from './orgControl'
+export { USER_ROLES, FEATURE_FLAG_KEYS, ROLLOUT_STATES } from './orgControl'

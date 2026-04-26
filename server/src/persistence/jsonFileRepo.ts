@@ -28,6 +28,10 @@ import type {
   DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   UsageEvent,
+  FeatureFlagAssignment, FeatureFlagKey, OrgModuleAccess, AccessibleModule,
+  PermissionGrant, ConfigAuditEntry, OrgIntegrationConfig,
+  DeliveryRoutingConfig, RolloutState, SourceKind,
+  DeliveryContentKind,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -52,6 +56,10 @@ const TABLES = [
   'deliverySchedules', 'deliveryRuns', 'deliveryAttempts', 'deliverySuppressions',
   // Module 26 — usage events
   'usageEvents',
+  // Module 27 — org control plane
+  'featureFlagOverrides', 'moduleAccessOverrides', 'integrationOverrides',
+  'deliveryRoutingOverrides', 'permissionGrants', 'configAuditEntries',
+  'orgRolloutNotes', 'orgRolloutStateOverrides',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -87,6 +95,14 @@ interface Snapshot {
   deliveryAttempts: DeliveryAttempt[]
   deliverySuppressions: DeliverySuppression[]
   usageEvents: UsageEvent[]
+  featureFlagOverrides: FeatureFlagAssignment[]
+  moduleAccessOverrides: Array<OrgModuleAccess & { orgId: OrgId }>
+  integrationOverrides: Array<OrgIntegrationConfig & { orgId: OrgId }>
+  deliveryRoutingOverrides: Array<DeliveryRoutingConfig & { orgId: OrgId }>
+  permissionGrants: PermissionGrant[]
+  configAuditEntries: ConfigAuditEntry[]
+  orgRolloutNotes: Array<{ orgId: OrgId; note: string }>
+  orgRolloutStateOverrides: Array<{ orgId: OrgId; state: RolloutState }>
 }
 
 export interface JsonFileRepoOptions {
@@ -263,6 +279,33 @@ export class JsonFileRepo implements Repo {
   }
   loadUsageForOrg(orgId: OrgId) { return this.mem.loadUsageForOrg(orgId) }
 
+  // Module 27 — org control plane
+  upsertFeatureFlagOverride(rec: FeatureFlagAssignment) { this.mem.upsertFeatureFlagOverride(rec); this.touch('featureFlagOverrides') }
+  getFeatureFlagOverride(orgId: OrgId, key: FeatureFlagKey) { return this.mem.getFeatureFlagOverride(orgId, key) }
+  listFeatureFlagOverrides(orgId: OrgId) { return this.mem.listFeatureFlagOverrides(orgId) }
+  upsertModuleAccessOverride(orgId: OrgId, rec: OrgModuleAccess) { this.mem.upsertModuleAccessOverride(orgId, rec); this.touch('moduleAccessOverrides') }
+  getModuleAccessOverride(orgId: OrgId, module: AccessibleModule) { return this.mem.getModuleAccessOverride(orgId, module) }
+  listModuleAccessOverrides(orgId: OrgId) { return this.mem.listModuleAccessOverrides(orgId) }
+  upsertIntegrationOverride(orgId: OrgId, rec: OrgIntegrationConfig) { this.mem.upsertIntegrationOverride(orgId, rec); this.touch('integrationOverrides') }
+  listIntegrationOverrides(orgId: OrgId) { return this.mem.listIntegrationOverrides(orgId) }
+  getIntegrationOverride(orgId: OrgId, kind: SourceKind) { return this.mem.getIntegrationOverride(orgId, kind) }
+  upsertDeliveryRoutingOverride(orgId: OrgId, rec: DeliveryRoutingConfig) { this.mem.upsertDeliveryRoutingOverride(orgId, rec); this.touch('deliveryRoutingOverrides') }
+  listDeliveryRoutingOverrides(orgId: OrgId) { return this.mem.listDeliveryRoutingOverrides(orgId) }
+  getDeliveryRoutingOverride(orgId: OrgId, kind: DeliveryContentKind) { return this.mem.getDeliveryRoutingOverride(orgId, kind) }
+  upsertOrgRolloutNote(orgId: OrgId, note: string | null) { this.mem.upsertOrgRolloutNote(orgId, note); this.touch('orgRolloutNotes') }
+  getOrgRolloutNote(orgId: OrgId) { return this.mem.getOrgRolloutNote(orgId) }
+  upsertRolloutStateOverride(orgId: OrgId, state: RolloutState | null) { this.mem.upsertRolloutStateOverride(orgId, state); this.touch('orgRolloutStateOverrides') }
+  getRolloutStateOverride(orgId: OrgId) { return this.mem.getRolloutStateOverride(orgId) }
+  upsertPermissionGrant(rec: PermissionGrant) { this.mem.upsertPermissionGrant(rec); this.touch('permissionGrants') }
+  listPermissionGrants(orgId: OrgId, filter?: Parameters<Repo['listPermissionGrants']>[1]) {
+    return this.mem.listPermissionGrants(orgId, filter)
+  }
+  appendConfigAuditEntry(rec: ConfigAuditEntry) { this.mem.appendConfigAuditEntry(rec); this.touch('configAuditEntries') }
+  listConfigAuditEntries(orgId: OrgId, filter?: Parameters<Repo['listConfigAuditEntries']>[1]) {
+    return this.mem.listConfigAuditEntries(orgId, filter)
+  }
+  loadOrgControlForOrg(orgId: OrgId) { return this.mem.loadOrgControlForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -316,6 +359,14 @@ export class JsonFileRepo implements Repo {
       deliveryAttempts: Map<string, DeliveryAttempt>
       deliverySuppressions: Map<string, DeliverySuppression>
       usageEvents: UsageEvent[]
+      featureFlagOverrides: Map<string, FeatureFlagAssignment>
+      moduleAccessOverrides: Map<string, OrgModuleAccess>
+      integrationOverrides: Map<string, OrgIntegrationConfig>
+      deliveryRoutingOverrides: Map<string, DeliveryRoutingConfig>
+      permissionGrants: Map<string, PermissionGrant>
+      configAuditEntries: ConfigAuditEntry[]
+      orgRolloutNotes: Map<string, string>
+      orgRolloutStateOverrides: Map<string, RolloutState>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -349,6 +400,14 @@ export class JsonFileRepo implements Repo {
       deliveryAttempts:     [...m.deliveryAttempts.values()],
       deliverySuppressions: [...m.deliverySuppressions.values()],
       usageEvents:          [...m.usageEvents],
+      featureFlagOverrides:    [...m.featureFlagOverrides.values()],
+      moduleAccessOverrides:   [...m.moduleAccessOverrides.entries()].map(([k, v]) => ({ ...v, orgId: k.split('::')[0]! as OrgId })),
+      integrationOverrides:    [...m.integrationOverrides.entries()].map(([k, v]) => ({ ...v, orgId: k.split('::')[0]! as OrgId })),
+      deliveryRoutingOverrides: [...m.deliveryRoutingOverrides.entries()].map(([k, v]) => ({ ...v, orgId: k.split('::')[0]! as OrgId })),
+      permissionGrants:        [...m.permissionGrants.values()],
+      configAuditEntries:      [...m.configAuditEntries],
+      orgRolloutNotes:         [...m.orgRolloutNotes.entries()].map(([orgId, note]) => ({ orgId: orgId as OrgId, note })),
+      orgRolloutStateOverrides: [...m.orgRolloutStateOverrides.entries()].map(([orgId, state]) => ({ orgId: orgId as OrgId, state })),
     }
   }
 
@@ -393,6 +452,34 @@ export class JsonFileRepo implements Repo {
           case 'deliveryAttempts':     this.mem.appendDeliveryAttempt(rec as DeliveryAttempt); break
           case 'deliverySuppressions': this.mem.upsertDeliverySuppression(rec as DeliverySuppression); break
           case 'usageEvents':          this.mem.appendUsageEvent(rec as UsageEvent); break
+          case 'featureFlagOverrides': this.mem.upsertFeatureFlagOverride(rec as FeatureFlagAssignment); break
+          case 'moduleAccessOverrides': {
+            const r = rec as OrgModuleAccess & { orgId: OrgId }
+            this.mem.upsertModuleAccessOverride(r.orgId, r)
+            break
+          }
+          case 'integrationOverrides': {
+            const r = rec as OrgIntegrationConfig & { orgId: OrgId }
+            this.mem.upsertIntegrationOverride(r.orgId, r)
+            break
+          }
+          case 'deliveryRoutingOverrides': {
+            const r = rec as DeliveryRoutingConfig & { orgId: OrgId }
+            this.mem.upsertDeliveryRoutingOverride(r.orgId, r)
+            break
+          }
+          case 'permissionGrants':     this.mem.upsertPermissionGrant(rec as PermissionGrant); break
+          case 'configAuditEntries':   this.mem.appendConfigAuditEntry(rec as ConfigAuditEntry); break
+          case 'orgRolloutNotes': {
+            const r = rec as { orgId: OrgId; note: string }
+            this.mem.upsertOrgRolloutNote(r.orgId, r.note)
+            break
+          }
+          case 'orgRolloutStateOverrides': {
+            const r = rec as { orgId: OrgId; state: RolloutState }
+            this.mem.upsertRolloutStateOverride(r.orgId, r.state)
+            break
+          }
         }
       }
     }

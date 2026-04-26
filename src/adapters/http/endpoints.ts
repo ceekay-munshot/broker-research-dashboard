@@ -88,4 +88,12 @@ export const endpoints = {
   usageEvents:                () => v1('/usage/events'),
   usageSnapshot:              () => v1('/usage/snapshot'),
   usageRoi:                   () => v1('/usage/roi'),
+
+  // Org control plane (Module 27)
+  orgSettings:                () => v1('/org-control/settings'),
+  orgAudit:                   () => v1('/org-control/audit'),
+  orgFlag:                    () => v1('/org-control/flag'),
+  orgModuleAccess:            () => v1('/org-control/module'),
+  orgSourceMode:              () => v1('/org-control/source-mode'),
+  orgRolloutState:            () => v1('/org-control/rollout-state'),
 } as const

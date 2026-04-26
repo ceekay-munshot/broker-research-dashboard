@@ -19,6 +19,8 @@ import type {
   SourcesHealthSnapshot,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
   UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
+  OrgSettings, FeatureFlagKey, AccessibleModule,
+  SourceKind, SourceProviderMode, RolloutState, ConfigAuditEntry, ConfigAuditArea,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -533,6 +535,64 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const snap = raw as PilotRoiSnapshot
     assertOrgMatch('PilotRoiSnapshot', scope, snap.orgId as unknown as string)
     return snap
+  }
+
+  // ── Org control plane (Module 27) ───────────────────────────────────
+
+  async getOrgSettings(scope: OrgScope): Promise<OrgSettings | null> {
+    const raw = await this.client.requestOrNull(endpoints.orgSettings(), scope, {
+      endpointKey: 'orgSettings',
+    })
+    if (raw === null) return null
+    const snap = raw as OrgSettings
+    assertOrgMatch('OrgSettings', scope, snap.orgId as unknown as string)
+    return snap
+  }
+
+  async listConfigAuditEntries(scope: OrgScope, query?: {
+    readonly area?: ConfigAuditArea; readonly limit?: number
+  }): Promise<readonly ConfigAuditEntry[]> {
+    const search: Record<string, string> = {}
+    if (query?.area)  search.area = query.area
+    if (query?.limit !== undefined) search.limit = String(query.limit)
+    const raw = await this.client.request(endpoints.orgAudit(), scope, {
+      query: search as QueryInput, endpointKey: 'orgAudit',
+    })
+    const items = (raw as { items?: readonly ConfigAuditEntry[] }).items ?? (raw as readonly ConfigAuditEntry[])
+    assertPageOrg('ConfigAuditEntry', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async setFeatureFlag(scope: OrgScope, args: {
+    key: FeatureFlagKey; enabled: boolean; reason?: string | null
+  }): Promise<void> {
+    await this.client.request(endpoints.orgFlag(), scope, {
+      method: 'POST', body: args, endpointKey: 'orgFlag',
+    })
+  }
+
+  async setModuleAccess(scope: OrgScope, args: {
+    module: AccessibleModule; enabled: boolean; reason?: string | null
+  }): Promise<void> {
+    await this.client.request(endpoints.orgModuleAccess(), scope, {
+      method: 'POST', body: args, endpointKey: 'orgModuleAccess',
+    })
+  }
+
+  async setSourceMode(scope: OrgScope, args: {
+    sourceKind: SourceKind; mode: SourceProviderMode; reason?: string | null
+  }): Promise<void> {
+    await this.client.request(endpoints.orgSourceMode(), scope, {
+      method: 'POST', body: args, endpointKey: 'orgSourceMode',
+    })
+  }
+
+  async setRolloutState(scope: OrgScope, args: {
+    state: RolloutState | null; note?: string | null; reason?: string | null
+  }): Promise<void> {
+    await this.client.request(endpoints.orgRolloutState(), scope, {
+      method: 'POST', body: args, endpointKey: 'orgRolloutState',
+    })
   }
 }
 

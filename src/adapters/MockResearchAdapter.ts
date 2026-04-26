@@ -19,10 +19,18 @@ import type {
   SourcesHealthSnapshot, SourceIntegration, SourceKind,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
   UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
+  OrgSettings, FeatureFlagKey, FeatureFlagAssignment, FeatureFlagSource,
+  AccessibleModule, OrgModuleAccess, OrgIntegrationConfig, DeliveryRoutingConfig,
+  PermissionGrant, ConfigAuditEntry, ConfigAuditArea, RolloutState,
+  SourceProviderMode, UserRole,
+} from '../domain'
+import {
+  FEATURE_FLAG_KEYS, SOURCE_KINDS, DELIVERY_CONTENT_KINDS,
 } from '../domain'
 import {
   asSourceId, asDeliveryAttemptId, asDeliveryRunId, asDeliveryTargetId, asUserId,
   asUsageEventId, asUsageSessionId,
+  asFeatureFlagAssignmentId, asPermissionGrantId, asConfigAuditEntryId,
 } from '../lib/ids'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../engine'
@@ -61,6 +69,17 @@ import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfol
 // adapter POSTs `/v1/usage/events`; the mock keeps a buffer here so the
 // Usage tab + CLI work end-to-end in dev mode.
 const _mockUsageEvents: UsageEvent[] = []
+
+// Per-process control-plane state for the mock adapter. Keys are
+// `${orgId}::${flagKey}` etc; mirrors the server Repo shape.
+const _mockFeatureFlagOverrides   = new Map<string, FeatureFlagAssignment>()
+const _mockModuleOverrides        = new Map<string, OrgModuleAccess>()
+const _mockIntegrationOverrides   = new Map<string, OrgIntegrationConfig>()
+const _mockDeliveryRoutingOverrides = new Map<string, DeliveryRoutingConfig>()
+const _mockRolloutOverrides       = new Map<string, RolloutState>()
+const _mockRolloutNotes           = new Map<string, string>()
+const _mockAuditTrail: ConfigAuditEntry[]          = []
+const _mockPermissionGrants: PermissionGrant[]     = []
 
 export class MockResearchAdapter implements ResearchAdapter {
   private readonly simulatedLatencyMs: number
@@ -854,6 +873,238 @@ export class MockResearchAdapter implements ResearchAdapter {
       mk(40,  'open_catalyst', 'catalysts', 'catalyst', 'mock_cat_1', 'catalysts'),
       mk(20,  'view_tab', 'mybook', null, null),
     ]
+  }
+
+  /** Module 27 — org control plane. */
+  async getOrgSettings(scope: OrgScope): Promise<OrgSettings | null> {
+    await this.delay()
+    return this.buildOrgSettings(scope.orgId)
+  }
+
+  async listConfigAuditEntries(scope: OrgScope, query?: {
+    area?: ConfigAuditArea; limit?: number
+  }): Promise<readonly ConfigAuditEntry[]> {
+    await this.delay()
+    let arr = _mockAuditTrail.filter((e) => e.orgId === scope.orgId)
+    if (query?.area) arr = arr.filter((e) => e.area === query.area)
+    arr.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    if (query?.limit) arr = arr.slice(0, query.limit)
+    return arr
+  }
+
+  async setFeatureFlag(scope: OrgScope, args: {
+    key: FeatureFlagKey; enabled: boolean; reason?: string | null
+  }): Promise<void> {
+    await this.delay()
+    const orgId = scope.orgId
+    const before = _mockFeatureFlagOverrides.get(`${orgId}::${args.key}`)
+    const now = new Date().toISOString()
+    _mockFeatureFlagOverrides.set(`${orgId}::${args.key}`, {
+      id: asFeatureFlagAssignmentId(`flag_${orgId}_${args.key}_${Date.now().toString(36)}`),
+      orgId, key: args.key, enabled: args.enabled,
+      source: 'org_override', updatedAt: now, updatedBy: scope.actingUserId,
+      note: args.reason ?? null,
+    })
+    this.appendMockAudit({
+      orgId, area: 'feature_flag', key: args.key,
+      before: before ? { enabled: before.enabled } : null,
+      after: { enabled: args.enabled },
+      actorUserId: scope.actingUserId, actorRole: 'admin',
+      reason: args.reason ?? null,
+    })
+  }
+
+  async setModuleAccess(scope: OrgScope, args: {
+    module: AccessibleModule; enabled: boolean; reason?: string | null
+  }): Promise<void> {
+    await this.delay()
+    const orgId = scope.orgId
+    const before = _mockModuleOverrides.get(`${orgId}::${args.module}`)
+    _mockModuleOverrides.set(`${orgId}::${args.module}`, {
+      module: args.module, enabled: args.enabled,
+      source: 'org_override', note: args.reason ?? null,
+    })
+    this.appendMockAudit({
+      orgId, area: 'module_access', key: args.module,
+      before: before ? { enabled: before.enabled } : null,
+      after: { enabled: args.enabled },
+      actorUserId: scope.actingUserId, actorRole: 'admin',
+      reason: args.reason ?? null,
+    })
+  }
+
+  async setSourceMode(scope: OrgScope, args: {
+    sourceKind: SourceKind; mode: SourceProviderMode; reason?: string | null
+  }): Promise<void> {
+    await this.delay()
+    const orgId = scope.orgId
+    const k = `${orgId}::${args.sourceKind}`
+    const before = _mockIntegrationOverrides.get(k)
+    _mockIntegrationOverrides.set(k, {
+      sourceKind: args.sourceKind, mode: args.mode,
+      source: 'org_override',
+      stalenessThresholdSeconds: before?.stalenessThresholdSeconds ?? 0,
+      note: args.reason ?? null,
+    })
+    this.appendMockAudit({
+      orgId, area: 'integration', key: args.sourceKind,
+      before: before ? { mode: before.mode } : null,
+      after: { mode: args.mode },
+      actorUserId: scope.actingUserId, actorRole: 'admin',
+      reason: args.reason ?? null,
+    })
+  }
+
+  async setRolloutState(scope: OrgScope, args: {
+    state: RolloutState | null; note?: string | null; reason?: string | null
+  }): Promise<void> {
+    await this.delay()
+    const orgId = scope.orgId
+    const before = _mockRolloutOverrides.get(orgId as unknown as string)
+    if (args.state) _mockRolloutOverrides.set(orgId as unknown as string, args.state)
+    else _mockRolloutOverrides.delete(orgId as unknown as string)
+    if (args.note !== undefined && args.note !== null) {
+      _mockRolloutNotes.set(orgId as unknown as string, args.note)
+    }
+    this.appendMockAudit({
+      orgId, area: 'rollout_state', key: 'rollout_state',
+      before: before ? { state: before } : null,
+      after: { state: args.state },
+      actorUserId: scope.actingUserId, actorRole: 'admin',
+      reason: args.reason ?? null,
+    })
+  }
+
+  private appendMockAudit(args: {
+    orgId: import('../domain').OrgId
+    area: ConfigAuditArea
+    key: string
+    before: unknown
+    after: unknown
+    actorUserId: import('../domain').UserId | null
+    actorRole: UserRole | null
+    reason: string | null
+  }): void {
+    _mockAuditTrail.push({
+      id: asConfigAuditEntryId(`aud_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`),
+      orgId: args.orgId,
+      area: args.area, key: args.key,
+      before: args.before === null ? null : JSON.stringify(args.before),
+      after:  args.after === null ? null : JSON.stringify(args.after),
+      actorUserId: args.actorUserId, actorRole: args.actorRole,
+      reason: args.reason,
+      occurredAt: new Date().toISOString(),
+    })
+  }
+
+  private buildOrgSettings(orgId: import('../domain').OrgId): OrgSettings {
+    const now = new Date().toISOString()
+    // Feature flags: env defaults + persisted overrides.
+    const featureFlags: FeatureFlagAssignment[] = FEATURE_FLAG_KEYS.map((key) => {
+      const override = _mockFeatureFlagOverrides.get(`${orgId}::${key}`)
+      if (override) return override
+      return {
+        id: asFeatureFlagAssignmentId(`flag_default_${orgId}_${key}`),
+        orgId, key, enabled: this.envFlagDefault(key),
+        source: 'env' as FeatureFlagSource, updatedAt: now, updatedBy: null, note: null,
+      }
+    })
+
+    const allModules: readonly AccessibleModule[] = [
+      'mybook', 'briefing', 'worklog', 'dashboard', 'broker', 'stock',
+      'divergence', 'sector', 'calibration', 'catalysts',
+      'sources', 'inbox', 'usage', 'control_plane',
+    ]
+    const modules: OrgModuleAccess[] = allModules.map((module) => {
+      const override = _mockModuleOverrides.get(`${orgId}::${module}`)
+      if (override) return override
+      return { module, enabled: true, source: 'default', note: null }
+    })
+
+    const integrations: OrgIntegrationConfig[] = SOURCE_KINDS.map((sourceKind: SourceKind) => {
+      const override = _mockIntegrationOverrides.get(`${orgId}::${sourceKind}`)
+      if (override) return override
+      return {
+        sourceKind, mode: 'fixture',
+        source: 'env' as FeatureFlagSource,
+        stalenessThresholdSeconds: 60 * 60,
+        note: null,
+      }
+    })
+
+    const deliveryRouting: DeliveryRoutingConfig[] = DELIVERY_CONTENT_KINDS.map((contentKind: DeliveryContentKind) => {
+      const override = _mockDeliveryRoutingOverrides.get(`${orgId}::${contentKind}`)
+      if (override) return override
+      return {
+        contentKind, enabled: true,
+        source: 'env' as FeatureFlagSource,
+        channels: ['in_app' as DeliveryChannel],
+        note: null,
+      }
+    })
+
+    const permissions = _mockPermissionGrants.length > 0
+      ? _mockPermissionGrants.filter((g) => g.orgId === orgId)
+      : [{
+          id: asPermissionGrantId(`grant_default_${orgId}`),
+          orgId, userId: asUserId('usr_default'),
+          role: 'admin' as UserRole,
+          grantedAt: now, grantedBy: null,
+        }]
+
+    const rolloutOverride = _mockRolloutOverrides.get(orgId as unknown as string) ?? null
+    const adaptiveOn = featureFlags.find((f) => f.key === 'adaptive_ranking.enabled')?.enabled ?? false
+    const compareOn  = featureFlags.find((f) => f.key === 'adaptive_ranking.show_compare')?.enabled ?? false
+    const anyDelivery = ['delivery.email.enabled', 'delivery.slack.enabled', 'delivery.webhook.enabled'].some(
+      (k) => featureFlags.find((f) => f.key === k as FeatureFlagKey)?.enabled,
+    )
+    const anyRealSource = integrations.some((i) => i.mode === 'http')
+    const rolloutState: RolloutState =
+      rolloutOverride ??
+      (anyDelivery && adaptiveOn && anyRealSource ? 'production'
+       : anyDelivery ? 'delivery_on'
+       : adaptiveOn ? 'adaptive_on'
+       : compareOn ? 'compare_only'
+       : 'pilot')
+
+    const recentAudit = _mockAuditTrail
+      .filter((e) => e.orgId === orgId)
+      .slice()
+      .sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+      .slice(0, 20)
+
+    // Treat the mock acting user as admin so the operator UI is exercised end-to-end.
+    const role: UserRole = 'admin'
+
+    return {
+      orgId,
+      generatedAt: now,
+      currentUserRole: role,
+      featureFlags,
+      modules,
+      permissions,
+      integrations,
+      deliveryRouting,
+      rolloutState,
+      access: {
+        orgId,
+        userId: asUserId('usr_default'),
+        role,
+        accessibleSurfaces: [
+          'mybook', 'briefing', 'worklog', 'dashboard', 'broker', 'stock',
+          'divergence', 'sector', 'calibration', 'catalysts', 'inbox',
+          'sources', 'usage',
+        ],
+        writableSurfaces: ['sources', 'usage'],
+      },
+      recentAudit,
+      notes: { rollout: _mockRolloutNotes.get(orgId as unknown as string) ?? null },
+    }
+  }
+
+  private envFlagDefault(key: FeatureFlagKey): boolean {
+    // The mock has no env access — default to false except for control_plane.writes_enabled.
+    return key === 'control_plane.writes_enabled'
   }
 
   // ── Internal ────────────────────────────────────────────────────────

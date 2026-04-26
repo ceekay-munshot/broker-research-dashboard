@@ -19,6 +19,8 @@ import type {
   SourcesHealthSnapshot,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
   UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
+  OrgSettings, FeatureFlagKey, AccessibleModule,
+  SourceKind, SourceProviderMode, RolloutState, ConfigAuditEntry,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
@@ -175,4 +177,40 @@ export interface ResearchAdapter {
   getOrgUsageSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<OrgUsageSnapshot | null>
   /** Pilot ROI snapshot used by the Usage tab + CLI export. */
   getPilotRoiSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<PilotRoiSnapshot | null>
+
+  // ─── Org control plane (Module 27) ───────────────────────────────────
+  /** Effective org settings — flags + modules + integrations + delivery
+   *  routing + permissions + rollout + recent audit. Returns null when the
+   *  adapter has no control-plane layer (older builds). */
+  getOrgSettings(scope: OrgScope): Promise<OrgSettings | null>
+  /** Recent config audit entries. Subset of `OrgSettings.recentAudit` —
+   *  exposed separately for paginated audit views. */
+  listConfigAuditEntries(scope: OrgScope, query?: {
+    readonly area?: import('../domain').ConfigAuditArea
+    readonly limit?: number
+  }): Promise<readonly ConfigAuditEntry[]>
+  /** Operator-only: set a feature flag override. */
+  setFeatureFlag(scope: OrgScope, args: {
+    readonly key: FeatureFlagKey
+    readonly enabled: boolean
+    readonly reason?: string | null
+  }): Promise<void>
+  /** Operator-only: enable/disable a module for the org. */
+  setModuleAccess(scope: OrgScope, args: {
+    readonly module: AccessibleModule
+    readonly enabled: boolean
+    readonly reason?: string | null
+  }): Promise<void>
+  /** Operator-only: switch a source's provider mode. */
+  setSourceMode(scope: OrgScope, args: {
+    readonly sourceKind: SourceKind
+    readonly mode: SourceProviderMode
+    readonly reason?: string | null
+  }): Promise<void>
+  /** Operator-only: set rollout state + optional note. */
+  setRolloutState(scope: OrgScope, args: {
+    readonly state: RolloutState | null
+    readonly note?: string | null
+    readonly reason?: string | null
+  }): Promise<void>
 }

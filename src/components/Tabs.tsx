@@ -1,15 +1,21 @@
 import { TABS, type TabId } from '../app/tabs'
+import { useCurrentUserRole } from '../hooks/useCurrentUserRole'
 
 interface TabsProps {
   readonly active: TabId
   readonly setActive: (id: TabId) => void
 }
 
+const OPERATOR_TABS = new Set<TabId>(['sources', 'usage', 'controlPlane'])
+
 export default function Tabs({ active, setActive }: TabsProps) {
+  const role = useCurrentUserRole()
+  const canSeeOperator = role === 'operator' || role === 'admin'
+  const visibleTabs = TABS.filter((t) => !OPERATOR_TABS.has(t.id) || canSeeOperator)
   return (
     <div className="flex items-end border-b border-line/5 bg-ink-950/40">
       <div className="flex">
-        {TABS.map((t) => {
+        {visibleTabs.map((t) => {
           const isActive = active === t.id
           return (
             <button

@@ -88,6 +88,18 @@ import {
 } from './usage'
 import type { UsageEventType } from '../../../src/domain'
 import { USAGE_EVENT_TYPES } from '../../../src/domain'
+import {
+  cmdOrgSettings, cmdOrgFlags, cmdOrgFlag, cmdOrgModules, cmdOrgPermissions,
+  cmdOrgAudit, cmdOrgCompare, cmdOrgRollout, cmdOrgSourceMode, cmdOrgModule,
+  cmdOrgExportRollout,
+  parseFeatureFlagKey, parseRolloutState,
+  type OrgControlCliFlags,
+} from './orgControl'
+import type {
+  FeatureFlagKey, RolloutState, SourceKind, SourceProviderMode,
+  AccessibleModule,
+} from '../../../src/domain'
+import { SOURCE_KINDS } from '../../../src/domain'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -127,6 +139,10 @@ type Subcommand =
   // Module 26
   | 'usage:summary' | 'usage:deliveries' | 'usage:compare-ranking'
   | 'usage:engaged-kinds' | 'usage:least-used' | 'usage:roi' | 'usage:inspect'
+  // Module 27
+  | 'org:settings' | 'org:flags' | 'org:flag' | 'org:modules' | 'org:module'
+  | 'org:permissions' | 'org:audit' | 'org:compare'
+  | 'org:rollout' | 'org:source-mode' | 'org:export-rollout'
   | 'help'
 
 interface Args {
@@ -170,6 +186,16 @@ interface Args {
   readonly deliveryKind?: string
   // Module 26 flags
   readonly usageEventType?: string
+  // Module 27 flags
+  readonly flagKey?: string
+  readonly flagEnabled?: boolean
+  readonly compareA?: string
+  readonly compareB?: string
+  readonly rolloutState?: string
+  readonly rolloutNote?: string
+  readonly sourceKindForOrg?: string
+  readonly sourceModeForOrg?: string
+  readonly moduleName?: string
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -235,6 +261,15 @@ function parseArgs(argv: readonly string[]): Args {
     toIso: flags.to as string | undefined,
     deliveryKind: (flags['kind'] as string | undefined) ?? (flags['content-kind'] as string | undefined),
     usageEventType: flags['event'] as string | undefined,
+    flagKey: flags['key'] as string | undefined,
+    flagEnabled: flags['on'] === true ? true : flags['off'] === true ? false : undefined,
+    compareA: flags['a'] as string | undefined,
+    compareB: flags['b'] as string | undefined,
+    rolloutState: flags['state'] as string | undefined,
+    rolloutNote: flags['note'] as string | undefined,
+    sourceKindForOrg: flags['kind'] as string | undefined,
+    sourceModeForOrg: flags['mode'] as string | undefined,
+    moduleName: flags['module'] as string | undefined,
   }
 }
 
@@ -504,6 +539,40 @@ async function main(): Promise<void> {
     case 'usage:inspect':
       cmdUsageInspect(asUsageFlags(args), repo)
       break
+    // Module 27 — org control plane
+    case 'org:settings':
+      cmdOrgSettings(asOrgControlFlags(args), repo, buildSourceManager(repo))
+      break
+    case 'org:flags':
+      cmdOrgFlags(asOrgControlFlags(args), repo, buildSourceManager(repo))
+      break
+    case 'org:flag':
+      cmdOrgFlag(asOrgControlFlags(args), repo)
+      break
+    case 'org:modules':
+      cmdOrgModules(asOrgControlFlags(args), repo, buildSourceManager(repo))
+      break
+    case 'org:module':
+      cmdOrgModule(asOrgControlFlags(args), repo)
+      break
+    case 'org:permissions':
+      cmdOrgPermissions(asOrgControlFlags(args), repo)
+      break
+    case 'org:audit':
+      cmdOrgAudit(asOrgControlFlags(args), repo)
+      break
+    case 'org:compare':
+      cmdOrgCompare(asOrgControlFlags(args), repo, buildSourceManager(repo))
+      break
+    case 'org:rollout':
+      cmdOrgRollout(asOrgControlFlags(args), repo)
+      break
+    case 'org:source-mode':
+      cmdOrgSourceMode(asOrgControlFlags(args), repo)
+      break
+    case 'org:export-rollout':
+      cmdOrgExportRollout(asOrgControlFlags(args), repo, buildSourceManager(repo))
+      break
     case 'help':
     default:
       printHelp()
@@ -596,6 +665,40 @@ function buildDeliveryStackFor(repo: Repo, store: import('../store/InMemoryStore
   const orgIds = organizations.map((o) => o.id)
   const sourceManager = buildSourceManager(repo)
   return buildDeliveryStack({ orgIds, repo, store, sourceManager })
+}
+
+function asOrgControlFlags(args: Args): OrgControlCliFlags {
+  const sourceMode = (() => {
+    const m = args.sourceModeForOrg
+    return m === 'http' || m === 'fixture' || m === 'mock' || m === 'disabled'
+      ? (m as SourceProviderMode) : undefined
+  })()
+  const sourceKind = (() => {
+    const k = args.sourceKindForOrg
+    return k && SOURCE_KINDS.includes(k as SourceKind) ? (k as SourceKind) : undefined
+  })()
+  const allowedModules: readonly AccessibleModule[] = [
+    'mybook', 'briefing', 'worklog', 'dashboard', 'broker', 'stock',
+    'divergence', 'sector', 'calibration', 'catalysts',
+    'sources', 'inbox', 'usage', 'control_plane',
+  ]
+  const moduleName = args.moduleName && allowedModules.includes(args.moduleName as AccessibleModule)
+    ? (args.moduleName as AccessibleModule) : undefined
+  return {
+    orgId: args.orgId,
+    key: parseFeatureFlagKey(args.flagKey) as FeatureFlagKey | undefined,
+    enabled: args.flagEnabled,
+    reason: args.note ?? null,
+    limit: args.limit,
+    outPath: args.outPath ?? null,
+    compareA: args.compareA as unknown as OrgId | undefined,
+    compareB: args.compareB as unknown as OrgId | undefined,
+    rolloutState: parseRolloutState(args.rolloutState) as RolloutState | undefined,
+    rolloutNote: args.rolloutNote ?? null,
+    sourceKind,
+    sourceMode,
+    module: moduleName,
+  }
 }
 
 function asUsageFlags(args: Args): UsageCliFlags {
@@ -1110,6 +1213,18 @@ function printHelp(): void {
   npm run ops -- usage:least-used            [--org=<orgId>] [--days=<n>]
   npm run ops -- usage:roi                   [--org=<orgId>] [--days=<n>] [--out=<path>]
   npm run ops -- usage:inspect               [--event=<event_type>] [--catalyst=<id>] [--id=<deliveryId>] [--days=<n>]
+
+  npm run ops -- org:settings                 [--org=<orgId>]
+  npm run ops -- org:flags                    [--org=<orgId>]
+  npm run ops -- org:flag --key=<key> --on|--off [--note="..."] [--org=<orgId>]
+  npm run ops -- org:modules                  [--org=<orgId>]
+  npm run ops -- org:module --module=<m> --on|--off [--note="..."] [--org=<orgId>]
+  npm run ops -- org:permissions              [--org=<orgId>]
+  npm run ops -- org:audit                    [--org=<orgId>] [--limit=<n>]
+  npm run ops -- org:compare --a=<orgIdA> --b=<orgIdB>
+  npm run ops -- org:rollout --state=<state>  [--note="..."] [--org=<orgId>]
+  npm run ops -- org:source-mode --kind=<src> --mode=<http|fixture|mock|disabled> [--org=<orgId>]
+  npm run ops -- org:export-rollout           [--org=<orgId>] [--out=<path>]
 
 Source kinds:   raw_upstream, portfolio, catalyst_calendar, market_data.
 Delivery kinds: morning_book_brief, intraday_critical, coverage_hygiene,

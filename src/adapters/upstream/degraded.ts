@@ -124,6 +124,14 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'usageEvents',        endpoint: 'POST /v1/usage/events',            requirement: 'optional', description: 'Client-side usage event ingest (Module 26).', tolerate404: true },
   { key: 'usageSnapshot',      endpoint: 'GET /v1/usage/snapshot',           requirement: 'optional', description: 'Org-level usage snapshot (Module 26).', tolerate404: true },
   { key: 'usageRoi',           endpoint: 'GET /v1/usage/roi',                requirement: 'optional', description: 'Pilot ROI snapshot (Module 26).', tolerate404: true },
+
+  // Org control plane (Module 27) — optional; the Control Plane tab degrades when missing.
+  { key: 'orgSettings',        endpoint: 'GET /v1/org-control/settings',     requirement: 'optional', description: 'Effective org settings + flags + rollout state.', tolerate404: true },
+  { key: 'orgAudit',           endpoint: 'GET /v1/org-control/audit',        requirement: 'list',     description: 'Config audit entries.', tolerate404: true },
+  { key: 'orgFlag',            endpoint: 'POST /v1/org-control/flag',        requirement: 'optional', description: 'Set a feature-flag override.', tolerate404: true },
+  { key: 'orgModuleAccess',    endpoint: 'POST /v1/org-control/module',      requirement: 'optional', description: 'Set module access for an org.', tolerate404: true },
+  { key: 'orgSourceMode',      endpoint: 'POST /v1/org-control/source-mode', requirement: 'optional', description: 'Set source provider mode for an org.', tolerate404: true },
+  { key: 'orgRolloutState',    endpoint: 'POST /v1/org-control/rollout-state', requirement: 'optional', description: 'Set rollout state for an org.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not
