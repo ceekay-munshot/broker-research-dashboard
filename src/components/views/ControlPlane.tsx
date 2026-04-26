@@ -17,6 +17,7 @@ import {
 } from '../../viewModels/orgControl'
 import { getResearchAdapter } from '../../adapters'
 import { useScopeContext } from '../../app/ScopeContext'
+import SessionSafetyPanel from '../sessionSafety/SessionSafetyPanel'
 
 export default function ControlPlane() {
   const { scope } = useScopeContext()
@@ -77,6 +78,8 @@ export default function ControlPlane() {
   return (
     <div className="flex flex-col gap-4">
       <Header role={vm.currentUserRole} rolloutState={vm.rolloutState} rolloutNote={vm.rolloutNote} orgId={vm.orgId}/>
+
+      <SessionSafetyPanel/>
 
       <section className="panel p-3 flex flex-col gap-2">
         <h3 className="text-slate-100 text-[13px] font-semibold">Rollout state</h3>

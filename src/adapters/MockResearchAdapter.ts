@@ -975,6 +975,36 @@ export class MockResearchAdapter implements ResearchAdapter {
     })
   }
 
+  /** Module 28 — synthetic session safety snapshot. */
+  async getSessionSafety(scope: OrgScope): Promise<import('../domain').SessionSafetySnapshot | null> {
+    await this.delay()
+    const now = new Date()
+    return {
+      orgId: scope.orgId,
+      generatedAt: now.toISOString(),
+      currentSession: {
+        sessionId: 'sess_mock_dev' as unknown as import('../domain').SessionId,
+        orgId: scope.orgId,
+        actingUserId: scope.actingUserId,
+        email: 'mock@local',
+        displayName: 'Mock Admin',
+        role: 'admin',
+        issuedAt: new Date(now.getTime() - 60 * 1000).toISOString(),
+        expiresAt: new Date(now.getTime() + 60 * 60 * 1000).toISOString(),
+        authSource: 'dev_fixture',
+        verification: { verifiedAt: now.toISOString(), keyId: null, productionSafe: false },
+      },
+      authMode: 'dev_fixture',
+      productionSafe: false,
+      checks: [
+        { id: 'production_safe_auth', title: 'Production-safe auth', status: 'warn', detail: 'dev_fixture verifier — safe in non-production only.' },
+        { id: 'session_signature',    title: 'Session signature',     status: 'warn', detail: 'Dev session lacks signature verification.' },
+        { id: 'session_expiry',       title: 'Session expiry',        status: 'pass', detail: 'Session expires in ~60m.' },
+      ],
+      recentDenials: [],
+    }
+  }
+
   private appendMockAudit(args: {
     orgId: import('../domain').OrgId
     area: ConfigAuditArea

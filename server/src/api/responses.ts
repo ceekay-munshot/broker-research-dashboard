@@ -7,7 +7,7 @@ import type { ServerResponse } from 'node:http'
 const CORS_HEADERS: Readonly<Record<string, string>> = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Org-Id, X-Acting-User-Id',
-  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
   'Access-Control-Max-Age': '600',
   Vary: 'Origin',
 }
@@ -44,9 +44,10 @@ export function writeOptionsResponse(res: ServerResponse): void {
 
 // Convenience wrappers for the most-used error shapes.
 export const reply = {
-  ok:          (res: ServerResponse, body: unknown) => writeJson(res, 200, body),
-  notFound:    (res: ServerResponse, msg: string) => writeError(res, 404, 'NOT_FOUND', msg),
-  badRequest:  (res: ServerResponse, msg: string) => writeError(res, 400, 'INVALID_QUERY', msg),
-  forbidden:   (res: ServerResponse, msg: string) => writeError(res, 403, 'ORG_SCOPE_VIOLATION', msg),
-  internal:    (res: ServerResponse, msg: string) => writeError(res, 500, 'INTERNAL', msg),
+  ok:               (res: ServerResponse, body: unknown) => writeJson(res, 200, body),
+  notFound:         (res: ServerResponse, msg: string) => writeError(res, 404, 'NOT_FOUND', msg),
+  badRequest:       (res: ServerResponse, msg: string) => writeError(res, 400, 'INVALID_QUERY', msg),
+  forbidden:        (res: ServerResponse, msg: string) => writeError(res, 403, 'ORG_SCOPE_VIOLATION', msg),
+  unauthenticated:  (res: ServerResponse, msg: string) => writeError(res, 401, 'UNAUTHENTICATED', msg),
+  internal:         (res: ServerResponse, msg: string) => writeError(res, 500, 'INTERNAL', msg),
 }

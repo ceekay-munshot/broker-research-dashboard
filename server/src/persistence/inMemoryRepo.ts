@@ -15,6 +15,7 @@ import type {
   FeatureFlagAssignment, FeatureFlagKey, OrgModuleAccess, AccessibleModule,
   PermissionGrant, ConfigAuditEntry, ConfigAuditArea, OrgIntegrationConfig,
   DeliveryRoutingConfig, RolloutState, UserId,
+  DeniedAccessEvent, DeniedAccessReason,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -73,6 +74,9 @@ export class InMemoryRepo implements Repo {
 
   // Module 26 — usage events
   private readonly usageEvents: UsageEvent[] = []
+
+  // Module 28 — denied-access audit
+  private readonly deniedAccessEvents: DeniedAccessEvent[] = []
 
   // Module 27 — org control plane
   private readonly featureFlagOverrides = new Map<string, FeatureFlagAssignment>()  // key: orgId::flagKey
@@ -700,6 +704,22 @@ export class InMemoryRepo implements Repo {
       rolloutNote: this.getOrgRolloutNote(orgId),
       rolloutStateOverride: this.getRolloutStateOverride(orgId),
     }
+  }
+
+  // ── Module 28: denied-access audit ─────────────────────────────────
+  appendDeniedAccessEvent(rec: DeniedAccessEvent): void {
+    this.deniedAccessEvents.push(rec)
+  }
+  listDeniedAccessEvents(orgId: OrgId | null, filter?: {
+    reason?: DeniedAccessReason; limit?: number
+  }): readonly DeniedAccessEvent[] {
+    let arr = orgId === null
+      ? this.deniedAccessEvents.filter((e) => e.orgId === null)
+      : this.deniedAccessEvents.filter((e) => e.orgId === orgId)
+    if (filter?.reason) arr = arr.filter((e) => e.reason === filter.reason)
+    arr.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
   }
 
   flush(): void { /* noop */ }

@@ -1,17 +1,24 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import type { OrgScope } from '../../../src/domain'
-import { asOrgId, asUserId } from '../../../src/lib/ids'
+import type { OrgScope, VerifiedSession } from '../../../src/domain'
 import { reply, writeOptionsResponse } from './responses'
+import type { AuthMiddlewareOptions } from '../auth/middleware'
+import { authenticate } from '../auth/middleware'
 
 // Minimal zero-dependency router. Matches `:param` segments the same way
 // the stub fetch does, so the ingested backend and the stub transport
 // stay contract-equivalent.
+//
+// As of Module 28 the router runs the auth middleware before every
+// handler — handlers receive a verified `session` (and an `OrgScope`
+// derived from it) instead of trusting raw headers.
 
 export interface RouteContext {
   readonly req: IncomingMessage
   readonly res: ServerResponse
-  /** Scope extracted from X-Org-Id / X-Acting-User-Id headers. */
+  /** Scope derived from the verified session — single source of truth. */
   readonly scope: OrgScope
+  /** Full verified session — role-aware handlers consult this. */
+  readonly session: VerifiedSession
   readonly params: Readonly<Record<string, string>>
   readonly query: URLSearchParams
   readonly url: URL
@@ -27,6 +34,7 @@ interface RouteEntry {
 
 export class Router {
   private readonly routes: RouteEntry[] = []
+  private auth: AuthMiddlewareOptions | null = null
 
   get(pattern: string, handler: Handler): this {
     this.routes.push({ method: 'GET', pattern, handler })
@@ -37,14 +45,18 @@ export class Router {
     return this
   }
 
+  /** Configure auth — must be called once before `dispatch`. */
+  withAuth(opts: AuthMiddlewareOptions): this {
+    this.auth = opts
+    return this
+  }
+
   async dispatch(req: IncomingMessage, res: ServerResponse): Promise<void> {
     const method = (req.method ?? 'GET').toUpperCase() as 'GET' | 'POST' | 'OPTIONS'
 
     // CORS preflight — respond and return before route matching.
     if (method === 'OPTIONS') return writeOptionsResponse(res)
 
-    // We use a fake base URL so the standard URL parser can do query-string
-    // handling. The host portion never reaches any handler.
     const url = new URL(req.url ?? '/', 'http://localhost')
 
     for (const route of this.routes) {
@@ -52,9 +64,21 @@ export class Router {
       if (method !== 'GET' && method !== 'POST') continue
       const params = matchPattern(route.pattern, url.pathname)
       if (!params) continue
-      const scope = extractScope(req)
+
+      // Authenticate. If the middleware writes a 401/403, stop here.
+      if (!this.auth) {
+        reply.internal(res, 'router not configured with auth middleware')
+        return
+      }
+      const session = await authenticate(req, res, url.pathname, method, this.auth)
+      if (!session) return  // middleware already wrote the response
+
+      const scope: OrgScope = {
+        orgId: session.orgId,
+        actingUserId: session.actingUserId,
+      }
       try {
-        await route.handler({ req, res, scope, params, query: url.searchParams, url })
+        await route.handler({ req, res, scope, session, params, query: url.searchParams, url })
       } catch (err) {
         if (!res.headersSent) {
           reply.internal(res, err instanceof Error ? err.message : String(err))
@@ -68,7 +92,7 @@ export class Router {
   }
 }
 
-// ── Matching + header extraction ─────────────────────────────────────
+// ── Matching ────────────────────────────────────────────────────────
 
 function matchPattern(pattern: string, pathname: string): Record<string, string> | null {
   const pp = pattern.split('/').filter(Boolean)
@@ -85,16 +109,4 @@ function matchPattern(pattern: string, pathname: string): Record<string, string>
     }
   }
   return params
-}
-
-function extractScope(req: IncomingMessage): OrgScope {
-  const h = req.headers
-  const orgId = stringHeader(h['x-org-id']) ?? ''
-  const userId = stringHeader(h['x-acting-user-id']) ?? ''
-  return { orgId: asOrgId(orgId), actingUserId: asUserId(userId) }
-}
-
-function stringHeader(v: string | readonly string[] | undefined): string | null {
-  if (v === undefined) return null
-  return Array.isArray(v) ? v[0]! : (v as string)
 }

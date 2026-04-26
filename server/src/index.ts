@@ -8,6 +8,7 @@ import { runCatalystsForStore } from './catalysts/bootstrap'
 import { runPostEventReviewsForStore } from './postEventReview/bootstrap'
 import { buildRegistryForOrgs, SourceManager } from './sources'
 import { buildDeliveryStack } from './delivery'
+import { buildVerifier } from './auth'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -110,7 +111,19 @@ async function main(): Promise<void> {
   console.log('└────────────────────────────────────────────────────────')
   void deliveryStack  // referenced again only when CLI invokes scheduler
 
-  const server = await startApiServer({ port, store, sourceManager, repo })
+  // Module 28 — auth verifier from env. Production envs MUST set
+  // AUTH_MODE=header_signed or AUTH_MODE=bearer_introspect.
+  const verifier = buildVerifier(process.env)
+  console.log('┌─ auth ────────────────────────────────────────────────')
+  console.log(`│  mode=${verifier.mode}  productionSafe=${verifier.productionSafe}`)
+  console.log(`│  ${verifier.description}`)
+  if (process.env.NODE_ENV === 'production' && !verifier.productionSafe) {
+    console.error('│  REFUSING TO START: production environment cannot use a non-production-safe auth verifier.')
+    process.exit(1)
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  const server = await startApiServer({ port, store, sourceManager, repo, verifier })
   const addr = server.address()
   const url = typeof addr === 'object' && addr !== null ? `http://localhost:${addr.port}` : `http://localhost:${port}`
   console.log(`API listening on ${url}`)

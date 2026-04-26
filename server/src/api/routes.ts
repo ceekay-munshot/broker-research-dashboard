@@ -21,7 +21,7 @@ import type {
   DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
   UsageEvent,
   FeatureFlagKey, AccessibleModule, SourceKind, SourceProviderMode,
-  RolloutState, ConfigAuditArea, UserRole,
+  RolloutState, ConfigAuditArea,
 } from '../../../src/domain'
 import { asDeliveryAttemptId } from '../../../src/lib/ids'
 import { buildOrgUsageSnapshot, buildPilotRoiSnapshot } from '../usage'
@@ -436,18 +436,15 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     reply.ok(res, roi)
   })
 
-  // ── Org control plane (Module 27) ──────────────────────────────────
-  // For now we treat the active session as `admin` — until real auth is
-  // wired (out of scope), the actor role is the most permissive.
-  const ACTOR_ROLE: UserRole = 'admin'
+  // ── Org control plane (Module 27) — actor role from verified session.
 
-  r.get('/v1/org-control/settings', ({ res, scope }) => {
+  r.get('/v1/org-control/settings', ({ res, scope, session }) => {
     if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
     const sourcesHealth = opts.sourceManager?.snapshot(scope.orgId) ?? null
     const settings = resolveOrgSettings({
       orgId: scope.orgId,
       currentUserId: scope.actingUserId as unknown as string ?? null,
-      currentUserRole: ACTOR_ROLE,
+      currentUserRole: session.role,
       repo: opts.repo,
     }, sourcesHealth)
     reply.ok(res, settings)
@@ -461,7 +458,24 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     reply.ok(res, { items })
   })
 
-  r.post('/v1/org-control/flag', async ({ req, res, scope }) => {
+  r.get('/v1/org-control/session-safety', ({ res, scope, session }) => {
+    if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
+    const recentDenials = [
+      ...opts.repo.listDeniedAccessEvents(scope.orgId, { limit: 10 }),
+      ...opts.repo.listDeniedAccessEvents(null, { limit: 10 }),
+    ].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt)).slice(0, 10)
+    reply.ok(res, {
+      orgId: scope.orgId,
+      generatedAt: new Date().toISOString(),
+      currentSession: session,
+      authMode: session.authSource,
+      productionSafe: session.verification.productionSafe,
+      checks: buildRouteChecks(session),
+      recentDenials,
+    })
+  })
+
+  r.post('/v1/org-control/flag', async ({ req, res, scope, session }) => {
     if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
     let body: unknown
     try { body = await readJsonBody(req) } catch { return reply.internal(res, 'invalid json body') }
@@ -470,7 +484,7 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     try {
       const next = setFeatureFlag({
         orgId: scope.orgId, key: b.key, enabled: b.enabled,
-        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        actorUserId: scope.actingUserId, actorRole: session.role,
         reason: b.reason ?? null, repo: opts.repo,
       })
       reply.ok(res, next)
@@ -480,14 +494,14 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     }
   })
 
-  r.post('/v1/org-control/module', async ({ req, res, scope }) => {
+  r.post('/v1/org-control/module', async ({ req, res, scope, session }) => {
     if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
     const body = await readJsonBody(req) as { module?: AccessibleModule; enabled?: boolean; reason?: string | null }
     if (!body.module || typeof body.enabled !== 'boolean') return reply.internal(res, 'expected { module, enabled, reason? }')
     try {
       const next = setModuleAccess({
         orgId: scope.orgId, module: body.module, enabled: body.enabled,
-        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        actorUserId: scope.actingUserId, actorRole: session.role,
         reason: body.reason ?? null, repo: opts.repo,
       })
       reply.ok(res, next)
@@ -497,14 +511,14 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     }
   })
 
-  r.post('/v1/org-control/source-mode', async ({ req, res, scope }) => {
+  r.post('/v1/org-control/source-mode', async ({ req, res, scope, session }) => {
     if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
     const body = await readJsonBody(req) as { sourceKind?: SourceKind; mode?: SourceProviderMode; reason?: string | null }
     if (!body.sourceKind || !body.mode) return reply.internal(res, 'expected { sourceKind, mode, reason? }')
     try {
       const next = setSourceMode({
         orgId: scope.orgId, sourceKind: body.sourceKind, mode: body.mode,
-        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        actorUserId: scope.actingUserId, actorRole: session.role,
         reason: body.reason ?? null, repo: opts.repo,
       })
       reply.ok(res, next)
@@ -514,13 +528,13 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     }
   })
 
-  r.post('/v1/org-control/rollout-state', async ({ req, res, scope }) => {
+  r.post('/v1/org-control/rollout-state', async ({ req, res, scope, session }) => {
     if (!opts.repo) return reply.notFound(res, 'org-control: repo not configured')
     const body = await readJsonBody(req) as { state?: RolloutState | null; note?: string | null; reason?: string | null }
     try {
       setRolloutState({
         orgId: scope.orgId, state: body.state ?? null, note: body.note ?? undefined,
-        actorUserId: scope.actingUserId, actorRole: ACTOR_ROLE,
+        actorUserId: scope.actingUserId, actorRole: session.role,
         reason: body.reason ?? null, repo: opts.repo,
       })
       reply.ok(res, { ok: true })
@@ -667,6 +681,46 @@ async function readJsonBody(req: IncomingMessage): Promise<unknown> {
   const raw = Buffer.concat(chunks).toString('utf8')
   if (!raw) return null
   return JSON.parse(raw)
+}
+
+function buildRouteChecks(session: import('../../../src/domain').VerifiedSession): import('../../../src/domain').SecurityCheck[] {
+  const checks: import('../../../src/domain').SecurityCheck[] = []
+  const productionMode = process.env.NODE_ENV === 'production'
+  const usingDevAuth = session.authSource === 'dev_fixture' || session.authSource === 'no_auth'
+
+  checks.push({
+    id: 'production_safe_auth',
+    title: 'Production-safe auth verifier',
+    status: productionMode && usingDevAuth ? 'fail' : (usingDevAuth ? 'warn' : 'pass'),
+    detail: productionMode && usingDevAuth
+      ? `Production environment is using ${session.authSource} — must switch to header_signed or bearer_introspect.`
+      : usingDevAuth
+        ? `Dev verifier (${session.authSource}) is active — safe in non-production only.`
+        : `Production-safe verifier (${session.authSource}) active.`,
+  })
+
+  checks.push({
+    id: 'session_signature',
+    title: 'Session signature verified',
+    status: session.verification.productionSafe ? 'pass' : 'warn',
+    detail: session.verification.productionSafe
+      ? `Verified at ${session.verification.verifiedAt} with key id ${session.verification.keyId ?? '(none)'}`
+      : `Session lacks signature verification — dev mode only.`,
+  })
+
+  const expSec = Math.floor((Date.parse(session.expiresAt) - Date.now()) / 1000)
+  checks.push({
+    id: 'session_expiry',
+    title: 'Session expiry within bounds',
+    status: expSec <= 0 ? 'fail' : expSec > 24 * 3600 ? 'warn' : 'pass',
+    detail: expSec <= 0
+      ? 'Session is expired.'
+      : expSec > 24 * 3600
+        ? `Session expires in ${Math.round(expSec / 3600)}h — long-lived sessions are unusual.`
+        : `Session expires in ${Math.round(expSec / 60)}m.`,
+  })
+
+  return checks
 }
 
 // Keep these type-only imports happy in the bundle so the ambient

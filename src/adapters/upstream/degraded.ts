@@ -132,6 +132,9 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'orgModuleAccess',    endpoint: 'POST /v1/org-control/module',      requirement: 'optional', description: 'Set module access for an org.', tolerate404: true },
   { key: 'orgSourceMode',      endpoint: 'POST /v1/org-control/source-mode', requirement: 'optional', description: 'Set source provider mode for an org.', tolerate404: true },
   { key: 'orgRolloutState',    endpoint: 'POST /v1/org-control/rollout-state', requirement: 'optional', description: 'Set rollout state for an org.', tolerate404: true },
+
+  // Session safety (Module 28) — operator/admin-only.
+  { key: 'sessionSafety',      endpoint: 'GET /v1/org-control/session-safety', requirement: 'optional', description: 'Verified session + auth-mode + recent denials.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

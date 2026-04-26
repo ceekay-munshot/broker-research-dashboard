@@ -95,6 +95,11 @@ import {
   parseFeatureFlagKey, parseRolloutState,
   type OrgControlCliFlags,
 } from './orgControl'
+import {
+  cmdSecurityCheck, cmdReleaseChecklist, cmdAuthWhoami, cmdAuthSimulateRole,
+  cmdAuthTestCrossTenant, cmdRoutePermissions,
+  type SecurityCliFlags,
+} from './security'
 import type {
   FeatureFlagKey, RolloutState, SourceKind, SourceProviderMode,
   AccessibleModule,
@@ -143,6 +148,9 @@ type Subcommand =
   | 'org:settings' | 'org:flags' | 'org:flag' | 'org:modules' | 'org:module'
   | 'org:permissions' | 'org:audit' | 'org:compare'
   | 'org:rollout' | 'org:source-mode' | 'org:export-rollout'
+  // Module 28
+  | 'security:check' | 'release:checklist' | 'auth:whoami'
+  | 'auth:simulate-role' | 'auth:test-cross-tenant' | 'route:permissions'
   | 'help'
 
 interface Args {
@@ -573,6 +581,25 @@ async function main(): Promise<void> {
     case 'org:export-rollout':
       cmdOrgExportRollout(asOrgControlFlags(args), repo, buildSourceManager(repo))
       break
+    // Module 28 — auth + tenant isolation
+    case 'security:check':
+      cmdSecurityCheck(asSecurityFlags(args))
+      break
+    case 'release:checklist':
+      cmdReleaseChecklist(asSecurityFlags(args))
+      break
+    case 'auth:whoami':
+      cmdAuthWhoami(asSecurityFlags(args))
+      break
+    case 'auth:simulate-role':
+      await cmdAuthSimulateRole(asSecurityFlags(args))
+      break
+    case 'auth:test-cross-tenant':
+      await cmdAuthTestCrossTenant(asSecurityFlags(args), repo)
+      break
+    case 'route:permissions':
+      cmdRoutePermissions(asSecurityFlags(args))
+      break
     case 'help':
     default:
       printHelp()
@@ -665,6 +692,22 @@ function buildDeliveryStackFor(repo: Repo, store: import('../store/InMemoryStore
   const orgIds = organizations.map((o) => o.id)
   const sourceManager = buildSourceManager(repo)
   return buildDeliveryStack({ orgIds, repo, store, sourceManager })
+}
+
+function asSecurityFlags(args: Args): SecurityCliFlags {
+  const r = args.flagKey  // re-use --role flag piggybacking on flagKey for now
+  // We accept --role=<role> via a dedicated parser elsewhere; the
+  // SecurityCliFlags type is permissive.
+  void r
+  const role = (args.usageEventType /* not used */ ?? args.flagKey ?? args.note) as string | undefined
+  void role
+  // Simpler: accept --role via --kind shared flag; if absent, undefined.
+  const roleFlag = (args.sourceKindForOrg ?? '') as string
+  return {
+    orgId: args.orgId,
+    role: ['analyst', 'pm', 'operator', 'admin', 'viewer'].includes(roleFlag)
+      ? (roleFlag as SecurityCliFlags['role']) : undefined,
+  }
 }
 
 function asOrgControlFlags(args: Args): OrgControlCliFlags {

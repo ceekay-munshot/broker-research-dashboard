@@ -96,4 +96,7 @@ export const endpoints = {
   orgModuleAccess:            () => v1('/org-control/module'),
   orgSourceMode:              () => v1('/org-control/source-mode'),
   orgRolloutState:            () => v1('/org-control/rollout-state'),
+
+  // Session safety (Module 28)
+  sessionSafety:              () => v1('/org-control/session-safety'),
 } as const

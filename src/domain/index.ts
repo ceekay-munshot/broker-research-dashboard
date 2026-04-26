@@ -32,3 +32,4 @@ export type {
   ConfigAuditArea, ConfigAuditEntry, AccessScope, OrgSettings,
 } from './orgControl'
 export { USER_ROLES, FEATURE_FLAG_KEYS, ROLLOUT_STATES } from './orgControl'
+export type * from './session'

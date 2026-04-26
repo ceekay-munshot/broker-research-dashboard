@@ -64,6 +64,7 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   setModuleAccess:          'orgModuleAccess',
   setSourceMode:            'orgSourceMode',
   setRolloutState:          'orgRolloutState',
+  getSessionSafety:         'sessionSafety',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

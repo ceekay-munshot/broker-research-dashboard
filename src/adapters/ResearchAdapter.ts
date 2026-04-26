@@ -21,6 +21,7 @@ import type {
   UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
   OrgSettings, FeatureFlagKey, AccessibleModule,
   SourceKind, SourceProviderMode, RolloutState, ConfigAuditEntry,
+  SessionSafetySnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
@@ -213,4 +214,8 @@ export interface ResearchAdapter {
     readonly note?: string | null
     readonly reason?: string | null
   }): Promise<void>
+
+  // ─── Session safety (Module 28) ──────────────────────────────────────
+  /** Operator-only: returns auth mode + session + recent denied-access. */
+  getSessionSafety(scope: OrgScope): Promise<SessionSafetySnapshot | null>
 }

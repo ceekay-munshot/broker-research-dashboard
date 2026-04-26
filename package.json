@@ -24,7 +24,8 @@
     "upstream:ready":   "tsx src/adapters/upstream/__tests__/readiness.ts",
     "server:dev": "tsx server/src/index.ts",
     "server:ingest": "tsx server/src/index.ts --ingest-only",
-    "server:test": "tsx server/src/__tests__/ingestEml.ts"
+    "server:test": "tsx server/src/__tests__/ingestEml.ts",
+    "test:tenant":   "tsx server/src/__tests__/tenantIsolation.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

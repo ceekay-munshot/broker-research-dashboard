@@ -35,6 +35,7 @@ import type {
   FeatureFlagAssignment, FeatureFlagKey, OrgModuleAccess, AccessibleModule,
   PermissionGrant, ConfigAuditEntry, ConfigAuditArea, OrgIntegrationConfig,
   DeliveryRoutingConfig, RolloutState, UserId,
+  DeniedAccessEvent, DeniedAccessReason,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -370,6 +371,17 @@ export interface Repo {
     readonly rolloutNote: string | null
     readonly rolloutStateOverride: RolloutState | null
   }
+
+  // Auth / tenant isolation (Module 28) ─────────────────────────────────
+  /** Persist a denied-access event for the operator security panel + CLI. */
+  appendDeniedAccessEvent(rec: DeniedAccessEvent): void
+  /** Recent denied-access events. orgId may be null when verification
+   *  failed before an org could be associated; passing null returns
+   *  events with no orgId attribution (operator surface). */
+  listDeniedAccessEvents(orgId: OrgId | null, filter?: {
+    readonly reason?: DeniedAccessReason
+    readonly limit?: number
+  }): readonly DeniedAccessEvent[]
 
   // Lifecycle ───────────────────────────────────────────────────────────
   /** Best-effort flush of any in-memory buffers to durable storage.

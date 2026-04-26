@@ -21,6 +21,7 @@ import type {
   UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
   OrgSettings, FeatureFlagKey, AccessibleModule,
   SourceKind, SourceProviderMode, RolloutState, ConfigAuditEntry, ConfigAuditArea,
+  SessionSafetySnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -593,6 +594,16 @@ export class HttpResearchAdapter implements ResearchAdapter {
     await this.client.request(endpoints.orgRolloutState(), scope, {
       method: 'POST', body: args, endpointKey: 'orgRolloutState',
     })
+  }
+
+  async getSessionSafety(scope: OrgScope): Promise<SessionSafetySnapshot | null> {
+    const raw = await this.client.requestOrNull(endpoints.sessionSafety(), scope, {
+      endpointKey: 'sessionSafety',
+    })
+    if (raw === null) return null
+    const snap = raw as SessionSafetySnapshot
+    assertOrgMatch('SessionSafetySnapshot', scope, snap.orgId as unknown as string)
+    return snap
   }
 }
 

@@ -255,6 +255,9 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async setModuleAccess(): Promise<void> { /* fixture: no-op */ }
   async setSourceMode(): Promise<void> { /* fixture: no-op */ }
   async setRolloutState(): Promise<void> { /* fixture: no-op */ }
+
+  // ── Session safety (Module 28) ─────────────────────────────────────
+  async getSessionSafety(_scope: OrgScope): Promise<import('../../domain').SessionSafetySnapshot | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

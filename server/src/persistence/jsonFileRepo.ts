@@ -32,6 +32,7 @@ import type {
   PermissionGrant, ConfigAuditEntry, OrgIntegrationConfig,
   DeliveryRoutingConfig, RolloutState, SourceKind,
   DeliveryContentKind,
+  DeniedAccessEvent,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -60,6 +61,8 @@ const TABLES = [
   'featureFlagOverrides', 'moduleAccessOverrides', 'integrationOverrides',
   'deliveryRoutingOverrides', 'permissionGrants', 'configAuditEntries',
   'orgRolloutNotes', 'orgRolloutStateOverrides',
+  // Module 28 — denied-access audit
+  'deniedAccessEvents',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -103,6 +106,7 @@ interface Snapshot {
   configAuditEntries: ConfigAuditEntry[]
   orgRolloutNotes: Array<{ orgId: OrgId; note: string }>
   orgRolloutStateOverrides: Array<{ orgId: OrgId; state: RolloutState }>
+  deniedAccessEvents: DeniedAccessEvent[]
 }
 
 export interface JsonFileRepoOptions {
@@ -306,6 +310,12 @@ export class JsonFileRepo implements Repo {
   }
   loadOrgControlForOrg(orgId: OrgId) { return this.mem.loadOrgControlForOrg(orgId) }
 
+  // Module 28 — denied-access audit
+  appendDeniedAccessEvent(rec: DeniedAccessEvent) { this.mem.appendDeniedAccessEvent(rec); this.touch('deniedAccessEvents') }
+  listDeniedAccessEvents(orgId: OrgId | null, filter?: Parameters<Repo['listDeniedAccessEvents']>[1]) {
+    return this.mem.listDeniedAccessEvents(orgId, filter)
+  }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -367,6 +377,7 @@ export class JsonFileRepo implements Repo {
       configAuditEntries: ConfigAuditEntry[]
       orgRolloutNotes: Map<string, string>
       orgRolloutStateOverrides: Map<string, RolloutState>
+      deniedAccessEvents: DeniedAccessEvent[]
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -408,6 +419,7 @@ export class JsonFileRepo implements Repo {
       configAuditEntries:      [...m.configAuditEntries],
       orgRolloutNotes:         [...m.orgRolloutNotes.entries()].map(([orgId, note]) => ({ orgId: orgId as OrgId, note })),
       orgRolloutStateOverrides: [...m.orgRolloutStateOverrides.entries()].map(([orgId, state]) => ({ orgId: orgId as OrgId, state })),
+      deniedAccessEvents:    [...m.deniedAccessEvents],
     }
   }
 
@@ -480,6 +492,7 @@ export class JsonFileRepo implements Repo {
             this.mem.upsertRolloutStateOverride(r.orgId, r.state)
             break
           }
+          case 'deniedAccessEvents':   this.mem.appendDeniedAccessEvent(rec as DeniedAccessEvent); break
         }
       }
     }
