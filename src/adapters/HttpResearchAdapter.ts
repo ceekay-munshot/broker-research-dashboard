@@ -18,6 +18,7 @@ import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
+  UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -494,6 +495,44 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const item = raw as DeliveryAttempt
     assertOrgMatch('DeliveryAttempt', scope, item.orgId as unknown as string)
     return item
+  }
+
+  // ── Usage / pilot analytics (Module 26) ─────────────────────────────
+
+  async recordUsage(scope: OrgScope, events: readonly UsageEvent[]): Promise<void> {
+    if (events.length === 0) return
+    try {
+      // Use the scoped POST so org/user headers travel with the request.
+      await this.client.request(endpoints.usageEvents(), scope, {
+        method: 'POST', body: { events }, endpointKey: 'usageEvents',
+      })
+    } catch {
+      // Silent — telemetry must never break the dashboard.
+    }
+  }
+
+  async getOrgUsageSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<OrgUsageSnapshot | null> {
+    const search: Record<string, string> = {}
+    if (opts?.windowDays !== undefined) search.windowDays = String(opts.windowDays)
+    const raw = await this.client.requestOrNull(endpoints.usageSnapshot(), scope, {
+      query: search as QueryInput, endpointKey: 'usageSnapshot',
+    })
+    if (raw === null) return null
+    const snap = raw as OrgUsageSnapshot
+    assertOrgMatch('OrgUsageSnapshot', scope, snap.orgId as unknown as string)
+    return snap
+  }
+
+  async getPilotRoiSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<PilotRoiSnapshot | null> {
+    const search: Record<string, string> = {}
+    if (opts?.windowDays !== undefined) search.windowDays = String(opts.windowDays)
+    const raw = await this.client.requestOrNull(endpoints.usageRoi(), scope, {
+      query: search as QueryInput, endpointKey: 'usageRoi',
+    })
+    if (raw === null) return null
+    const snap = raw as PilotRoiSnapshot
+    assertOrgMatch('PilotRoiSnapshot', scope, snap.orgId as unknown as string)
+    return snap
   }
 }
 

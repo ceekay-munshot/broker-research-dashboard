@@ -31,6 +31,7 @@ import type {
   DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
+  UsageEvent, UsageEventType, UsageSurface,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -311,6 +312,18 @@ export interface Repo {
     readonly attempts: readonly DeliveryAttempt[]
     readonly suppressions: readonly DeliverySuppression[]
   }
+
+  // Usage / pilot analytics (Module 26) ─────────────────────────────────
+  /** Append a single usage event. The client typically batches; the
+   *  router calls this once per event in the batch. */
+  appendUsageEvent(rec: UsageEvent): void
+  listUsageEvents(orgId: OrgId, filter?: {
+    readonly sinceMs?: number
+    readonly eventType?: UsageEventType
+    readonly surface?: UsageSurface
+    readonly limit?: number
+  }): readonly UsageEvent[]
+  loadUsageForOrg(orgId: OrgId): { readonly events: readonly UsageEvent[] }
 
   // Lifecycle ───────────────────────────────────────────────────────────
   /** Best-effort flush of any in-memory buffers to durable storage.

@@ -54,6 +54,10 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   getSourcesHealth:         'sourcesHealth',
   listDeliveries:           'deliveries',
   getDelivery:              'delivery',
+  // Note: recordUsage is fire-and-forget; not tracked as a resource.
+  recordUsage:              'usageEvents',
+  getOrgUsageSnapshot:      'usageSnapshot',
+  getPilotRoiSnapshot:      'usageRoi',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

@@ -11,6 +11,7 @@ import type {
   DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
+  UsageEvent, UsageEventType, UsageSurface,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -66,6 +67,9 @@ export class InMemoryRepo implements Repo {
   private readonly deliveryRuns = new Map<string, DeliveryRun>()
   private readonly deliveryAttempts = new Map<string, DeliveryAttempt>()
   private readonly deliverySuppressions = new Map<string, DeliverySuppression>()
+
+  // Module 26 — usage events
+  private readonly usageEvents: UsageEvent[] = []
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -558,6 +562,26 @@ export class InMemoryRepo implements Repo {
       attempts: this.listDeliveryAttempts(orgId),
       suppressions: this.listDeliverySuppressions(orgId),
     }
+  }
+
+  // ── Module 26: usage events ────────────────────────────────────────
+  appendUsageEvent(rec: UsageEvent): void { this.usageEvents.push(rec) }
+  listUsageEvents(orgId: OrgId, filter?: {
+    sinceMs?: number; eventType?: UsageEventType; surface?: UsageSurface; limit?: number
+  }): readonly UsageEvent[] {
+    let arr = this.usageEvents.filter((e) => e.orgId === orgId)
+    if (filter?.sinceMs) {
+      const since = Date.now() - filter.sinceMs
+      arr = arr.filter((e) => Date.parse(e.occurredAt) >= since)
+    }
+    if (filter?.eventType) arr = arr.filter((e) => e.eventType === filter.eventType)
+    if (filter?.surface)   arr = arr.filter((e) => e.surface === filter.surface)
+    arr.sort((a, b) => b.occurredAt.localeCompare(a.occurredAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  loadUsageForOrg(orgId: OrgId): { events: readonly UsageEvent[] } {
+    return { events: this.listUsageEvents(orgId) }
   }
 
   flush(): void { /* noop */ }

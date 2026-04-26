@@ -18,6 +18,7 @@ import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
+  UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
@@ -163,4 +164,15 @@ export interface ResearchAdapter {
   }): Promise<readonly DeliveryAttempt[]>
   /** Single delivery attempt by id — used for the inbox detail view. */
   getDelivery(scope: OrgScope, id: DeliveryAttemptId): Promise<DeliveryAttempt | null>
+
+  // ─── Usage / pilot analytics (Module 26) ─────────────────────────────
+  /** Fire-and-forget batch ingest of client-side usage events. The mock
+   *  adapter persists in-memory; the HTTP adapter POSTs `/v1/usage/events`.
+   *  Errors are swallowed — this must never break the dashboard. */
+  recordUsage(scope: OrgScope, events: readonly UsageEvent[]): Promise<void>
+  /** Org-level usage snapshot used by the Usage tab + CLI. Returns null
+   *  when the adapter doesn't expose Module-26 yet. */
+  getOrgUsageSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<OrgUsageSnapshot | null>
+  /** Pilot ROI snapshot used by the Usage tab + CLI export. */
+  getPilotRoiSnapshot(scope: OrgScope, opts?: { readonly windowDays?: number }): Promise<PilotRoiSnapshot | null>
 }

@@ -11,6 +11,7 @@ import type {
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
 import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId, asCatalystId, asPreEventBriefId, asPostEventReviewId } from '../../../src/lib/ids'
+import type { IncomingMessage } from 'node:http'
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
@@ -18,8 +19,10 @@ import type { SourceManager } from '../sources'
 import type { Repo } from '../persistence'
 import type {
   DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
+  UsageEvent,
 } from '../../../src/domain'
 import { asDeliveryAttemptId } from '../../../src/lib/ids'
+import { buildOrgUsageSnapshot, buildPilotRoiSnapshot } from '../usage'
 import {
   organizations, users, brokers, sectors, stocks,
 } from '../config/organizations'
@@ -397,6 +400,36 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
     reply.ok(res, opts.sourceManager.snapshot(scope.orgId))
   })
 
+  // ── Usage / pilot analytics (Module 26) ────────────────────────────
+  r.post('/v1/usage/events', async ({ req, res, scope }) => {
+    if (!opts.repo) return reply.notFound(res, 'usage events: repo not configured')
+    let body: unknown
+    try { body = await readJsonBody(req) } catch { return reply.internal(res, 'invalid json body') }
+    const events = ((body as { events?: unknown }).events ?? body) as readonly UsageEvent[]
+    if (!Array.isArray(events)) return reply.internal(res, 'expected events: UsageEvent[]')
+    let accepted = 0
+    for (const e of events) {
+      // Cross-tenant guard: only accept events that match the scope.
+      if (!e || (e as UsageEvent).orgId !== scope.orgId) continue
+      opts.repo.appendUsageEvent(e as UsageEvent)
+      accepted++
+    }
+    opts.repo.flush()
+    reply.ok(res, { accepted })
+  })
+  r.get('/v1/usage/snapshot', ({ res, scope, url }) => {
+    if (!opts.repo) return reply.notFound(res, 'usage snapshot: repo not configured')
+    const days = Number(url.searchParams.get('windowDays') ?? '7') || 7
+    const snap = buildOrgUsageSnapshot({ orgId: scope.orgId, repo: opts.repo, windowDays: days })
+    reply.ok(res, snap)
+  })
+  r.get('/v1/usage/roi', ({ res, scope, url }) => {
+    if (!opts.repo) return reply.notFound(res, 'usage roi: repo not configured')
+    const days = Number(url.searchParams.get('windowDays') ?? '30') || 30
+    const roi = buildPilotRoiSnapshot({ orgId: scope.orgId, repo: opts.repo, windowDays: days })
+    reply.ok(res, roi)
+  })
+
   // ── Delivery / inbox (Module 25) ───────────────────────────────────
   r.get('/v1/deliveries', ({ res, scope, url }) => {
     if (!opts.repo) return reply.notFound(res, 'deliveries: repo not configured')
@@ -526,6 +559,14 @@ function boolParam(q: URLSearchParams, key: string): boolean | undefined {
   const v = q.get(key)
   if (v === null) return undefined
   return v === 'true' || v === '1'
+}
+
+async function readJsonBody(req: IncomingMessage): Promise<unknown> {
+  const chunks: Buffer[] = []
+  for await (const chunk of req) chunks.push(chunk as Buffer)
+  const raw = Buffer.concat(chunks).toString('utf8')
+  if (!raw) return null
+  return JSON.parse(raw)
 }
 
 // Keep these type-only imports happy in the bundle so the ambient

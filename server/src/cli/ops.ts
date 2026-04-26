@@ -81,6 +81,13 @@ import {
 } from './delivery'
 import { buildDeliveryStack } from '../delivery'
 import { DeliveryDispatcher } from '../delivery/dispatcher'
+import {
+  cmdUsageSummary, cmdUsageDeliveries, cmdUsageCompareRanking,
+  cmdUsageEngagedKinds, cmdUsageLeastUsed, cmdUsageRoi, cmdUsageInspect,
+  type UsageCliFlags,
+} from './usage'
+import type { UsageEventType } from '../../../src/domain'
+import { USAGE_EVENT_TYPES } from '../../../src/domain'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -117,6 +124,9 @@ type Subcommand =
   | 'delivery:run-due' | 'delivery:preview' | 'delivery:resend'
   | 'delivery:history' | 'delivery:suppressions' | 'delivery:channel-failures'
   | 'delivery:compare-payloads'
+  // Module 26
+  | 'usage:summary' | 'usage:deliveries' | 'usage:compare-ranking'
+  | 'usage:engaged-kinds' | 'usage:least-used' | 'usage:roi' | 'usage:inspect'
   | 'help'
 
 interface Args {
@@ -158,6 +168,8 @@ interface Args {
   readonly toIso?: string
   // Module 25 flags
   readonly deliveryKind?: string
+  // Module 26 flags
+  readonly usageEventType?: string
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -222,6 +234,7 @@ function parseArgs(argv: readonly string[]): Args {
     fromIso: flags.from as string | undefined,
     toIso: flags.to as string | undefined,
     deliveryKind: (flags['kind'] as string | undefined) ?? (flags['content-kind'] as string | undefined),
+    usageEventType: flags['event'] as string | undefined,
   }
 }
 
@@ -469,6 +482,28 @@ async function main(): Promise<void> {
     case 'delivery:compare-payloads':
       cmdDeliveryComparePayloads(asDeliveryFlags(args), repo)
       break
+    // Module 26 — usage / pilot analytics
+    case 'usage:summary':
+      cmdUsageSummary(asUsageFlags(args), repo)
+      break
+    case 'usage:deliveries':
+      cmdUsageDeliveries(asUsageFlags(args), repo)
+      break
+    case 'usage:compare-ranking':
+      cmdUsageCompareRanking(asUsageFlags(args), repo)
+      break
+    case 'usage:engaged-kinds':
+      cmdUsageEngagedKinds(asUsageFlags(args), repo)
+      break
+    case 'usage:least-used':
+      cmdUsageLeastUsed(asUsageFlags(args), repo)
+      break
+    case 'usage:roi':
+      cmdUsageRoi(asUsageFlags(args), repo)
+      break
+    case 'usage:inspect':
+      cmdUsageInspect(asUsageFlags(args), repo)
+      break
     case 'help':
     default:
       printHelp()
@@ -561,6 +596,20 @@ function buildDeliveryStackFor(repo: Repo, store: import('../store/InMemoryStore
   const orgIds = organizations.map((o) => o.id)
   const sourceManager = buildSourceManager(repo)
   return buildDeliveryStack({ orgIds, repo, store, sourceManager })
+}
+
+function asUsageFlags(args: Args): UsageCliFlags {
+  const evt = args.usageEventType && USAGE_EVENT_TYPES.includes(args.usageEventType as UsageEventType)
+    ? (args.usageEventType as UsageEventType)
+    : undefined
+  return {
+    orgId: args.orgId,
+    days: args.days,
+    outPath: args.outPath,
+    eventType: evt,
+    catalystId: args.catalystId as unknown as string | undefined,
+    deliveryId: args.id,
+  }
 }
 
 // ── Subcommands ──────────────────────────────────────────────────────────
@@ -1054,9 +1103,20 @@ function printHelp(): void {
   npm run ops -- delivery:channel-failures      [--limit=<n>]
   npm run ops -- delivery:compare-payloads --before=<runId> --after=<runId>
 
+  npm run ops -- usage:summary               [--org=<orgId>] [--days=<n>]
+  npm run ops -- usage:deliveries            [--org=<orgId>] [--days=<n>]
+  npm run ops -- usage:compare-ranking       [--org=<orgId>] [--days=<n>]
+  npm run ops -- usage:engaged-kinds         [--org=<orgId>] [--days=<n>]
+  npm run ops -- usage:least-used            [--org=<orgId>] [--days=<n>]
+  npm run ops -- usage:roi                   [--org=<orgId>] [--days=<n>] [--out=<path>]
+  npm run ops -- usage:inspect               [--event=<event_type>] [--catalyst=<id>] [--id=<deliveryId>] [--days=<n>]
+
 Source kinds:   raw_upstream, portfolio, catalyst_calendar, market_data.
 Delivery kinds: morning_book_brief, intraday_critical, coverage_hygiene,
                 weekly_catalyst_brief, source_health_incident.
+Usage events:   view_tab, open_report, open_alert, open_catalyst, open_brief,
+                open_post_event_review, open_delivery, click_through_delivery,
+                compare_toggle, filter_change, sort_change.
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

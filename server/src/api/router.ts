@@ -20,7 +20,7 @@ export interface RouteContext {
 export type Handler = (ctx: RouteContext) => Promise<void> | void
 
 interface RouteEntry {
-  readonly method: 'GET'
+  readonly method: 'GET' | 'POST'
   readonly pattern: string
   readonly handler: Handler
 }
@@ -32,9 +32,13 @@ export class Router {
     this.routes.push({ method: 'GET', pattern, handler })
     return this
   }
+  post(pattern: string, handler: Handler): this {
+    this.routes.push({ method: 'POST', pattern, handler })
+    return this
+  }
 
   async dispatch(req: IncomingMessage, res: ServerResponse): Promise<void> {
-    const method = (req.method ?? 'GET').toUpperCase()
+    const method = (req.method ?? 'GET').toUpperCase() as 'GET' | 'POST' | 'OPTIONS'
 
     // CORS preflight — respond and return before route matching.
     if (method === 'OPTIONS') return writeOptionsResponse(res)
@@ -45,6 +49,7 @@ export class Router {
 
     for (const route of this.routes) {
       if (route.method !== method) continue
+      if (method !== 'GET' && method !== 'POST') continue
       const params = matchPattern(route.pattern, url.pathname)
       if (!params) continue
       const scope = extractScope(req)

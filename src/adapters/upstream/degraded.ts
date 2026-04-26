@@ -119,6 +119,11 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   // Delivery / inbox (Module 25) — optional list; tolerate-404 means no inbox.
   { key: 'deliveries',         endpoint: 'GET /v1/deliveries',               requirement: 'list',     description: 'Recent delivery attempts (Module 25 inbox).', tolerate404: true },
   { key: 'delivery',           endpoint: 'GET /v1/deliveries/:id',           requirement: 'optional', description: 'Single delivery attempt by id.', tolerate404: true },
+
+  // Usage / pilot analytics (Module 26) — optional; the Usage tab degrades when missing.
+  { key: 'usageEvents',        endpoint: 'POST /v1/usage/events',            requirement: 'optional', description: 'Client-side usage event ingest (Module 26).', tolerate404: true },
+  { key: 'usageSnapshot',      endpoint: 'GET /v1/usage/snapshot',           requirement: 'optional', description: 'Org-level usage snapshot (Module 26).', tolerate404: true },
+  { key: 'usageRoi',           endpoint: 'GET /v1/usage/roi',                requirement: 'optional', description: 'Pilot ROI snapshot (Module 26).', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

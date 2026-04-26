@@ -37,8 +37,10 @@ export interface HttpClientOptions {
 }
 
 export interface HttpRequestConfig {
-  readonly method?: 'GET'
+  readonly method?: 'GET' | 'POST'
   readonly query?: QueryInput
+  /** Optional JSON body for POST requests. */
+  readonly body?: unknown
   /** Endpoint key used to look up the normalization profile. Falls back
    *  to identity behavior when omitted — only old callers that haven't
    *  been updated hit this path. */
@@ -89,11 +91,17 @@ export class HttpClient {
    */
   async request(path: string, scope: OrgScope, config: HttpRequestConfig = {}): Promise<unknown> {
     const url = this.composeUrl(path, config.query)
-    const headers = await this.composeHeaders(scope)
+    const baseHeaders = await this.composeHeaders(scope)
+    const method = config.method ?? 'GET'
+    const init: RequestInit = { method, headers: baseHeaders }
+    if (method === 'POST' && config.body !== undefined) {
+      init.body = JSON.stringify(config.body)
+      init.headers = { ...baseHeaders, 'content-type': 'application/json' }
+    }
 
     let response: Response
     try {
-      response = await this.fetchImpl(url, { method: config.method ?? 'GET', headers })
+      response = await this.fetchImpl(url, init)
     } catch (e) {
       throw wrapTransportError(e, path)
     }
@@ -120,6 +128,14 @@ export class HttpClient {
       body = normalizeRawUpstream(body, config.endpointKey, this.normalizationProfile)
     }
     return body
+  }
+
+  /** POST a JSON body. Used by Module-26 usage event ingest. */
+  async post(path: string, body: unknown): Promise<unknown> {
+    // Best-effort: telemetry should never throw at the call site.
+    return this.request(path, { orgId: '' as OrgScope['orgId'], actingUserId: '' as OrgScope['actingUserId'] }, {
+      method: 'POST', body,
+    })
   }
 
   /**

@@ -242,6 +242,11 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   // ── Delivery (Module 25) ───────────────────────────────────────────
   async listDeliveries(_scope: OrgScope): Promise<readonly import('../../domain').DeliveryAttempt[]> { return [] }
   async getDelivery(_scope: OrgScope, _id: import('../../domain').DeliveryAttemptId): Promise<import('../../domain').DeliveryAttempt | null> { return null }
+
+  // ── Usage / pilot analytics (Module 26) ────────────────────────────
+  async recordUsage(_scope: OrgScope, _events: readonly import('../../domain').UsageEvent[]): Promise<void> { /* fixture: no-op */ }
+  async getOrgUsageSnapshot(_scope: OrgScope): Promise<import('../../domain').OrgUsageSnapshot | null> { return null }
+  async getPilotRoiSnapshot(_scope: OrgScope): Promise<import('../../domain').PilotRoiSnapshot | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

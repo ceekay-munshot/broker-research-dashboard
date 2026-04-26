@@ -83,4 +83,9 @@ export const endpoints = {
   // Delivery (Module 25)
   deliveries:                 () => v1('/deliveries'),
   delivery:                   (id: string) => v1(`/deliveries/${enc(id)}`),
+
+  // Usage / pilot analytics (Module 26)
+  usageEvents:                () => v1('/usage/events'),
+  usageSnapshot:              () => v1('/usage/snapshot'),
+  usageRoi:                   () => v1('/usage/roi'),
 } as const

@@ -11,6 +11,7 @@ import type {
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
   DeliveryTargetId, SubscriptionId, SuppressionId,
 } from '../domain/delivery'
+import type { UsageEventId, UsageSessionId } from '../domain/usage'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
 // the compile-time type. Every entry point that receives a raw string (mock
@@ -50,3 +51,6 @@ export const asDeliveryAttemptId  = (s: string): DeliveryAttemptId  => s as Deli
 export const asDeliveryTargetId   = (s: string): DeliveryTargetId   => s as DeliveryTargetId
 export const asSubscriptionId     = (s: string): SubscriptionId     => s as SubscriptionId
 export const asSuppressionId      = (s: string): SuppressionId      => s as SuppressionId
+
+export const asUsageEventId   = (s: string): UsageEventId   => s as UsageEventId
+export const asUsageSessionId = (s: string): UsageSessionId => s as UsageSessionId

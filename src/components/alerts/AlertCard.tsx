@@ -4,6 +4,7 @@ import SeverityBadge from './SeverityBadge'
 import BookBadge from '../portfolio/BookBadge'
 import RankCompareChip from '../adaptiveRanking/RankCompareChip'
 import { adaptiveRankingFlags } from '../../engine'
+import { emitUsage } from '../../usage/UsageClient'
 
 interface AlertCardProps {
   readonly card: AlertCardViewModel
@@ -19,6 +20,15 @@ export default function AlertCard({ card, onSelectReport, onSelectTicker }: Aler
     :                                'border-line/5 bg-transparent'
 
   const onPrimary = () => {
+    // Emit open_alert with the alert's id so we can compute alert engagement.
+    emitUsage({
+      eventType: 'open_alert',
+      surface: 'briefing',
+      contentKind: 'alert',
+      entityId: card.id as unknown as string,
+      fromSurface: 'briefing',
+      meta: { severity: card.severity, kind: card.kind },
+    })
     if (card.reportId && onSelectReport) onSelectReport(card.reportId)
     else if (card.ticker && onSelectTicker) onSelectTicker(card.ticker)
   }

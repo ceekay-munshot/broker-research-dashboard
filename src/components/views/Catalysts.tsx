@@ -7,6 +7,7 @@ import PreEventBriefPanel from '../catalysts/PreEventBriefPanel'
 import PostEventReviewPanel from '../catalysts/PostEventReviewPanel'
 import CompletedEventsSection from '../catalysts/CompletedEventsSection'
 import type { CatalystCardViewModel, CatalystGroupKey } from '../../viewModels/catalysts'
+import { emitUsage } from '../../usage/UsageClient'
 
 interface SectionGroup {
   readonly key: CatalystGroupKey
@@ -137,7 +138,16 @@ export default function Catalysts({ onSelectReport, onSelectTicker, onOpenBriefi
                     key={c.catalystId as unknown as string}
                     card={c}
                     selected={selectedId === c.catalystId}
-                    onSelect={() => setSelectedId(c.catalystId)}
+                    onSelect={() => {
+                      emitUsage({
+                        eventType: 'open_catalyst',
+                        surface: 'catalysts',
+                        contentKind: 'catalyst',
+                        entityId: c.catalystId as unknown as string,
+                        fromSurface: 'catalysts',
+                      })
+                      setSelectedId(c.catalystId)
+                    }}
                     onSelectTicker={onSelectTicker}
                   />
                 ))}

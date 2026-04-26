@@ -26,9 +26,26 @@ import Calibration from './components/views/Calibration'
 import Catalysts from './components/views/Catalysts'
 import SourceHealth from './components/views/SourceHealth'
 import Inbox from './components/views/Inbox'
+import Usage from './components/views/Usage'
+import { UsageBoot } from './usage/UsageContext'
+import { emitUsage } from './usage/UsageClient'
+import type { UsageSurface } from './domain'
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<TabId>('mybook')
+  const [activeTab, setActiveTabRaw] = useState<TabId>('mybook')
+  // Wrap setActiveTab so every tab change emits a usage event.
+  const setActiveTab = (t: TabId) => {
+    setActiveTabRaw((prev) => {
+      if (prev !== t) {
+        emitUsage({
+          eventType: 'view_tab',
+          surface: t as unknown as UsageSurface,
+          fromSurface: prev as unknown as UsageSurface,
+        })
+      }
+      return t
+    })
+  }
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [selectedReportId, setSelectedReportId] = useState<ReportId | null>(null)
   const [selectedTicker, setSelectedTicker] = useState<StockTicker | null>(null)
@@ -64,6 +81,13 @@ export default function App() {
   const onSelectReport = (id: ReportId) => {
     setSelectedTicker(null)
     setSelectedReportId(id)
+    emitUsage({
+      eventType: 'open_report',
+      surface: activeTab as unknown as UsageSurface,
+      contentKind: 'report',
+      entityId: id as unknown as string,
+      fromSurface: activeTab as unknown as UsageSurface,
+    })
   }
   const onSelectTicker = (t: StockTicker) => {
     setSelectedReportId(null)
@@ -72,6 +96,7 @@ export default function App() {
 
   return (
     <div className="h-full flex flex-col">
+      <UsageBoot/>
       <Header
         lastUpdated={kpi.data?.asOf ?? null}
         orgShortName={org.data?.shortName ?? null}
@@ -141,6 +166,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'catalysts':  return <Catalysts onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('briefing')}/>
     case 'sources':    return <SourceHealth/>
     case 'inbox':      return <Inbox setActiveTab={setActiveTab}/>
+    case 'usage':      return <Usage/>
   }
 }
 

@@ -27,6 +27,7 @@ import type {
   BackfillJobId,
   DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
   DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
+  UsageEvent,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -49,6 +50,8 @@ const TABLES = [
   'sourceSyncRuns', 'sourceWatermarks', 'backfillJobs',
   // Module 25 — delivery + workflow
   'deliverySchedules', 'deliveryRuns', 'deliveryAttempts', 'deliverySuppressions',
+  // Module 26 — usage events
+  'usageEvents',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -83,6 +86,7 @@ interface Snapshot {
   deliveryRuns: DeliveryRun[]
   deliveryAttempts: DeliveryAttempt[]
   deliverySuppressions: DeliverySuppression[]
+  usageEvents: UsageEvent[]
 }
 
 export interface JsonFileRepoOptions {
@@ -252,6 +256,13 @@ export class JsonFileRepo implements Repo {
   }
   loadDeliveryForOrg(orgId: OrgId) { return this.mem.loadDeliveryForOrg(orgId) }
 
+  // Module 26 — usage events
+  appendUsageEvent(rec: UsageEvent) { this.mem.appendUsageEvent(rec); this.touch('usageEvents') }
+  listUsageEvents(orgId: OrgId, filter?: Parameters<Repo['listUsageEvents']>[1]) {
+    return this.mem.listUsageEvents(orgId, filter)
+  }
+  loadUsageForOrg(orgId: OrgId) { return this.mem.loadUsageForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -304,6 +315,7 @@ export class JsonFileRepo implements Repo {
       deliveryRuns: Map<string, DeliveryRun>
       deliveryAttempts: Map<string, DeliveryAttempt>
       deliverySuppressions: Map<string, DeliverySuppression>
+      usageEvents: UsageEvent[]
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -336,6 +348,7 @@ export class JsonFileRepo implements Repo {
       deliveryRuns:         [...m.deliveryRuns.values()],
       deliveryAttempts:     [...m.deliveryAttempts.values()],
       deliverySuppressions: [...m.deliverySuppressions.values()],
+      usageEvents:          [...m.usageEvents],
     }
   }
 
@@ -379,6 +392,7 @@ export class JsonFileRepo implements Repo {
           case 'deliveryRuns':         this.mem.appendDeliveryRun(rec as DeliveryRun); break
           case 'deliveryAttempts':     this.mem.appendDeliveryAttempt(rec as DeliveryAttempt); break
           case 'deliverySuppressions': this.mem.upsertDeliverySuppression(rec as DeliverySuppression); break
+          case 'usageEvents':          this.mem.appendUsageEvent(rec as UsageEvent); break
         }
       }
     }

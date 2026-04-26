@@ -4,6 +4,7 @@
 import { useInboxViewModel } from '../../hooks/useInboxViewModel'
 import { STATUS_CLASS, type InboxRowViewModel } from '../../viewModels/inbox'
 import type { TabId } from '../../app/tabs'
+import { emitUsage } from '../../usage/UsageClient'
 
 interface InboxProps {
   readonly setActiveTab: (id: TabId) => void
@@ -79,9 +80,27 @@ function InboxRow({
 }) {
   const a = row.attempt
   const onClick = () => {
+    // Always emit open_delivery — the user clicked the inbox row.
+    emitUsage({
+      eventType: 'open_delivery',
+      surface: 'inbox',
+      contentKind: a.contentKind,
+      entityId: a.id as unknown as string,
+      fromSurface: 'inbox',
+      meta: { channel: a.channel },
+    })
     if (!a.clickThrough) return
     const tab = a.clickThrough.tab
     if (tab === 'briefing' || tab === 'mybook' || tab === 'catalysts' || tab === 'sources' || tab === 'worklog') {
+      // Click-through emits a separate event so we can compute CTR.
+      emitUsage({
+        eventType: 'click_through_delivery',
+        surface: 'inbox',
+        contentKind: a.contentKind,
+        entityId: a.id as unknown as string,
+        fromSurface: 'inbox',
+        meta: { channel: a.channel, tab },
+      })
       setActiveTab(tab as TabId)
     }
   }

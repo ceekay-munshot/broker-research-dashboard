@@ -18,9 +18,11 @@ import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot, SourceIntegration, SourceKind,
   DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
+  UsageEvent, OrgUsageSnapshot, PilotRoiSnapshot,
 } from '../domain'
 import {
   asSourceId, asDeliveryAttemptId, asDeliveryRunId, asDeliveryTargetId, asUserId,
+  asUsageEventId, asUsageSessionId,
 } from '../lib/ids'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../engine'
@@ -55,6 +57,11 @@ import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfol
 // they will in production. Network errors are not simulated here — tests
 // that want failure paths should inject a custom adapter via
 // setResearchAdapter().
+// In-memory usage event log (per-process, mock only). The real HTTP
+// adapter POSTs `/v1/usage/events`; the mock keeps a buffer here so the
+// Usage tab + CLI work end-to-end in dev mode.
+const _mockUsageEvents: UsageEvent[] = []
+
 export class MockResearchAdapter implements ResearchAdapter {
   private readonly simulatedLatencyMs: number
   private readonly portfolioProvider: PortfolioInputProvider
@@ -650,6 +657,202 @@ export class MockResearchAdapter implements ResearchAdapter {
           'Thu 02 May · ICICIBANK · earnings · critical',
           'Fri 30 Apr · INFY · earnings · critical'],
          { upcoming: 14, high: 4 }, ['HIGH'], 'catalysts'),
+    ]
+  }
+
+  /** Module 26 — usage event ingest. */
+  async recordUsage(scope: OrgScope, events: readonly UsageEvent[]): Promise<void> {
+    await this.delay()
+    for (const e of events) {
+      if (!e || e.orgId !== scope.orgId) continue
+      _mockUsageEvents.push(e)
+    }
+  }
+
+  async getOrgUsageSnapshot(scope: OrgScope, opts?: { windowDays?: number }): Promise<OrgUsageSnapshot | null> {
+    await this.delay()
+    const windowDays = opts?.windowDays ?? 7
+    return this.synthesiseUsageSnapshot(scope.orgId, windowDays)
+  }
+
+  async getPilotRoiSnapshot(scope: OrgScope, opts?: { windowDays?: number }): Promise<PilotRoiSnapshot | null> {
+    await this.delay()
+    const windowDays = opts?.windowDays ?? 30
+    return this.synthesiseRoi(scope.orgId, windowDays)
+  }
+
+  /** Synthesise a plausible usage snapshot. Mixes a small "seed" set of
+   *  fixture events with anything the client has emitted in this session. */
+  private synthesiseUsageSnapshot(orgId: import('../domain').OrgId, windowDays: number): OrgUsageSnapshot {
+    const seed = this.seedUsageEvents(orgId)
+    const live = _mockUsageEvents.filter((e) => e.orgId === orgId)
+    const events = [...seed, ...live]
+    const now = new Date()
+    const windowMs = windowDays * 86400 * 1000
+    const windowStart = new Date(now.getTime() - windowMs)
+
+    const inWindow = events.filter((e) => Date.parse(e.occurredAt) >= windowStart.getTime())
+    const sessionIds = new Set(inWindow.map((e) => e.sessionId as string))
+    const userIds = new Set(inWindow.map((e) => e.userId as unknown as string).filter(Boolean))
+    const opens = inWindow.filter((e) => e.eventType.startsWith('open_')).length
+    const todayKey = now.toISOString().slice(0, 10)
+    const usersToday = new Set<string>()
+    const usersLast7 = new Set<string>()
+    for (const e of inWindow) {
+      if (!e.userId) continue
+      if (e.occurredAt.slice(0, 10) === todayKey) usersToday.add(e.userId as unknown as string)
+      if (Date.parse(e.occurredAt) >= now.getTime() - 7 * 86400 * 1000) usersLast7.add(e.userId as unknown as string)
+    }
+
+    const surfaces: import('../domain').UsageSurface[] = ['mybook', 'briefing', 'worklog', 'dashboard', 'broker', 'stock', 'divergence', 'sector', 'calibration', 'catalysts', 'sources', 'inbox', 'usage']
+    const surfaceSummaries = surfaces.map((s) => {
+      const onSurface = inWindow.filter((e) => e.surface === s)
+      return {
+        surface: s,
+        views: onSurface.filter((e) => e.eventType === 'view_tab').length,
+        distinctUsers: new Set(onSurface.map((e) => e.userId as unknown as string).filter(Boolean)).size,
+        opensFromSurface: inWindow.filter((e) => e.fromSurface === s && e.eventType.startsWith('open_')).length,
+      }
+    })
+
+    return {
+      orgId,
+      generatedAt: now.toISOString(),
+      windowStart: windowStart.toISOString(),
+      windowEnd: now.toISOString(),
+      windowDays,
+      totals: {
+        events: inWindow.length,
+        sessions: sessionIds.size,
+        distinctUsers: userIds.size,
+        opens,
+      },
+      dau: usersToday.size,
+      wau: usersLast7.size,
+      surfaces: surfaceSummaries,
+      contentEngagement: this.synthesiseContentEngagement(inWindow),
+      deliveryEngagement: this.synthesiseDeliveryEngagement(orgId, inWindow),
+      rankingExperiment: {
+        mode: opens >= 8 ? 'observed' : 'insufficient_signal',
+        baselineOpens: 5,
+        adaptiveOpens: 7,
+        compareModeOpens: 2,
+        top5Opens: { baseline: 3, adaptive: 5 },
+        top10Opens: { baseline: 4, adaptive: 6 },
+        medianTimeToFirstOpenSeconds: { baseline: 38, adaptive: 27 },
+        note: 'Median time-to-first-open is 29% faster under adaptive ranking. Directional positive. Sample n=12.',
+      },
+      sourceHealthMix: { healthy: 6, stale: 2, degraded: 4, failing: 0, unknown: 0 },
+    }
+  }
+
+  private synthesiseContentEngagement(events: readonly UsageEvent[]): readonly import('../domain').ContentEngagement[] {
+    const byKind = new Map<UsageEvent['contentKind'], UsageEvent[]>()
+    for (const e of events) {
+      if (!e.contentKind) continue
+      const arr = byKind.get(e.contentKind) ?? []
+      arr.push(e); byKind.set(e.contentKind, arr)
+    }
+    return [...byKind.entries()].map(([kind, arr]) => ({
+      contentKind: kind,
+      opens: arr.filter((e) => e.eventType.startsWith('open_')).length,
+      distinctEntities: new Set(arr.map((e) => e.entityId).filter((x): x is string => !!x)).size,
+      distinctUsers: new Set(arr.map((e) => e.userId as unknown as string).filter(Boolean)).size,
+      fromSurfaces: new Map(),
+    }))
+  }
+
+  private synthesiseDeliveryEngagement(orgId: import('../domain').OrgId, _events: readonly UsageEvent[]): readonly import('../domain').DeliveryEngagement[] {
+    const inbox = this.synthesiseInbox(orgId)
+    return inbox.map((a) => ({
+      contentKind: a.contentKind,
+      channel: a.channel,
+      delivered: 1,
+      opened: 1,
+      clickedThrough: a.contentKind === 'morning_book_brief' ? 1 : 0,
+      medianTimeToFirstOpenSeconds: a.contentKind === 'intraday_critical' ? 90 : 600,
+    }))
+  }
+
+  private synthesiseRoi(orgId: import('../domain').OrgId, windowDays: number): PilotRoiSnapshot {
+    const now = new Date()
+    const windowStart = new Date(now.getTime() - windowDays * 86400 * 1000)
+    return {
+      orgId,
+      generatedAt: now.toISOString(),
+      windowDays,
+      windowStart: windowStart.toISOString(),
+      windowEnd: now.toISOString(),
+      metrics: {
+        morningBriefOpenRate: 0.85,
+        intradayCriticalOpenRate: 0.72,
+        clickThroughRate: 0.41,
+        avgOpensPerActiveDay: 18,
+        medianTimeToFirstImportantOpenSeconds: 240,
+        heldNameCriticalAlertOpenRate: 0.91,
+        heldNameReviewedBeforeCatalystRate: 0.78,
+        postEventReviewUsageRate: 0.55,
+      },
+      channelEngagement: [
+        { channel: 'in_app', delivered: 24, opened: 22, openRate: 22 / 24, clickThroughRate: 12 / 24 },
+        { channel: 'email',  delivered: 0,  opened: 0,  openRate: null,    clickThroughRate: null },
+        { channel: 'slack',  delivered: 0,  opened: 0,  openRate: null,    clickThroughRate: null },
+        { channel: 'webhook',delivered: 0,  opened: 0,  openRate: null,    clickThroughRate: null },
+      ],
+      readDepth: [
+        { source: 'inbox',     sessionsWithOpens: 6, medianOpensPerSession: 4, p90OpensPerSession: 8 },
+        { source: 'briefing',  sessionsWithOpens: 7, medianOpensPerSession: 5, p90OpensPerSession: 11 },
+        { source: 'worklog',   sessionsWithOpens: 9, medianOpensPerSession: 7, p90OpensPerSession: 14 },
+        { source: 'mybook',    sessionsWithOpens: 5, medianOpensPerSession: 3, p90OpensPerSession: 6 },
+        { source: 'catalysts', sessionsWithOpens: 4, medianOpensPerSession: 2, p90OpensPerSession: 4 },
+      ],
+      headlines: [
+        'Morning brief opened on 85% of sent days (n=24).',
+        'Intraday critical opened on 72% of sends (n=18).',
+        '91% of held-name critical alerts were opened (n=11).',
+        '78% of upcoming catalysts on the book were preceded by a report/brief open on that ticker.',
+        'Median time from morning brief delivery → first important open: 4m.',
+        'Average 18 opens per active day across 9 days.',
+      ],
+      caveats: [
+        'Mock-adapter snapshot — values are fixture-shaped and synthetic.',
+        'Real metrics require server-side adapter + persisted usage events.',
+      ],
+    }
+  }
+
+  private seedUsageEvents(orgId: import('../domain').OrgId): readonly UsageEvent[] {
+    const now = Date.now()
+    const userId = asUserId('usr_default')
+    const session = asUsageSessionId('sess_mock')
+    const baseTime = (offsetMin: number) => new Date(now - offsetMin * 60 * 1000).toISOString()
+    const mk = (
+      offsetMin: number,
+      eventType: import('../domain').UsageEventType,
+      surface: import('../domain').UsageSurface,
+      contentKind: UsageEvent['contentKind'],
+      entityId: string | null,
+      fromSurface: import('../domain').UsageSurface | null = null,
+      meta: UsageEvent['meta'] = {},
+    ): UsageEvent => ({
+      id: asUsageEventId(`mock_evt_${eventType}_${surface}_${offsetMin}`),
+      orgId, userId, sessionId: session,
+      eventType, surface, contentKind, entityId,
+      fromSurface, rankingMode: 'baseline',
+      sourceHealth: 'degraded',
+      occurredAt: baseTime(offsetMin),
+      meta,
+    })
+    return [
+      mk(180, 'view_tab', 'briefing', null, null),
+      mk(170, 'open_alert', 'briefing', 'alert', 'mock_alert_1', 'briefing'),
+      mk(160, 'view_tab', 'worklog', null, null),
+      mk(150, 'open_report', 'worklog', 'report', 'mock_report_1', 'worklog', { rank: 1 }),
+      mk(120, 'open_delivery', 'inbox', 'morning_book_brief', 'mock_att_morning_book_brief_15', 'inbox'),
+      mk(110, 'click_through_delivery', 'inbox', 'morning_book_brief', 'mock_att_morning_book_brief_15', 'inbox', { channel: 'in_app' }),
+      mk(60,  'view_tab', 'catalysts', null, null),
+      mk(40,  'open_catalyst', 'catalysts', 'catalyst', 'mock_cat_1', 'catalysts'),
+      mk(20,  'view_tab', 'mybook', null, null),
     ]
   }
 
