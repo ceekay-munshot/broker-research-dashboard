@@ -39,6 +39,12 @@ import {
 } from '../corrections'
 import { writeFileSync } from 'node:fs'
 import type { BrokerId, Rating, ReportType, StockTicker } from '../../../src/domain'
+import {
+  cmdAlertsMorning, cmdAlertsIntraday, cmdAlertsHygiene,
+  cmdAlertsList, cmdAlertsDigestPreview, cmdAlertsReplay,
+  cmdAlertsDigestCompare, cmdAlertsSuppressed,
+  type AlertsCliFlags,
+} from './alerts'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -50,6 +56,10 @@ type Subcommand =
   | 'replay-with-corrections' | 'correction-impact' | 'promote-to-gold'
   // Module 17
   | 'prompt-list' | 'llm-stats' | 'eval-with-llm'
+  // Module 19
+  | 'alerts:morning' | 'alerts:intraday' | 'alerts:hygiene'
+  | 'alerts:list' | 'alerts:digest:preview' | 'alerts:replay'
+  | 'alerts:digest:compare' | 'alerts:suppressed'
   | 'help'
 
 interface Args {
@@ -73,6 +83,11 @@ interface Args {
   readonly reusable?: boolean
   readonly actor?: string
   readonly outPath?: string                 // promote-to-gold output
+  // Module 19 flags
+  readonly severity?: import('../../../src/domain').AlertSeverity
+  readonly limit?: number
+  readonly window?: string
+  readonly digestKind?: import('../../../src/domain').DigestKind
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -92,6 +107,16 @@ function parseArgs(argv: readonly string[]): Args {
     bucketRaw === 'broker' || bucketRaw === 'profile' || bucketRaw === 'source'
     || bucketRaw === 'reportType' || bucketRaw === 'enrichment'
   ) ? bucketRaw : undefined
+  const severityRaw = flags.severity as string | undefined
+  const severity = (
+    severityRaw === 'critical' || severityRaw === 'high' ||
+    severityRaw === 'medium' || severityRaw === 'low' || severityRaw === 'info'
+  ) ? severityRaw : undefined
+  const kindRaw = flags.kind as string | undefined
+  const digestKind = (kindRaw === 'morning_brief' || kindRaw === 'intraday_critical' || kindRaw === 'coverage_hygiene')
+    ? kindRaw : undefined
+  const limitRaw = flags.limit
+  const limit = typeof limitRaw === 'string' && /^\d+$/.test(limitRaw) ? Number(limitRaw) : undefined
   return {
     cmd,
     orgId: orgId as unknown as OrgId,
@@ -111,6 +136,10 @@ function parseArgs(argv: readonly string[]): Args {
     reusable: flags.reusable === true,
     actor: (flags.actor as string | undefined) ?? 'cli-operator',
     outPath: flags.out as string | undefined,
+    severity,
+    limit,
+    window: flags.window as string | undefined,
+    digestKind,
   }
 }
 
@@ -190,12 +219,50 @@ async function main(): Promise<void> {
     case 'eval-with-llm':
       await cmdEvalWithLlm(args, repo)
       break
+    // Module 19 — alerts / digests
+    case 'alerts:morning':
+      await cmdAlertsMorning(asAlertsFlags(args), store)
+      break
+    case 'alerts:intraday':
+      await cmdAlertsIntraday(asAlertsFlags(args), store)
+      break
+    case 'alerts:hygiene':
+      await cmdAlertsHygiene(asAlertsFlags(args), store)
+      break
+    case 'alerts:list':
+      cmdAlertsList(asAlertsFlags(args), store)
+      break
+    case 'alerts:digest:preview':
+      cmdAlertsDigestPreview(asAlertsFlags(args), store)
+      break
+    case 'alerts:replay':
+      await cmdAlertsReplay(asAlertsFlags(args), store)
+      break
+    case 'alerts:digest:compare':
+      cmdAlertsDigestCompare(asAlertsFlags(args), store)
+      break
+    case 'alerts:suppressed':
+      cmdAlertsSuppressed(asAlertsFlags(args), store)
+      break
     case 'help':
     default:
       printHelp()
       break
   }
   repo.flush()
+}
+
+function asAlertsFlags(args: Args): AlertsCliFlags {
+  return {
+    orgId: args.orgId,
+    severity: args.severity,
+    limit: args.limit,
+    id: args.id,
+    before: args.before,
+    after: args.after,
+    window: args.window,
+    kind: args.digestKind,
+  }
 }
 
 // ── Subcommands ──────────────────────────────────────────────────────────
@@ -631,6 +698,15 @@ function printHelp(): void {
   npm run ops -- prompt-list
   npm run ops -- llm-stats         [--actor=all-orgs] [--org=<orgId>]
   npm run ops -- eval-with-llm     [--name=<substring>]
+
+  npm run ops -- alerts:morning    [--org=<orgId>]
+  npm run ops -- alerts:intraday   [--org=<orgId>]
+  npm run ops -- alerts:hygiene    [--org=<orgId>]
+  npm run ops -- alerts:list       [--org=<orgId>] [--severity=critical|high|medium|low|info] [--limit=<n>]
+  npm run ops -- alerts:digest:preview [--id=<digestId>] [--kind=morning_brief|intraday_critical|coverage_hygiene] [--org=<orgId>]
+  npm run ops -- alerts:replay     [--org=<orgId>] [--window=<7d|24h|...>]
+  npm run ops -- alerts:digest:compare --before=<digestId> --after=<digestId> [--org=<orgId>]
+  npm run ops -- alerts:suppressed  [--org=<orgId>]
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

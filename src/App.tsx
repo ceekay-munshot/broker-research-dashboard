@@ -21,6 +21,7 @@ import Divergence from './components/views/Divergence'
 import SectorFeed from './components/views/SectorFeed'
 import DailyWorklog from './components/views/DailyWorklog'
 import MyBook from './components/views/MyBook'
+import Briefing from './components/views/Briefing'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('mybook')
@@ -123,7 +124,8 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
   setActiveTab: (t: TabId) => void;
 }) {
   switch (tab) {
-    case 'mybook':     return <MyBook       onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')}/>
+    case 'mybook':     return <MyBook       onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')} onOpenBriefing={() => setActiveTab('briefing')}/>
+    case 'briefing':   return <Briefing     onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'worklog':    return <DailyWorklog onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')}/>
     case 'dashboard':  return <Dashboard  filters={filters} onSelectReport={onSelectReport}/>
     case 'broker':     return <ByBroker   filters={filters} onSelectReport={onSelectReport}/>

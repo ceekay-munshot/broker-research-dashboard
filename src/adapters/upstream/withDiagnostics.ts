@@ -34,6 +34,11 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   getKpiSnapshot:           'kpiSnapshot',
   getIngestionStatus:       'ingestionStatus',
   getPortfolioSnapshot:     'portfolioSnapshot',
+  listAlerts:               'alerts',
+  getAlert:                 'alert',
+  listAlertDigests:         'alertDigests',
+  getAlertDigest:           'alertDigest',
+  getLatestAlertDigest:     'latestAlertDigest',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

@@ -2,6 +2,7 @@ import { runIngestion } from './ingestion'
 import { startApiServer } from './api/server'
 import { HybridCanonicalStore, createDefaultRepo } from './persistence'
 import { organizations } from './config/organizations'
+import { runAlertsForStore } from './alerts/bootstrap'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -34,6 +35,16 @@ async function main(): Promise<void> {
       console.log(`│    • [${r.reason}] ${r.envelopeSender} → ${r.recipient}`)
       console.log(`│        ${r.detail}`)
     }
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  // Module 19 — generate alerts + digests deterministically from the
+  // canonical store after ingestion completes. Always runs; LLM prose
+  // is opt-in via env. Cheap and idempotent.
+  console.log('┌─ alerts ───────────────────────────────────────────────')
+  const alertsReport = await runAlertsForStore(store, organizations.map((o) => o.id), 'bootstrap')
+  for (const r of alertsReport) {
+    console.log(`│  org=${r.orgId as unknown as string}  emitted=${r.emitted}  suppressed=${r.suppressed}  digests=${r.digests}`)
   }
   console.log('└────────────────────────────────────────────────────────')
 

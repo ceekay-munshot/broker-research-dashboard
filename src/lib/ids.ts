@@ -2,6 +2,7 @@ import type {
   OrgId, UserId, BrokerId, EmailId, AttachmentId,
   ReportId, SummaryId, EvidenceId, SectorId,
   IngestionJobId, StockTicker, PortfolioId,
+  AlertId, DigestId, DigestRunId, NotificationId, AlertRuleId,
 } from '../domain/ids'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
@@ -20,3 +21,8 @@ export const asSectorId       = (s: string): SectorId       => s as SectorId
 export const asIngestionJobId = (s: string): IngestionJobId => s as IngestionJobId
 export const asTicker         = (s: string): StockTicker    => s as StockTicker
 export const asPortfolioId    = (s: string): PortfolioId    => s as PortfolioId
+export const asAlertId        = (s: string): AlertId        => s as AlertId
+export const asDigestId       = (s: string): DigestId       => s as DigestId
+export const asDigestRunId    = (s: string): DigestRunId    => s as DigestRunId
+export const asNotificationId = (s: string): NotificationId => s as NotificationId
+export const asAlertRuleId    = (s: string): AlertRuleId    => s as AlertRuleId

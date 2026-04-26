@@ -7,6 +7,8 @@ import type {
   KpiSnapshot,
   IngestionStatus,
   PortfolioSnapshot,
+  AlertEvent, AlertDigest, DigestKind,
+  AlertId, DigestId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -28,6 +30,7 @@ import {
   mapSectorIntelligence, mapSectorIntelligenceList,
   mapKpiSnapshot, mapIngestionStatus,
   mapPortfolioSnapshot,
+  mapAlertEvent, mapAlertEvents, mapAlertDigest, mapAlertDigests,
 } from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
@@ -267,6 +270,67 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const snap = mapPortfolioSnapshot(raw)
     assertOrgMatch('PortfolioSnapshot', scope, snap.orgId as unknown as string)
     return snap
+  }
+
+  // ── Alerts / digests (Module 19) ───────────────────────────────────
+
+  async listAlerts(
+    scope: OrgScope,
+    query: { sinceMs?: number; includeSuppressed?: boolean; limit?: number } = {},
+  ): Promise<readonly AlertEvent[]> {
+    const raw = await this.client.request(endpoints.alerts(), scope, {
+      endpointKey: 'alerts',
+      query: {
+        sinceMs: query.sinceMs,
+        includeSuppressed: query.includeSuppressed,
+        limit: query.limit,
+      } satisfies QueryInput,
+    })
+    const items = mapAlertEvents(raw)
+    assertPageOrg('AlertEvent', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getAlert(scope: OrgScope, id: AlertId): Promise<AlertEvent | null> {
+    const raw = await this.client.requestOrNull(endpoints.alert(id), scope, { endpointKey: 'alert' })
+    if (raw === null) return null
+    const a = mapAlertEvent(raw)
+    assertOrgMatch('AlertEvent', scope, a.orgId as unknown as string)
+    return a
+  }
+
+  async listAlertDigests(
+    scope: OrgScope,
+    query: { kind?: DigestKind; limit?: number } = {},
+  ): Promise<readonly AlertDigest[]> {
+    const raw = await this.client.request(endpoints.alertDigests(), scope, {
+      endpointKey: 'alertDigests',
+      query: { kind: query.kind, limit: query.limit } satisfies QueryInput,
+    })
+    const items = mapAlertDigests(raw)
+    assertPageOrg('AlertDigest', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getAlertDigest(scope: OrgScope, id: DigestId): Promise<AlertDigest | null> {
+    const raw = await this.client.requestOrNull(endpoints.alertDigest(id), scope, {
+      endpointKey: 'alertDigest',
+    })
+    if (raw === null) return null
+    const d = mapAlertDigest(raw)
+    assertOrgMatch('AlertDigest', scope, d.orgId as unknown as string)
+    return d
+  }
+
+  async getLatestAlertDigest(scope: OrgScope, kind: DigestKind): Promise<AlertDigest | null> {
+    const raw = await this.client.requestOrNull(endpoints.latestAlertDigest(), scope, {
+      endpointKey: 'latestAlertDigest',
+      query: { kind } satisfies QueryInput,
+    })
+    if (raw === null) return null
+    const d = mapAlertDigest(raw)
+    assertOrgMatch('AlertDigest', scope, d.orgId as unknown as string)
+    return d
   }
 }
 

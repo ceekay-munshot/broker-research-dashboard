@@ -1,5 +1,6 @@
 export const TABS = [
   { id: 'mybook',     label: 'My Book',            hint: 'Fund-aware morning view' },
+  { id: 'briefing',   label: 'Alerts & Briefing',  hint: 'Daily digest + alert feed' },
   { id: 'worklog',    label: 'Daily Worklog',      hint: 'Triage what landed today' },
   { id: 'dashboard',  label: 'Dashboard',          hint: 'KPIs + rolling feed' },
   { id: 'broker',     label: 'By Broker',          hint: 'What each house is saying' },

@@ -7,6 +7,8 @@ import type {
   KpiSnapshot,
   IngestionStatus,
   PortfolioSnapshot,
+  AlertEvent, AlertDigest, DigestKind,
+  AlertId, DigestId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -94,4 +96,23 @@ export interface ResearchAdapter {
   // the org has no portfolio configured. Adapters that don't have a
   // portfolio source should return null — the dashboard degrades cleanly.
   getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null>
+
+  // ─── Alerts / digests (Module 19) ─────────────────────────────────────
+  /** Recent alert feed for the org, newest first. Suppressed alerts are
+   *  hidden by default. Limit defaults are adapter-specific. */
+  listAlerts(scope: OrgScope, query?: {
+    readonly sinceMs?: number
+    readonly includeSuppressed?: boolean
+    readonly limit?: number
+  }): Promise<readonly AlertEvent[]>
+  getAlert(scope: OrgScope, id: AlertId): Promise<AlertEvent | null>
+
+  /** Digests authored for the org, newest first. */
+  listAlertDigests(scope: OrgScope, query?: {
+    readonly kind?: DigestKind
+    readonly limit?: number
+  }): Promise<readonly AlertDigest[]>
+  getAlertDigest(scope: OrgScope, id: DigestId): Promise<AlertDigest | null>
+  /** Latest digest of a given kind, or null if none. */
+  getLatestAlertDigest(scope: OrgScope, kind: DigestKind): Promise<AlertDigest | null>
 }

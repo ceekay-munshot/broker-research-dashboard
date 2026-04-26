@@ -3,17 +3,21 @@ import type {
   MyBookActivityRow, MyBookPositionCardViewModel, MyBookSection,
 } from '../../viewModels/portfolio'
 import { useMyBookViewModel } from '../../hooks/useMyBookViewModel'
+import { useAlertFeed } from '../../hooks/useAlertFeed'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import BookBadge from '../portfolio/BookBadge'
+import AlertBanner from '../alerts/AlertBanner'
 
 interface MyBookProps {
   readonly onSelectReport: (id: ReportId) => void
   readonly onSelectTicker: (t: StockTicker) => void
   readonly onOpenDivergence: () => void
+  readonly onOpenBriefing: () => void
 }
 
-export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergence }: MyBookProps) {
+export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergence, onOpenBriefing }: MyBookProps) {
   const { data, loading, error } = useMyBookViewModel()
+  const feed = useAlertFeed({ limit: 50 })
   if (error)             return <ViewMessage tone="error"   text={`Error: ${error.message}`}/>
   if (loading || !data)  return <ViewMessage tone="loading" text="Loading book…"/>
 
@@ -66,6 +70,10 @@ export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergenc
           <span className="uppercase tracking-widest text-[9.5px] text-amber-400 mr-2">Degraded</span>
           {data.degradations.join('  ·  ')}
         </div>
+      )}
+
+      {feed.data && (
+        <AlertBanner cards={feed.data.groups.flatMap((g) => g.items)} onOpenBriefing={onOpenBriefing}/>
       )}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">

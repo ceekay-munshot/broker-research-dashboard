@@ -6,7 +6,7 @@ import type { ResultantState } from '../../engine/types'
 import type {
   ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListClosuresQuery,
 } from '../queries'
-import { asOrgId, asUserId, asBrokerId, asEmailId, asReportId, asSectorId, asTicker } from '../../lib/ids'
+import { asOrgId, asUserId, asBrokerId, asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId } from '../../lib/ids'
 import type { FetchImpl } from './HttpClient'
 import { MockResearchAdapter } from '../MockResearchAdapter'
 import {
@@ -155,6 +155,30 @@ function installRoutes(): void {
     if (snap === null) throw new NotFoundError('no portfolio configured')
     return snap
   })
+
+  // Module 19 — alerts / digests
+  push('/v1/alerts', async ({ mock, scope, query }) => {
+    return await mock.listAlerts(scope, {
+      sinceMs: numParam(query, 'sinceMs'),
+      includeSuppressed: boolParam(query, 'includeSuppressed'),
+      limit: numParam(query, 'limit'),
+    })
+  })
+  push('/v1/alerts/:alertId', async ({ mock, scope, params }) =>
+    requireFound(await mock.getAlert(scope, asAlertId(params.alertId!)), `alert ${params.alertId}`))
+
+  push('/v1/alert-digests', async ({ mock, scope, query }) => {
+    const k = strParam(query, 'kind')
+    const kind = k === 'morning_brief' || k === 'intraday_critical' || k === 'coverage_hygiene' ? k : undefined
+    return await mock.listAlertDigests(scope, { kind, limit: numParam(query, 'limit') })
+  })
+  push('/v1/alert-digests/latest', async ({ mock, scope, query }) => {
+    const k = strParam(query, 'kind')
+    const kind = (k === 'morning_brief' || k === 'intraday_critical' || k === 'coverage_hygiene') ? k : 'morning_brief'
+    return requireFound(await mock.getLatestAlertDigest(scope, kind), `no ${kind} digest`)
+  })
+  push('/v1/alert-digests/:digestId', async ({ mock, scope, params }) =>
+    requireFound(await mock.getAlertDigest(scope, asDigestId(params.digestId!)), `digest ${params.digestId}`))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

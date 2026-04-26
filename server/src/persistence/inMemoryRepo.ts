@@ -1,6 +1,8 @@
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
   ResearchReport, ReportSummary, OrgId, ReportId,
+  AlertEvent, AlertDigest, DigestRun, NotificationRecord,
+  AlertId, DigestId, DigestRunId, DigestKind,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -30,6 +32,12 @@ export class InMemoryRepo implements Repo {
   private readonly correctionRules = new Map<string, CorrectionRule>()
   private readonly llmCallRecords: LlmCallRecord[] = []
   private readonly llmCache = new Map<string, LlmCacheEntry>()
+
+  // Module 19 — alerts / digests / notifications
+  private readonly alertEvents = new Map<string, AlertEvent>()
+  private readonly alertDigests = new Map<string, AlertDigest>()
+  private readonly digestRuns = new Map<string, DigestRun>()
+  private readonly notifications = new Map<string, NotificationRecord>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -191,6 +199,83 @@ export class InMemoryRepo implements Repo {
   }
   findLlmCacheEntryByKey(key: string): LlmCacheEntry | null {
     return this.llmCache.get(key) ?? null
+  }
+
+  // ── Alerts (Module 19) ──────────────────────────────────────────────
+
+  upsertAlertEvent(rec: AlertEvent): void {
+    this.alertEvents.set(rec.id as unknown as string, rec)
+  }
+  getAlertEvent(orgId: OrgId, id: AlertId): AlertEvent | null {
+    const a = this.alertEvents.get(id as unknown as string)
+    return a && a.orgId === orgId ? a : null
+  }
+  listAlertEvents(
+    orgId: OrgId,
+    filter?: { sinceMs?: number; includeSuppressed?: boolean; limit?: number },
+  ): readonly AlertEvent[] {
+    let arr = [...this.alertEvents.values()].filter((a) => a.orgId === orgId)
+    if (filter?.sinceMs !== undefined) {
+      arr = arr.filter((a) => Date.parse(a.generatedAt) >= filter.sinceMs!)
+    }
+    if (!filter?.includeSuppressed) arr = arr.filter((a) => !a.suppressed)
+    arr.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+
+  upsertAlertDigest(rec: AlertDigest): void {
+    this.alertDigests.set(rec.id as unknown as string, rec)
+  }
+  getAlertDigest(orgId: OrgId, id: DigestId): AlertDigest | null {
+    const d = this.alertDigests.get(id as unknown as string)
+    return d && d.orgId === orgId ? d : null
+  }
+  listAlertDigests(
+    orgId: OrgId,
+    filter?: { kind?: DigestKind; limit?: number },
+  ): readonly AlertDigest[] {
+    let arr = [...this.alertDigests.values()].filter((d) => d.orgId === orgId)
+    if (filter?.kind) arr = arr.filter((d) => d.kind === filter.kind)
+    arr.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+
+  upsertDigestRun(rec: DigestRun): void {
+    this.digestRuns.set(rec.id as unknown as string, rec)
+  }
+  getDigestRun(orgId: OrgId, id: DigestRunId): DigestRun | null {
+    const r = this.digestRuns.get(id as unknown as string)
+    return r && r.orgId === orgId ? r : null
+  }
+  listDigestRuns(orgId: OrgId, limit?: number): readonly DigestRun[] {
+    const arr = [...this.digestRuns.values()]
+      .filter((r) => r.orgId === orgId)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+
+  upsertNotification(rec: NotificationRecord): void {
+    this.notifications.set(rec.id as unknown as string, rec)
+  }
+  listNotifications(orgId: OrgId, limit?: number): readonly NotificationRecord[] {
+    const arr = [...this.notifications.values()]
+      .filter((n) => n.orgId === orgId)
+      .sort((a, b) => b.attemptedAt.localeCompare(a.attemptedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+
+  loadAlertsForOrg(orgId: OrgId): {
+    alerts: readonly AlertEvent[]; digests: readonly AlertDigest[];
+    digestRuns: readonly DigestRun[]; notifications: readonly NotificationRecord[]
+  } {
+    return {
+      alerts:        this.listAlertEvents(orgId, { includeSuppressed: true }),
+      digests:       this.listAlertDigests(orgId),
+      digestRuns:    this.listDigestRuns(orgId),
+      notifications: this.listNotifications(orgId),
+    }
   }
 
   flush(): void { /* noop */ }

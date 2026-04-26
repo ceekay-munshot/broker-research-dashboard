@@ -3,6 +3,8 @@ import type {
   BrokerStockOpinion,
   AttachmentId, EmailId, EvidenceId, ReportId, SummaryId, StockTicker,
   OrgId,
+  AlertEvent, AlertDigest, DigestRun, NotificationRecord,
+  AlertId, DigestId, DigestRunId, DigestKind,
 } from '../../../src/domain'
 
 // Minimal in-memory record store. Ingestion writes; API reads. The whole
@@ -19,6 +21,11 @@ export class InMemoryStore {
   private readonly summaries = new Map<SummaryId, ReportSummary>()
   private readonly evidenceById = new Map<EvidenceId, EvidenceSnippet>()
   private readonly opinions: BrokerStockOpinion[] = []
+  // Module 19 — alerts/digest collections.
+  private readonly alerts = new Map<AlertId, AlertEvent>()
+  private readonly digests = new Map<DigestId, AlertDigest>()
+  private readonly digestRuns = new Map<DigestRunId, DigestRun>()
+  private readonly notifications: NotificationRecord[] = []
 
   // ── Writers (used by ingestion) ───────────────────────────────────
 
@@ -47,6 +54,10 @@ export class InMemoryStore {
     this.summaries.clear()
     this.evidenceById.clear()
     this.opinions.length = 0
+    this.alerts.clear()
+    this.digests.clear()
+    this.digestRuns.clear()
+    this.notifications.length = 0
   }
 
   // ── Readers (used by API handlers) ────────────────────────────────
@@ -112,5 +123,71 @@ export class InMemoryStore {
       opinions: this.listOpinions(orgId).length,
       stocks: this.listCoveredTickers(orgId).length,
     }
+  }
+
+  // ── Alerts / digests / notifications (Module 19) ───────────────────
+
+  upsertAlert(a: AlertEvent): void { this.alerts.set(a.id, a) }
+  upsertDigest(d: AlertDigest): void { this.digests.set(d.id, d) }
+  upsertDigestRun(r: DigestRun): void { this.digestRuns.set(r.id, r) }
+  upsertNotification(n: NotificationRecord): void {
+    const i = this.notifications.findIndex((x) => x.id === n.id)
+    if (i >= 0) this.notifications[i] = n
+    else this.notifications.push(n)
+  }
+
+  getAlert(orgId: OrgId, id: AlertId): AlertEvent | null {
+    const a = this.alerts.get(id)
+    return a && a.orgId === orgId ? a : null
+  }
+  listAlerts(
+    orgId: OrgId,
+    filter?: { sinceMs?: number; includeSuppressed?: boolean; limit?: number },
+  ): AlertEvent[] {
+    let arr = [...this.alerts.values()].filter((a) => a.orgId === orgId)
+    if (filter?.sinceMs !== undefined) {
+      arr = arr.filter((a) => Date.parse(a.generatedAt) >= filter.sinceMs!)
+    }
+    if (!filter?.includeSuppressed) arr = arr.filter((a) => !a.suppressed)
+    arr.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+
+  getDigest(orgId: OrgId, id: DigestId): AlertDigest | null {
+    const d = this.digests.get(id)
+    return d && d.orgId === orgId ? d : null
+  }
+  listDigests(
+    orgId: OrgId,
+    filter?: { kind?: DigestKind; limit?: number },
+  ): AlertDigest[] {
+    let arr = [...this.digests.values()].filter((d) => d.orgId === orgId)
+    if (filter?.kind) arr = arr.filter((d) => d.kind === filter.kind)
+    arr.sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  /** Latest digest of a given kind for the org, or null. */
+  latestDigest(orgId: OrgId, kind: DigestKind): AlertDigest | null {
+    return this.listDigests(orgId, { kind, limit: 1 })[0] ?? null
+  }
+
+  getDigestRun(orgId: OrgId, id: DigestRunId): DigestRun | null {
+    const r = this.digestRuns.get(id)
+    return r && r.orgId === orgId ? r : null
+  }
+  listDigestRuns(orgId: OrgId, limit?: number): DigestRun[] {
+    const arr = [...this.digestRuns.values()]
+      .filter((r) => r.orgId === orgId)
+      .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+
+  listNotifications(orgId: OrgId, limit?: number): NotificationRecord[] {
+    const arr = this.notifications
+      .filter((n) => n.orgId === orgId)
+      .sort((a, b) => b.attemptedAt.localeCompare(a.attemptedAt))
+    return limit ? arr.slice(0, limit) : arr
   }
 }

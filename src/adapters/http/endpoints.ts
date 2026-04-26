@@ -1,5 +1,6 @@
 import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
+  AlertId, DigestId,
 } from '../../domain'
 
 // Every HTTP path the adapter uses, in one place. Changing a URL is a
@@ -51,4 +52,11 @@ export const endpoints = {
 
   // Portfolio / watchlist
   portfolioSnapshot: () => v1('/portfolio-snapshot'),
+
+  // Alerts / digests
+  alerts:                () => v1('/alerts'),
+  alert:                 (id: AlertId) => v1(`/alerts/${enc(id as unknown as string)}`),
+  alertDigests:          () => v1('/alert-digests'),
+  alertDigest:           (id: DigestId) => v1(`/alert-digests/${enc(id as unknown as string)}`),
+  latestAlertDigest:     () => v1('/alert-digests/latest'),
 } as const

@@ -7,6 +7,8 @@ import type {
   KpiSnapshot,
   IngestionStatus,
   PortfolioSnapshot,
+  AlertEvent, AlertDigest, DigestKind,
+  AlertId, DigestId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -27,6 +29,7 @@ import {
   reports, summaries, evidenceSnippets,
   brokerStockOpinions,
   ingestionJobs, kpiSnapshots, ingestionStatuses,
+  alertEvents, alertDigests,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
 import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfolio/PortfolioInputProvider'
@@ -324,6 +327,55 @@ export class MockResearchAdapter implements ResearchAdapter {
   async getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null> {
     await this.delay()
     return this.portfolioProvider.getPortfolioSnapshot(scope)
+  }
+
+  // ── Alerts / digests (Module 19) ──────────────────────────────────
+
+  async listAlerts(
+    scope: OrgScope,
+    query: { sinceMs?: number; includeSuppressed?: boolean; limit?: number } = {},
+  ): Promise<readonly AlertEvent[]> {
+    await this.delay()
+    let arr = alertEvents.filter((a) => a.orgId === scope.orgId)
+    if (query.sinceMs !== undefined) {
+      arr = arr.filter((a) => Date.parse(a.generatedAt) >= query.sinceMs!)
+    }
+    if (!query.includeSuppressed) arr = arr.filter((a) => !a.suppressed)
+    arr = arr.slice().sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (query.limit) arr = arr.slice(0, query.limit)
+    return arr
+  }
+
+  async getAlert(scope: OrgScope, id: AlertId): Promise<AlertEvent | null> {
+    await this.delay()
+    const a = alertEvents.find((x) => x.id === id)
+    return a && a.orgId === scope.orgId ? a : null
+  }
+
+  async listAlertDigests(
+    scope: OrgScope,
+    query: { kind?: DigestKind; limit?: number } = {},
+  ): Promise<readonly AlertDigest[]> {
+    await this.delay()
+    let arr = alertDigests.filter((d) => d.orgId === scope.orgId)
+    if (query.kind) arr = arr.filter((d) => d.kind === query.kind)
+    arr = arr.slice().sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    if (query.limit) arr = arr.slice(0, query.limit)
+    return arr
+  }
+
+  async getAlertDigest(scope: OrgScope, id: DigestId): Promise<AlertDigest | null> {
+    await this.delay()
+    const d = alertDigests.find((x) => x.id === id)
+    return d && d.orgId === scope.orgId ? d : null
+  }
+
+  async getLatestAlertDigest(scope: OrgScope, kind: DigestKind): Promise<AlertDigest | null> {
+    await this.delay()
+    const list = alertDigests
+      .filter((d) => d.orgId === scope.orgId && d.kind === kind)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return list[0] ?? null
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {

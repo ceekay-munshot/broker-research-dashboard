@@ -2,10 +2,11 @@ import type {
   BrokerEmail, ResearchReport, OrgScope, StockTicker, SectorId, ReportId, EmailId, Stance, Rating, Stock, Sector, Broker, Organization, User,
   EmailProcessingStatus, KpiSnapshot, IngestionStatus, Page,
   PortfolioSnapshot,
+  AlertDigest, AlertEvent, DigestKind,
 } from '../../../src/domain'
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
-import { asEmailId, asReportId, asSectorId, asTicker } from '../../../src/lib/ids'
+import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId } from '../../../src/lib/ids'
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
@@ -254,6 +255,45 @@ export function buildRouter(store: InMemoryStore): Router {
     const snap: PortfolioSnapshot | undefined = portfolioSnapshots.find((p) => p.orgId === scope.orgId)
     if (!snap) return reply.notFound(res, `no portfolio configured for org ${scope.orgId}`)
     reply.ok(res, snap)
+  })
+
+  // ── Alerts / digests (Module 19) ──────────────────────────────────
+  r.get('/v1/alerts', ({ res, scope, query }) => {
+    const sinceMs = numParam(query, 'sinceMs')
+    const includeSuppressed = boolParam(query, 'includeSuppressed') === true
+    const limit = numParam(query, 'limit') ?? 100
+    const items: readonly AlertEvent[] = store.listAlerts(scope.orgId, {
+      sinceMs, includeSuppressed, limit,
+    })
+    reply.ok(res, items)
+  })
+  r.get('/v1/alerts/:alertId', ({ res, scope, params }) => {
+    const a = store.getAlert(scope.orgId, asAlertId(params.alertId!))
+    if (!a) return reply.notFound(res, `alert ${params.alertId}`)
+    reply.ok(res, a)
+  })
+
+  r.get('/v1/alert-digests', ({ res, scope, query }) => {
+    const kindRaw = strParam(query, 'kind')
+    const kind: DigestKind | undefined =
+      kindRaw === 'morning_brief' || kindRaw === 'intraday_critical' || kindRaw === 'coverage_hygiene'
+        ? kindRaw : undefined
+    const limit = numParam(query, 'limit') ?? 30
+    const digests: readonly AlertDigest[] = store.listDigests(scope.orgId, { kind, limit })
+    reply.ok(res, digests)
+  })
+  r.get('/v1/alert-digests/latest', ({ res, scope, query }) => {
+    const kindRaw = strParam(query, 'kind')
+    const kind: DigestKind = (kindRaw === 'morning_brief' || kindRaw === 'intraday_critical' || kindRaw === 'coverage_hygiene')
+      ? kindRaw : 'morning_brief'
+    const d = store.latestDigest(scope.orgId, kind)
+    if (!d) return reply.notFound(res, `no ${kind} digest`)
+    reply.ok(res, d)
+  })
+  r.get('/v1/alert-digests/:digestId', ({ res, scope, params }) => {
+    const d = store.getDigest(scope.orgId, asDigestId(params.digestId!))
+    if (!d) return reply.notFound(res, `digest ${params.digestId}`)
+    reply.ok(res, d)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

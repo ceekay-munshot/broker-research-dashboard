@@ -21,6 +21,8 @@
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
   ResearchReport, ReportSummary, OrgId, ReportId,
+  AlertEvent, AlertDigest, DigestRun, NotificationRecord,
+  AlertId, DigestId, DigestRunId, DigestKind,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -169,6 +171,32 @@ export interface Repo {
     readonly summaries: readonly ReportSummary[]
     readonly evidence: readonly EvidenceSnippet[]
     readonly opinions: readonly BrokerStockOpinion[]
+  }
+
+  // Alerts / digests / notifications (Module 19) ────────────────────────
+  upsertAlertEvent(rec: AlertEvent): void
+  getAlertEvent(orgId: OrgId, id: AlertId): AlertEvent | null
+  listAlertEvents(
+    orgId: OrgId,
+    filter?: { sinceMs?: number; includeSuppressed?: boolean; limit?: number },
+  ): readonly AlertEvent[]
+  upsertAlertDigest(rec: AlertDigest): void
+  getAlertDigest(orgId: OrgId, id: DigestId): AlertDigest | null
+  listAlertDigests(
+    orgId: OrgId,
+    filter?: { kind?: DigestKind; limit?: number },
+  ): readonly AlertDigest[]
+  upsertDigestRun(rec: DigestRun): void
+  getDigestRun(orgId: OrgId, id: DigestRunId): DigestRun | null
+  listDigestRuns(orgId: OrgId, limit?: number): readonly DigestRun[]
+  upsertNotification(rec: NotificationRecord): void
+  listNotifications(orgId: OrgId, limit?: number): readonly NotificationRecord[]
+  /** Hydration of alerts/digests for an org. */
+  loadAlertsForOrg(orgId: OrgId): {
+    readonly alerts: readonly AlertEvent[]
+    readonly digests: readonly AlertDigest[]
+    readonly digestRuns: readonly DigestRun[]
+    readonly notifications: readonly NotificationRecord[]
   }
 
   // Lifecycle ───────────────────────────────────────────────────────────

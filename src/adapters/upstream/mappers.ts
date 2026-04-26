@@ -39,6 +39,7 @@ import type {
   BrokerStockOpinion,
   KpiSnapshot, IngestionStatus,
   PortfolioSnapshot,
+  AlertEvent, AlertDigest,
   Page,
 } from '../../domain'
 import type { ConflictClosure, SectorIntelligence } from '../../engine/types'
@@ -50,6 +51,7 @@ import {
   parseBrokerStockOpinion, parseConflictClosure, parseSectorIntelligence,
   parseKpiSnapshot, parseIngestionStatus, parsePage,
   parsePortfolioSnapshot,
+  parseAlertEvent, parseAlertDigest,
 } from '../http/parsers'
 import { ContractViolationError } from '../errors'
 import { asBrokerId } from '../../lib/ids'
@@ -345,6 +347,40 @@ export function mapPortfolioSnapshot(
     coerceNumericFields(x, ['totalGrossExposurePct'], 'PortfolioSnapshot')
     return parsePortfolioSnapshot(x)
   })
+}
+
+// ── Alerts / digests (Module 19) ─────────────────────────────────────────
+
+export function mapAlertEvent(raw: unknown, ctx: MappingContext = { endpoint: 'alerts' }): AlertEvent {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'AlertEvent', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseAlertEvent(x)
+  })
+}
+
+export function mapAlertEvents(raw: unknown): readonly AlertEvent[] {
+  const ctx: MappingContext = { endpoint: 'alerts' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'alerts', ctx.endpoint)
+  return arr.map((x, i) => mapAlertEvent(x, { endpoint: `${ctx.endpoint}[${i}]` }))
+}
+
+export function mapAlertDigest(raw: unknown, ctx: MappingContext = { endpoint: 'alertDigest' }): AlertDigest {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'AlertDigest', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseAlertDigest(x)
+  })
+}
+
+export function mapAlertDigests(raw: unknown): readonly AlertDigest[] {
+  const ctx: MappingContext = { endpoint: 'alertDigests' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'alert-digests', ctx.endpoint)
+  return arr.map((x, i) => mapAlertDigest(x, { endpoint: `${ctx.endpoint}[${i}]` }))
 }
 
 // ── Degraded-mode helpers exposed for adapters ───────────────────────────

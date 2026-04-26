@@ -26,6 +26,8 @@ import type {
   BrokerStockOpinion,
   KpiSnapshot, IngestionStatus,
   PortfolioSnapshot,
+  AlertEvent, AlertDigest, DigestKind,
+  AlertId, DigestId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../../domain'
@@ -203,6 +205,14 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async getPortfolioSnapshot(_scope: OrgScope): Promise<PortfolioSnapshot | null> {
     return null
   }
+
+  // ── Alerts / digests (Module 19) ────────────────────────────────
+  // Likewise no fixture — exercises the "no alerts yet" degraded path.
+  async listAlerts(_scope: OrgScope): Promise<readonly AlertEvent[]> { return [] }
+  async getAlert(_scope: OrgScope, _id: AlertId): Promise<AlertEvent | null> { return null }
+  async listAlertDigests(_scope: OrgScope): Promise<readonly AlertDigest[]> { return [] }
+  async getAlertDigest(_scope: OrgScope, _id: DigestId): Promise<AlertDigest | null> { return null }
+  async getLatestAlertDigest(_scope: OrgScope, _kind: DigestKind): Promise<AlertDigest | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

@@ -18,6 +18,8 @@ import type {
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
   OrgId, ReportId, ResearchReport, ReportSummary,
+  AlertEvent, AlertDigest, DigestRun, NotificationRecord,
+  AlertId, DigestId, DigestRunId, DigestKind,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -30,6 +32,8 @@ const TABLES = [
   'canonicalQuality',
   'correctionRules',
   'llmCallRecords', 'llmCache',
+  // Module 19
+  'alertEvents', 'alertDigests', 'digestRuns', 'notifications',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -48,6 +52,10 @@ interface Snapshot {
   correctionRules: CorrectionRule[]
   llmCallRecords: LlmCallRecord[]
   llmCache: LlmCacheEntry[]
+  alertEvents: AlertEvent[]
+  alertDigests: AlertDigest[]
+  digestRuns: DigestRun[]
+  notifications: NotificationRecord[]
 }
 
 export interface JsonFileRepoOptions {
@@ -139,6 +147,20 @@ export class JsonFileRepo implements Repo {
 
   loadCanonicalForOrg(orgId: OrgId) { return this.mem.loadCanonicalForOrg(orgId) }
 
+  // Module 19 — alerts / digests / notifications
+  upsertAlertEvent(rec: AlertEvent) { this.mem.upsertAlertEvent(rec); this.touch('alertEvents') }
+  getAlertEvent(orgId: OrgId, id: AlertId) { return this.mem.getAlertEvent(orgId, id) }
+  listAlertEvents(orgId: OrgId, filter?: Parameters<Repo['listAlertEvents']>[1]) { return this.mem.listAlertEvents(orgId, filter) }
+  upsertAlertDigest(rec: AlertDigest) { this.mem.upsertAlertDigest(rec); this.touch('alertDigests') }
+  getAlertDigest(orgId: OrgId, id: DigestId) { return this.mem.getAlertDigest(orgId, id) }
+  listAlertDigests(orgId: OrgId, filter?: { kind?: DigestKind; limit?: number }) { return this.mem.listAlertDigests(orgId, filter) }
+  upsertDigestRun(rec: DigestRun) { this.mem.upsertDigestRun(rec); this.touch('digestRuns') }
+  getDigestRun(orgId: OrgId, id: DigestRunId) { return this.mem.getDigestRun(orgId, id) }
+  listDigestRuns(orgId: OrgId, limit?: number) { return this.mem.listDigestRuns(orgId, limit) }
+  upsertNotification(rec: NotificationRecord) { this.mem.upsertNotification(rec); this.touch('notifications') }
+  listNotifications(orgId: OrgId, limit?: number) { return this.mem.listNotifications(orgId, limit) }
+  loadAlertsForOrg(orgId: OrgId) { return this.mem.loadAlertsForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -175,6 +197,10 @@ export class JsonFileRepo implements Repo {
       correctionRules: Map<string, CorrectionRule>
       llmCallRecords: LlmCallRecord[]
       llmCache: Map<string, LlmCacheEntry>
+      alertEvents: Map<string, AlertEvent>
+      alertDigests: Map<string, AlertDigest>
+      digestRuns: Map<string, DigestRun>
+      notifications: Map<string, NotificationRecord>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -191,6 +217,10 @@ export class JsonFileRepo implements Repo {
       correctionRules:      [...m.correctionRules.values()],
       llmCallRecords:       [...m.llmCallRecords],
       llmCache:             [...m.llmCache.values()],
+      alertEvents:          [...m.alertEvents.values()],
+      alertDigests:         [...m.alertDigests.values()],
+      digestRuns:           [...m.digestRuns.values()],
+      notifications:        [...m.notifications.values()],
     }
   }
 
@@ -218,6 +248,10 @@ export class JsonFileRepo implements Repo {
           case 'correctionRules':      this.mem.upsertCorrectionRule(rec as CorrectionRule); break
           case 'llmCallRecords':       this.mem.appendLlmCallRecord(rec as LlmCallRecord); break
           case 'llmCache':             this.mem.upsertLlmCacheEntry(rec as LlmCacheEntry); break
+          case 'alertEvents':          this.mem.upsertAlertEvent(rec as AlertEvent); break
+          case 'alertDigests':         this.mem.upsertAlertDigest(rec as AlertDigest); break
+          case 'digestRuns':           this.mem.upsertDigestRun(rec as DigestRun); break
+          case 'notifications':        this.mem.upsertNotification(rec as NotificationRecord); break
         }
       }
     }

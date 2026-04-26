@@ -9,6 +9,10 @@ import type {
   IngestionStatus, EmailProcessingStatus,
   PortfolioSnapshot, PortfolioPosition, WatchlistEntry,
   PortfolioDirection, PortfolioConviction,
+  AlertEvent, AlertDigest, DigestSection, DigestKind,
+  AlertSeverity, AlertTriggerKind, DeliveryChannel, AlertAudience,
+  AlertReason, AlertBookContext, AlertLineage,
+  PortfolioMembership,
   OrgScope, Page, Stance, Rating,
 } from '../../domain'
 import type {
@@ -21,6 +25,7 @@ import type {
 import {
   asOrgId, asUserId, asBrokerId, asEmailId, asAttachmentId,
   asReportId, asSummaryId, asEvidenceId, asSectorId, asTicker, asPortfolioId,
+  asAlertId, asDigestId, asDigestRunId,
 } from '../../lib/ids'
 import { ContractViolationError } from '../errors'
 
@@ -613,6 +618,114 @@ function parseWatchlistEntry(raw: unknown, path: string): WatchlistEntry {
     tags: asStringArray(x.tags, `${path}.tags`),
     ownerUserId: x.ownerUserId === null ? null : asUserId(asString(x.ownerUserId, `${path}.ownerUserId`)),
     note: asStringOrNull(x.note, `${path}.note`),
+  }
+}
+
+// ─── Alerts / digests (Module 19) ─────────────────────────────────────
+
+const ALERT_SEVERITIES_LOCAL: readonly AlertSeverity[] = ['critical', 'high', 'medium', 'low', 'info']
+const ALERT_KINDS_LOCAL: readonly AlertTriggerKind[] = [
+  'new_research_held', 'new_research_watchlist',
+  'significant_change_held', 'against_position',
+  'unresolved_divergence_held', 'broker_outlier_held',
+  'pile_in_book',
+  'stale_coverage_high_conviction', 'stale_coverage_held', 'stale_coverage_watchlist',
+  'watchlist_fresh_candidate', 'correction_replay_change',
+]
+const PF_MEMBERSHIPS_LOCAL: readonly PortfolioMembership[] = ['held', 'watchlist', 'adjacent', 'none']
+const PF_DIRECTIONS_LOCAL: readonly PortfolioDirection[] = ['long', 'short', 'hedge']
+const PF_CONVICTIONS_LOCAL: readonly PortfolioConviction[] = ['high', 'medium', 'low']
+const ALERT_AUDIENCES_LOCAL: readonly AlertAudience[] = ['pm', 'analyst', 'team', 'all']
+const DIGEST_KINDS_LOCAL: readonly DigestKind[] = ['morning_brief', 'intraday_critical', 'coverage_hygiene']
+// Reserved for the future when alerts list deliveries inline.
+void ([] as readonly DeliveryChannel[])
+
+export function parseAlertEvent(raw: unknown, path = 'AlertEvent'): AlertEvent {
+  const x = asObject(raw, path)
+  const reasons = asArray(x.reasons, `${path}.reasons`).map((r, i) => parseAlertReason(r, `${path}.reasons[${i}]`))
+  const bookCtx = x.bookContext === null ? null : parseBookContext(x.bookContext, `${path}.bookContext`)
+  const lineage = parseLineage(x.lineage, `${path}.lineage`)
+  return {
+    id: asAlertId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    kind: asEnum<AlertTriggerKind>(x.kind, ALERT_KINDS_LOCAL, `${path}.kind`),
+    severity: asEnum<AlertSeverity>(x.severity, ALERT_SEVERITIES_LOCAL, `${path}.severity`),
+    audience: asEnum<AlertAudience>(x.audience, ALERT_AUDIENCES_LOCAL, `${path}.audience`),
+    headline: asString(x.headline, `${path}.headline`),
+    body: asString(x.body, `${path}.body`),
+    reasons,
+    bookContext: bookCtx,
+    lineage,
+    fingerprint: asString(x.fingerprint, `${path}.fingerprint`),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    expiresAt: asStringOrNull(x.expiresAt, `${path}.expiresAt`),
+    suppressed: asBoolean(x.suppressed, `${path}.suppressed`),
+    suppressedReason: asStringOrNull(x.suppressedReason, `${path}.suppressedReason`),
+  }
+}
+
+function parseAlertReason(raw: unknown, path: string): AlertReason {
+  const x = asObject(raw, path)
+  const r: AlertReason = {
+    code: asString(x.code, `${path}.code`),
+    text: asString(x.text, `${path}.text`),
+    ...(x.severityDelta !== undefined && x.severityDelta !== null
+      ? { severityDelta: asNumber(x.severityDelta, `${path}.severityDelta`) }
+      : {}),
+  }
+  return r
+}
+
+function parseBookContext(raw: unknown, path: string): AlertBookContext {
+  const x = asObject(raw, path)
+  return {
+    membership: asEnum<PortfolioMembership>(x.membership, PF_MEMBERSHIPS_LOCAL, `${path}.membership`),
+    direction: x.direction === null ? null : asEnum<PortfolioDirection>(x.direction, PF_DIRECTIONS_LOCAL, `${path}.direction`),
+    conviction: x.conviction === null ? null : asEnum<PortfolioConviction>(x.conviction, PF_CONVICTIONS_LOCAL, `${path}.conviction`),
+    weightPct: asNumberOrNull(x.weightPct, `${path}.weightPct`),
+  }
+}
+
+function parseLineage(raw: unknown, path: string): AlertLineage {
+  const x = asObject(raw, path)
+  return {
+    reportId: x.reportId === null ? null : asReportId(asString(x.reportId, `${path}.reportId`)),
+    brokerId: x.brokerId === null ? null : asBrokerId(asString(x.brokerId, `${path}.brokerId`)),
+    ticker: x.ticker === null ? null : asTicker(asString(x.ticker, `${path}.ticker`)),
+    supersedes: asArray(x.supersedes, `${path}.supersedes`).map((s, i) => asAlertId(asString(s, `${path}.supersedes[${i}]`))),
+  }
+}
+
+export function parseAlertDigest(raw: unknown, path = 'AlertDigest'): AlertDigest {
+  const x = asObject(raw, path)
+  const sections = asArray(x.sections, `${path}.sections`).map((s, i) => parseDigestSection(s, `${path}.sections[${i}]`))
+  return {
+    id: asDigestId(asString(x.id, `${path}.id`)),
+    runId: asDigestRunId(asString(x.runId, `${path}.runId`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    kind: asEnum<DigestKind>(x.kind, DIGEST_KINDS_LOCAL, `${path}.kind`),
+    title: asString(x.title, `${path}.title`),
+    subtitle: asString(x.subtitle, `${path}.subtitle`),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    windowStart: asString(x.windowStart, `${path}.windowStart`),
+    windowEnd: asString(x.windowEnd, `${path}.windowEnd`),
+    sections,
+    alertCount: asInt(x.alertCount, `${path}.alertCount`),
+    topSeverity: x.topSeverity === null ? null : asEnum<AlertSeverity>(x.topSeverity, ALERT_SEVERITIES_LOCAL, `${path}.topSeverity`),
+    executiveSummary: asStringOrNull(x.executiveSummary, `${path}.executiveSummary`),
+    executiveSummaryFromLlm: asBoolean(x.executiveSummaryFromLlm, `${path}.executiveSummaryFromLlm`),
+  }
+}
+
+function parseDigestSection(raw: unknown, path: string): DigestSection {
+  const x = asObject(raw, path)
+  return {
+    key: asString(x.key, `${path}.key`),
+    title: asString(x.title, `${path}.title`),
+    subtitle: asString(x.subtitle, `${path}.subtitle`),
+    alertIds: asArray(x.alertIds, `${path}.alertIds`).map((a, i) => asAlertId(asString(a, `${path}.alertIds[${i}]`))),
+    prose: asStringOrNull(x.prose, `${path}.prose`),
+    proseFromLlm: asBoolean(x.proseFromLlm, `${path}.proseFromLlm`),
   }
 }
 

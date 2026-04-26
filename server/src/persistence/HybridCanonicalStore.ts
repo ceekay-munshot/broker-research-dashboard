@@ -14,6 +14,7 @@
 import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
   OrgId, ResearchReport, ReportSummary,
+  AlertEvent, AlertDigest, DigestRun, NotificationRecord,
 } from '../../../src/domain'
 import { InMemoryStore } from '../store/InMemoryStore'
 import type { Repo } from './types'
@@ -69,6 +70,32 @@ export class HybridCanonicalStore extends InMemoryStore {
       for (const s of dump.summaries) super.upsertSummary(s)
       super.upsertEvidence(dump.evidence)
       for (const o of dump.opinions) super.upsertOpinion(o)
+
+      // Module 19 — alerts/digests/runs/notifications.
+      const alerts = this.repo.loadAlertsForOrg(orgId)
+      for (const a of alerts.alerts) super.upsertAlert(a)
+      for (const d of alerts.digests) super.upsertDigest(d)
+      for (const r of alerts.digestRuns) super.upsertDigestRun(r)
+      for (const n of alerts.notifications) super.upsertNotification(n)
     }
+  }
+
+  // ── Alerts dual-write (Module 19) ───────────────────────────────────
+
+  override upsertAlert(a: AlertEvent): void {
+    super.upsertAlert(a)
+    this.repo.upsertAlertEvent(a)
+  }
+  override upsertDigest(d: AlertDigest): void {
+    super.upsertDigest(d)
+    this.repo.upsertAlertDigest(d)
+  }
+  override upsertDigestRun(r: DigestRun): void {
+    super.upsertDigestRun(r)
+    this.repo.upsertDigestRun(r)
+  }
+  override upsertNotification(n: NotificationRecord): void {
+    super.upsertNotification(n)
+    this.repo.upsertNotification(n)
   }
 }

@@ -89,6 +89,13 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
 
   // Portfolio / watchlist — fully optional. 404 is treated as "no portfolio".
   { key: 'portfolioSnapshot',  endpoint: 'GET /v1/portfolio-snapshot',  requirement: 'optional', description: "Org's current portfolio + watchlist snapshot. 404 → no portfolio configured.", tolerate404: true },
+
+  // Alerts / digests (Module 19) — fully optional. 404 is treated as "no alerts yet".
+  { key: 'alerts',             endpoint: 'GET /v1/alerts',              requirement: 'list',     description: 'Recent alert feed for the org.', tolerate404: true },
+  { key: 'alert',              endpoint: 'GET /v1/alerts/:id',          requirement: 'optional', description: 'Single alert detail.', tolerate404: true },
+  { key: 'alertDigests',       endpoint: 'GET /v1/alert-digests',       requirement: 'list',     description: 'Authored digests for the org.', tolerate404: true },
+  { key: 'alertDigest',        endpoint: 'GET /v1/alert-digests/:id',   requirement: 'optional', description: 'Single digest detail.', tolerate404: true },
+  { key: 'latestAlertDigest',  endpoint: 'GET /v1/alert-digests/latest', requirement: 'optional', description: 'Latest digest of a given kind.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not
