@@ -10,7 +10,7 @@ import type {
 } from '../../../src/domain'
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
-import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId, asCatalystId, asPreEventBriefId } from '../../../src/lib/ids'
+import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId, asCatalystId, asPreEventBriefId, asPostEventReviewId } from '../../../src/lib/ids'
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
@@ -365,6 +365,16 @@ export function buildRouter(store: InMemoryStore): Router {
   r.get('/v1/post-event-reviews', ({ res, scope }) => {
     const items: readonly PostEventReview[] = store.listPostEventReviews(scope.orgId)
     reply.ok(res, items)
+  })
+  r.get('/v1/post-event-reviews/:reviewId', ({ res, scope, params }) => {
+    const rev = store.getPostEventReview(scope.orgId, asPostEventReviewId(params.reviewId!))
+    if (!rev) return reply.notFound(res, `post-event review ${params.reviewId}`)
+    reply.ok(res, rev)
+  })
+  r.get('/v1/catalysts/:catalystId/post-event-review', ({ res, scope, params }) => {
+    const rev = store.latestPostEventReviewForCatalyst(scope.orgId, asCatalystId(params.catalystId!))
+    if (!rev) return reply.notFound(res, `post-event review for ${params.catalystId}`)
+    reply.ok(res, rev)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

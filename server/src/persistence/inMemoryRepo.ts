@@ -379,6 +379,15 @@ export class InMemoryRepo implements Repo {
     const r = this.postEventReviews.get(id as unknown as string)
     return r && r.orgId === orgId ? r : null
   }
+  latestPostEventReviewForCatalyst(orgId: OrgId, catalystId: CatalystId): PostEventReview | null {
+    let best: PostEventReview | null = null
+    for (const r of this.postEventReviews.values()) {
+      if (r.orgId !== orgId) continue
+      if (r.catalystId !== catalystId) continue
+      if (!best || r.generatedAt > best.generatedAt) best = r
+    }
+    return best
+  }
   listPostEventReviews(orgId: OrgId, limit?: number): readonly PostEventReview[] {
     const arr = [...this.postEventReviews.values()]
       .filter((r) => r.orgId === orgId)

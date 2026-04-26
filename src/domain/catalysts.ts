@@ -243,21 +243,169 @@ export interface PreEventBrief {
   readonly executiveSummaryFromLlm: boolean
 }
 
-// ── Post-event review (scaffold) ─────────────────────────────────────────
+// ── Post-event review (Module 22 — full version) ────────────────────────
+
+/** Per-window realized return after the event. Mirrors the calibration
+ *  layer's window vocabulary so the two systems can compose. */
+export interface RealizedOutcomeWindow {
+  /** Trading-day offset window. */
+  readonly window: '1d' | '3d' | '5d' | '10d'
+  /** Raw return % from the event-anchor close to the close at +N days.
+   *  Null when terminal price coverage is missing. */
+  readonly rawReturnPct: number | null
+  /** Benchmark-relative return (asset − benchmark) when a benchmark is
+   *  wired for the ticker; null otherwise. */
+  readonly benchmarkRelReturnPct: number | null
+  /** Direction inferred from `rawReturnPct` (or `benchmarkRelReturnPct`
+   *  when no raw is available). 'flat' when |return| ≤ 25 bps × N. */
+  readonly direction: 'up' | 'down' | 'flat' | 'unknown'
+}
+
+export interface RealizedOutcome {
+  readonly ticker: StockTicker
+  /** ISO date of the close used as the event anchor. */
+  readonly anchorDate: string
+  readonly anchorPrice: number | null
+  readonly anchorCurrency: string | null
+  readonly windows: readonly RealizedOutcomeWindow[]
+  /** Synthesized "headline" direction across windows — the sign that
+   *  most windows agreed on, or 'mixed'. Used by broker-verdict logic. */
+  readonly headlineDirection: 'up' | 'down' | 'flat' | 'mixed' | 'unknown'
+  /** Whether market data was available at all for the ticker. */
+  readonly hasCoverage: boolean
+  /** Note string surfaced when coverage is missing or partial. */
+  readonly coverageNote: string | null
+}
+
+/** Verdict on a single broker's pre-event stance vs realized direction. */
+export type BrokerVerdictKind = 'right' | 'wrong' | 'inconclusive' | 'no_view'
+
+export interface BrokerVerdict {
+  readonly brokerId: BrokerId
+  readonly brokerShortName: string
+  /** Pre-event stance + rating + target. */
+  readonly preStance: 'bullish' | 'neutral' | 'bearish'
+  readonly preRating: string | null
+  readonly preTargetPrice: number | null
+  /** Realized headline direction reused from `RealizedOutcome`. */
+  readonly realizedDirection: RealizedOutcome['headlineDirection']
+  readonly verdict: BrokerVerdictKind
+  /** Calibration score at review time, when available. */
+  readonly calibrationScore: number | null
+  /** Whether the broker had a directional view (`bullish` / `bearish`). */
+  readonly hadDirectionalView: boolean
+  /** Short reason string. */
+  readonly reason: string
+}
+
+/** Divergence resolution after the event. */
+export type DivergenceResolutionKind =
+  | 'resolved'
+  | 'persisted'
+  | 'widened'
+  | 'outlier_vindicated'
+  | 'outlier_invalidated'
+  | 'no_divergence_pre'
+
+export interface DivergenceResolution {
+  readonly kind: DivergenceResolutionKind
+  /** Pre-event closure state ("mixed_constructive", "consensus_bullish", …). */
+  readonly preClosureState: string | null
+  readonly postClosureState: string | null
+  /** Brokers who were outliers pre-event. */
+  readonly preOutlierBrokerIds: readonly BrokerId[]
+  /** Outliers that turned out to be directionally right. */
+  readonly vindicatedOutlierBrokerIds: readonly BrokerId[]
+  /** Outliers that turned out to be wrong. */
+  readonly invalidatedOutlierBrokerIds: readonly BrokerId[]
+  readonly note: string
+}
+
+/** Where the pre-event expectation broke down. */
+export type ExpectationErrorKind =
+  | 'overly_bullish'
+  | 'overly_cautious'
+  | 'target_dispersion_too_wide'
+  | 'target_dispersion_too_narrow'
+  | 'high_calibration_brokers_wrong'
+  | 'outlier_was_right'
+  | 'thin_coverage_pre_event'
+  | 'against_position_useful'
+  | 'against_position_not_useful'
+  | 'no_significant_error'
+
+export interface ExpectationError {
+  readonly kind: ExpectationErrorKind
+  readonly text: string
+  /** 0..100 magnitude of the error contribution. */
+  readonly magnitude: number
+}
+
+/** Calibration feedback metadata produced by a single review.
+ *  Snapshot-shaped so the calibration layer (Module 20) can absorb it
+ *  without invariants leaking. */
+export interface CalibrationFeedback {
+  /** Per-broker correctness on this catalyst. */
+  readonly brokerCorrectness: readonly {
+    readonly brokerId: BrokerId
+    readonly correct: number   // 0 or 1 — single observation
+    readonly wrong: number     // 0 or 1
+    readonly inconclusive: number
+  }[]
+  /** Catalyst-type rolled-up correctness. */
+  readonly catalystTypePerformance: {
+    readonly type: CatalystType
+    readonly directionallyRight: number
+    readonly directionallyWrong: number
+    readonly inconclusive: number
+  }
+  /** Pre-event alert usefulness deltas (e.g. against-position alerts
+   *  that lined up with realized direction). */
+  readonly preEventAlertUsefulness: readonly {
+    readonly alertId: AlertId
+    readonly useful: boolean
+    readonly note: string
+  }[]
+  /** Distinguishes event-driven usefulness from non-event when sample
+   *  size is meaningful. Marker; consumed by the calibration absorber. */
+  readonly eventDriven: boolean
+  /** Methodology version so consumers can reject mismatched feedback. */
+  readonly methodologyVersion: string
+}
+
+export type PostEventReviewConfidenceBand = 'very_low' | 'low' | 'medium' | 'high'
 
 export interface PostEventReview {
   readonly id: PostEventReviewId
   readonly orgId: OrgId
   readonly catalystId: CatalystId
   readonly generatedAt: Iso8601
+  /** When the system marked the event as "completed" / actionable. */
+  readonly reviewedAt: Iso8601
   /** Snapshot taken just before the event — what brokers said going in. */
   readonly preEventSnapshot: ExpectationSnapshot
-  /** Snapshot taken right after the event with newly-arrived research. */
+  /** Snapshot taken after the event with newly-arrived research, when
+   *  enough post-event reports have landed. Null until then. */
   readonly postEventSnapshot: ExpectationSnapshot | null
-  /** Brokers whose pre-event stance matched the realized direction. */
+  /** Realized market outcome — the deterministic anchor for verdicts. */
+  readonly realizedOutcome: RealizedOutcome
+  /** Per-broker verdicts indexed by brokerId. Always covers every broker
+   *  that held a directional view in the pre-event snapshot. */
+  readonly brokerVerdicts: readonly BrokerVerdict[]
+  /** Convenience id lists derived from `brokerVerdicts`. */
   readonly directionallyRightBrokerIds: readonly BrokerId[]
-  /** Brokers whose pre-event stance opposed the realized direction. */
   readonly directionallyWrongBrokerIds: readonly BrokerId[]
-  readonly divergenceResolved: boolean
+  readonly inconclusiveBrokerIds: readonly BrokerId[]
+  readonly divergenceResolution: DivergenceResolution
+  readonly expectationErrors: readonly ExpectationError[]
+  /** Top reports that landed *after* the event — the natural follow-up read list. */
+  readonly topPostEventReportIds: readonly ReportId[]
+  readonly calibrationFeedback: CalibrationFeedback
+  /** One-line summary suitable for the Completed Events row + panel header. */
+  readonly outcomeSummary: string
+  /** Confidence band reflecting sample size + market-data coverage. */
+  readonly confidence: PostEventReviewConfidenceBand
   readonly notes: readonly string[]
+  readonly executiveSummary: string | null
+  readonly executiveSummaryFromLlm: boolean
 }

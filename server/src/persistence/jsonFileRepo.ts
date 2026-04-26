@@ -193,6 +193,7 @@ export class JsonFileRepo implements Repo {
   listPreEventBriefs(orgId: OrgId, limit?: number) { return this.mem.listPreEventBriefs(orgId, limit) }
   upsertPostEventReview(rec: PostEventReview) { this.mem.upsertPostEventReview(rec); this.touch('postEventReviews') }
   getPostEventReview(orgId: OrgId, id: PostEventReviewId) { return this.mem.getPostEventReview(orgId, id) }
+  latestPostEventReviewForCatalyst(orgId: OrgId, catalystId: CatalystId) { return this.mem.latestPostEventReviewForCatalyst(orgId, catalystId) }
   listPostEventReviews(orgId: OrgId, limit?: number) { return this.mem.listPostEventReviews(orgId, limit) }
   loadCatalystsForOrg(orgId: OrgId) { return this.mem.loadCatalystsForOrg(orgId) }
 

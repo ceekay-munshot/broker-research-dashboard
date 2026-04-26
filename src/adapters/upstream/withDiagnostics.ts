@@ -49,6 +49,8 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   getCatalyst:              'catalyst',
   getLatestPreEventBrief:   'catalystBrief',
   listPostEventReviews:     'postEventReviews',
+  getLatestPostEventReview: 'catalystPostEventReview',
+  getPostEventReview:       'postEventReview',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

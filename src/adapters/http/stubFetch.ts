@@ -201,6 +201,10 @@ function installRoutes(): void {
   push('/v1/catalysts/:catalystId/brief', async ({ mock, scope, params }) =>
     requireFound(await mock.getLatestPreEventBrief(scope, asCatalystId(params.catalystId!)), `pre-event brief for ${params.catalystId}`))
   push('/v1/post-event-reviews', async ({ mock, scope }) => await mock.listPostEventReviews(scope))
+  push('/v1/post-event-reviews/:reviewId', async ({ mock, scope, params }) =>
+    requireFound(await mock.getPostEventReview(scope, params.reviewId! as Parameters<typeof mock.getPostEventReview>[1]), `post-event review ${params.reviewId}`))
+  push('/v1/catalysts/:catalystId/post-event-review', async ({ mock, scope, params }) =>
+    requireFound(await mock.getLatestPostEventReview(scope, asCatalystId(params.catalystId!)), `post-event review for ${params.catalystId}`))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

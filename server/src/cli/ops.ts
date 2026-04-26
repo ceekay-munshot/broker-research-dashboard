@@ -56,6 +56,12 @@ import {
   cmdCatalystsDelta, cmdCatalystsWeakCoverage, cmdCatalystsReplay,
   type CatalystCliFlags,
 } from './catalysts'
+import {
+  cmdPostEventReview, cmdPostEventRunDue, cmdPostEventList,
+  cmdPostEventCompare, cmdPostEventBrokers, cmdPostEventWeak,
+  cmdPostEventReplay,
+  type PostEventCliFlags,
+} from './postEventReview'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -78,6 +84,10 @@ type Subcommand =
   // Module 21
   | 'catalysts:upcoming' | 'catalysts:brief' | 'catalysts:weekly-briefs'
   | 'catalysts:delta' | 'catalysts:weak-coverage' | 'catalysts:replay'
+  // Module 22
+  | 'postevent:review' | 'postevent:run-due' | 'postevent:list'
+  | 'postevent:compare' | 'postevent:brokers' | 'postevent:weak'
+  | 'postevent:replay'
   | 'help'
 
 interface Args {
@@ -318,6 +328,28 @@ async function main(): Promise<void> {
     case 'catalysts:replay':
       await cmdCatalystsReplay(asCatalystFlags(args), store)
       break
+    // Module 22 — post-event reviews
+    case 'postevent:review':
+      await cmdPostEventReview(asPostEventFlags(args), store)
+      break
+    case 'postevent:run-due':
+      await cmdPostEventRunDue(asPostEventFlags(args), store)
+      break
+    case 'postevent:list':
+      cmdPostEventList(asPostEventFlags(args), store)
+      break
+    case 'postevent:compare':
+      cmdPostEventCompare(asPostEventFlags(args), store)
+      break
+    case 'postevent:brokers':
+      cmdPostEventBrokers(asPostEventFlags(args), store)
+      break
+    case 'postevent:weak':
+      cmdPostEventWeak(asPostEventFlags(args), store)
+      break
+    case 'postevent:replay':
+      await cmdPostEventReplay(asPostEventFlags(args), store)
+      break
     case 'help':
     default:
       printHelp()
@@ -356,6 +388,14 @@ function asCatalystFlags(args: Args): CatalystCliFlags {
     days: args.days,
     catalystId: args.catalystId,
     window: args.eventWindow,
+  }
+}
+
+function asPostEventFlags(args: Args): PostEventCliFlags {
+  return {
+    orgId: args.orgId,
+    catalystId: args.catalystId,
+    limit: args.limit,
   }
 }
 
@@ -816,6 +856,14 @@ function printHelp(): void {
   npm run ops -- catalysts:delta         --catalyst=<id> --window=<7d|30d>
   npm run ops -- catalysts:weak-coverage [--org=<orgId>]
   npm run ops -- catalysts:replay        [--org=<orgId>]
+
+  npm run ops -- postevent:review        --catalyst=<id>
+  npm run ops -- postevent:run-due       [--org=<orgId>]
+  npm run ops -- postevent:list          [--org=<orgId>] [--limit=<n>]
+  npm run ops -- postevent:compare       --catalyst=<id>
+  npm run ops -- postevent:brokers       [--org=<orgId>]
+  npm run ops -- postevent:weak          [--org=<orgId>]
+  npm run ops -- postevent:replay        [--org=<orgId>]
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

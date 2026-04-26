@@ -1,8 +1,11 @@
 import { useMemo, useState } from 'react'
 import type { CatalystId, ReportId, StockTicker } from '../../domain'
 import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
+import { useCompletedCatalystsViewModel } from '../../hooks/useCompletedCatalystsViewModel'
 import CatalystCard from '../catalysts/CatalystCard'
 import PreEventBriefPanel from '../catalysts/PreEventBriefPanel'
+import PostEventReviewPanel from '../catalysts/PostEventReviewPanel'
+import CompletedEventsSection from '../catalysts/CompletedEventsSection'
 import type { CatalystCardViewModel, CatalystGroupKey } from '../../viewModels/catalysts'
 
 interface SectionGroup {
@@ -144,11 +147,13 @@ export default function Catalysts({ onSelectReport, onSelectTicker, onOpenBriefi
           {filtered.length === 0 && (
             <div className="panel p-6 text-center text-[12px] text-slate-500">No catalysts match the current filter.</div>
           )}
+
+          <CompletedEventsSection selectedId={selectedId} onSelect={(id) => setSelectedId(id)}/>
         </div>
 
         <div className="min-w-0">
-          <PreEventBriefPanel
-            catalystId={selectedId}
+          <RightRail
+            selectedId={selectedId}
             onSelectReport={onSelectReport}
             onSelectTicker={onSelectTicker}
             onOpenBriefing={onOpenBriefing}
@@ -156,6 +161,39 @@ export default function Catalysts({ onSelectReport, onSelectTicker, onOpenBriefi
         </div>
       </div>
     </div>
+  )
+}
+
+function RightRail({
+  selectedId, onSelectReport, onSelectTicker, onOpenBriefing,
+}: {
+  selectedId: CatalystId | null
+  onSelectReport: (id: ReportId) => void
+  onSelectTicker: (t: StockTicker) => void
+  onOpenBriefing: () => void
+}) {
+  // Determine whether the selection is a completed catalyst — if so,
+  // show the post-event review; otherwise the pre-event brief.
+  const completed = useCompletedCatalystsViewModel()
+  const isCompleted = !!selectedId &&
+    !!completed.data?.items.some((i) => i.catalystId === selectedId)
+
+  if (isCompleted) {
+    return (
+      <PostEventReviewPanel
+        catalystId={selectedId}
+        onSelectReport={onSelectReport}
+        onSelectTicker={onSelectTicker}
+      />
+    )
+  }
+  return (
+    <PreEventBriefPanel
+      catalystId={selectedId}
+      onSelectReport={onSelectReport}
+      onSelectTicker={onSelectTicker}
+      onOpenBriefing={onOpenBriefing}
+    />
   )
 }
 

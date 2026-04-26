@@ -476,6 +476,15 @@ export function mapPostEventReviews(raw: unknown): readonly PostEventReview[] {
   return arr.map((x, i) => tagged(`${ctx.endpoint}[${i}]`, () => parsePostEventReview(x, `${ctx.endpoint}[${i}]`)))
 }
 
+export function mapPostEventReview(raw: unknown, ctx: MappingContext = { endpoint: 'postEventReview' }): PostEventReview {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'PostEventReview', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parsePostEventReview(x)
+  })
+}
+
 // ── Degraded-mode helpers exposed for adapters ───────────────────────────
 
 /** Given a list endpoint key, return an empty Page when the upstream 404s.

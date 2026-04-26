@@ -22,6 +22,11 @@ import type {
   ExpectationSnapshot, ExpectationBrokerOpinion, ExpectationStanceMix,
   EventExpectationDelta, EventMonitoringWindow, ExpectationDeltaSign,
   PreEventBrief, PreEventBriefSection, PostEventReview,
+  RealizedOutcome, RealizedOutcomeWindow,
+  BrokerVerdict, BrokerVerdictKind,
+  DivergenceResolution, DivergenceResolutionKind,
+  ExpectationError, ExpectationErrorKind,
+  CalibrationFeedback, PostEventReviewConfidenceBand,
   OrgScope, Page, Stance, Rating,
 } from '../../domain'
 import type {
@@ -1048,6 +1053,120 @@ export function parsePreEventBrief(raw: unknown, path = 'PreEventBrief'): PreEve
   }
 }
 
+// ── Module 22 helpers ──────────────────────────────────────────────────
+
+const REALIZED_DIRECTIONS: readonly RealizedOutcomeWindow['direction'][] = ['up', 'down', 'flat', 'unknown']
+const REALIZED_HEADLINE_DIRECTIONS: readonly RealizedOutcome['headlineDirection'][] = ['up', 'down', 'flat', 'mixed', 'unknown']
+const REALIZED_WINDOWS: readonly RealizedOutcomeWindow['window'][] = ['1d', '3d', '5d', '10d']
+const VERDICT_KINDS: readonly BrokerVerdictKind[] = ['right', 'wrong', 'inconclusive', 'no_view']
+const DIV_RES_KINDS: readonly DivergenceResolutionKind[] = ['resolved', 'persisted', 'widened', 'outlier_vindicated', 'outlier_invalidated', 'no_divergence_pre']
+const EXP_ERROR_KINDS: readonly ExpectationErrorKind[] = [
+  'overly_bullish', 'overly_cautious', 'target_dispersion_too_wide',
+  'target_dispersion_too_narrow', 'high_calibration_brokers_wrong',
+  'outlier_was_right', 'thin_coverage_pre_event',
+  'against_position_useful', 'against_position_not_useful',
+  'no_significant_error',
+]
+const POST_REVIEW_BANDS: readonly PostEventReviewConfidenceBand[] = ['very_low', 'low', 'medium', 'high']
+const STANCES_LOCAL_PE: readonly ('bullish' | 'neutral' | 'bearish')[] = ['bullish', 'neutral', 'bearish']
+
+function parseRealizedOutcomeWindow(raw: unknown, path: string): RealizedOutcomeWindow {
+  const x = asObject(raw, path)
+  return {
+    window: asEnum<RealizedOutcomeWindow['window']>(x.window, REALIZED_WINDOWS, `${path}.window`),
+    rawReturnPct: x.rawReturnPct === null ? null : asNumber(x.rawReturnPct, `${path}.rawReturnPct`),
+    benchmarkRelReturnPct: x.benchmarkRelReturnPct === null ? null : asNumber(x.benchmarkRelReturnPct, `${path}.benchmarkRelReturnPct`),
+    direction: asEnum<RealizedOutcomeWindow['direction']>(x.direction, REALIZED_DIRECTIONS, `${path}.direction`),
+  }
+}
+
+function parseRealizedOutcome(raw: unknown, path: string): RealizedOutcome {
+  const x = asObject(raw, path)
+  return {
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    anchorDate: asString(x.anchorDate, `${path}.anchorDate`),
+    anchorPrice: x.anchorPrice === null ? null : asNumber(x.anchorPrice, `${path}.anchorPrice`),
+    anchorCurrency: asStringOrNull(x.anchorCurrency, `${path}.anchorCurrency`),
+    windows: asArray(x.windows, `${path}.windows`).map((w, i) => parseRealizedOutcomeWindow(w, `${path}.windows[${i}]`)),
+    headlineDirection: asEnum<RealizedOutcome['headlineDirection']>(x.headlineDirection, REALIZED_HEADLINE_DIRECTIONS, `${path}.headlineDirection`),
+    hasCoverage: asBoolean(x.hasCoverage, `${path}.hasCoverage`),
+    coverageNote: asStringOrNull(x.coverageNote, `${path}.coverageNote`),
+  }
+}
+
+function parseBrokerVerdict(raw: unknown, path: string): BrokerVerdict {
+  const x = asObject(raw, path)
+  return {
+    brokerId: asBrokerId(asString(x.brokerId, `${path}.brokerId`)),
+    brokerShortName: asString(x.brokerShortName, `${path}.brokerShortName`),
+    preStance: asEnum<'bullish' | 'neutral' | 'bearish'>(x.preStance, STANCES_LOCAL_PE, `${path}.preStance`),
+    preRating: asStringOrNull(x.preRating, `${path}.preRating`),
+    preTargetPrice: x.preTargetPrice === null ? null : asNumber(x.preTargetPrice, `${path}.preTargetPrice`),
+    realizedDirection: asEnum<RealizedOutcome['headlineDirection']>(x.realizedDirection, REALIZED_HEADLINE_DIRECTIONS, `${path}.realizedDirection`),
+    verdict: asEnum<BrokerVerdictKind>(x.verdict, VERDICT_KINDS, `${path}.verdict`),
+    calibrationScore: x.calibrationScore === null ? null : asNumber(x.calibrationScore, `${path}.calibrationScore`),
+    hadDirectionalView: asBoolean(x.hadDirectionalView, `${path}.hadDirectionalView`),
+    reason: asString(x.reason, `${path}.reason`),
+  }
+}
+
+function parseDivergenceResolution(raw: unknown, path: string): DivergenceResolution {
+  const x = asObject(raw, path)
+  return {
+    kind: asEnum<DivergenceResolutionKind>(x.kind, DIV_RES_KINDS, `${path}.kind`),
+    preClosureState: asStringOrNull(x.preClosureState, `${path}.preClosureState`),
+    postClosureState: asStringOrNull(x.postClosureState, `${path}.postClosureState`),
+    preOutlierBrokerIds: asArray(x.preOutlierBrokerIds, `${path}.preOutlierBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.preOutlierBrokerIds[${i}]`))),
+    vindicatedOutlierBrokerIds: asArray(x.vindicatedOutlierBrokerIds, `${path}.vindicatedOutlierBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.vindicatedOutlierBrokerIds[${i}]`))),
+    invalidatedOutlierBrokerIds: asArray(x.invalidatedOutlierBrokerIds, `${path}.invalidatedOutlierBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.invalidatedOutlierBrokerIds[${i}]`))),
+    note: asString(x.note, `${path}.note`),
+  }
+}
+
+function parseExpectationError(raw: unknown, path: string): ExpectationError {
+  const x = asObject(raw, path)
+  return {
+    kind: asEnum<ExpectationErrorKind>(x.kind, EXP_ERROR_KINDS, `${path}.kind`),
+    text: asString(x.text, `${path}.text`),
+    magnitude: asNumber(x.magnitude, `${path}.magnitude`),
+  }
+}
+
+function parseCalibrationFeedback(raw: unknown, path: string): CalibrationFeedback {
+  const x = asObject(raw, path)
+  const ctype = asObject(x.catalystTypePerformance, `${path}.catalystTypePerformance`)
+  return {
+    brokerCorrectness: asArray(x.brokerCorrectness, `${path}.brokerCorrectness`).map((b, i) => {
+      const o = asObject(b, `${path}.brokerCorrectness[${i}]`)
+      return {
+        brokerId: asBrokerId(asString(o.brokerId, `${path}.brokerCorrectness[${i}].brokerId`)),
+        correct: asInt(o.correct, `${path}.brokerCorrectness[${i}].correct`),
+        wrong: asInt(o.wrong, `${path}.brokerCorrectness[${i}].wrong`),
+        inconclusive: asInt(o.inconclusive, `${path}.brokerCorrectness[${i}].inconclusive`),
+      }
+    }),
+    catalystTypePerformance: {
+      type: asEnum<CatalystType>(ctype.type, CATALYST_TYPES_LOCAL, `${path}.catalystTypePerformance.type`),
+      directionallyRight: asInt(ctype.directionallyRight, `${path}.catalystTypePerformance.directionallyRight`),
+      directionallyWrong: asInt(ctype.directionallyWrong, `${path}.catalystTypePerformance.directionallyWrong`),
+      inconclusive: asInt(ctype.inconclusive, `${path}.catalystTypePerformance.inconclusive`),
+    },
+    preEventAlertUsefulness: asArray(x.preEventAlertUsefulness, `${path}.preEventAlertUsefulness`).map((a, i) => {
+      const o = asObject(a, `${path}.preEventAlertUsefulness[${i}]`)
+      return {
+        alertId: asAlertId(asString(o.alertId, `${path}.preEventAlertUsefulness[${i}].alertId`)),
+        useful: asBoolean(o.useful, `${path}.preEventAlertUsefulness[${i}].useful`),
+        note: asString(o.note, `${path}.preEventAlertUsefulness[${i}].note`),
+      }
+    }),
+    eventDriven: asBoolean(x.eventDriven, `${path}.eventDriven`),
+    methodologyVersion: asString(x.methodologyVersion, `${path}.methodologyVersion`),
+  }
+}
+
 export function parsePostEventReview(raw: unknown, path = 'PostEventReview'): PostEventReview {
   const x = asObject(raw, path)
   return {
@@ -1055,14 +1174,27 @@ export function parsePostEventReview(raw: unknown, path = 'PostEventReview'): Po
     orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
     catalystId: asCatalystId(asString(x.catalystId, `${path}.catalystId`)),
     generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    reviewedAt: asString(x.reviewedAt, `${path}.reviewedAt`),
     preEventSnapshot: parseExpectationSnapshot(x.preEventSnapshot, `${path}.preEventSnapshot`),
     postEventSnapshot: x.postEventSnapshot === null ? null : parseExpectationSnapshot(x.postEventSnapshot, `${path}.postEventSnapshot`),
+    realizedOutcome: parseRealizedOutcome(x.realizedOutcome, `${path}.realizedOutcome`),
+    brokerVerdicts: asArray(x.brokerVerdicts, `${path}.brokerVerdicts`).map((v, i) => parseBrokerVerdict(v, `${path}.brokerVerdicts[${i}]`)),
     directionallyRightBrokerIds: asArray(x.directionallyRightBrokerIds, `${path}.directionallyRightBrokerIds`)
       .map((b, i) => asBrokerId(asString(b, `${path}.directionallyRightBrokerIds[${i}]`))),
     directionallyWrongBrokerIds: asArray(x.directionallyWrongBrokerIds, `${path}.directionallyWrongBrokerIds`)
       .map((b, i) => asBrokerId(asString(b, `${path}.directionallyWrongBrokerIds[${i}]`))),
-    divergenceResolved: asBoolean(x.divergenceResolved, `${path}.divergenceResolved`),
+    inconclusiveBrokerIds: asArray(x.inconclusiveBrokerIds, `${path}.inconclusiveBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.inconclusiveBrokerIds[${i}]`))),
+    divergenceResolution: parseDivergenceResolution(x.divergenceResolution, `${path}.divergenceResolution`),
+    expectationErrors: asArray(x.expectationErrors, `${path}.expectationErrors`).map((e, i) => parseExpectationError(e, `${path}.expectationErrors[${i}]`)),
+    topPostEventReportIds: asArray(x.topPostEventReportIds, `${path}.topPostEventReportIds`)
+      .map((r, i) => asReportId(asString(r, `${path}.topPostEventReportIds[${i}]`))),
+    calibrationFeedback: parseCalibrationFeedback(x.calibrationFeedback, `${path}.calibrationFeedback`),
+    outcomeSummary: asString(x.outcomeSummary, `${path}.outcomeSummary`),
+    confidence: asEnum<PostEventReviewConfidenceBand>(x.confidence, POST_REVIEW_BANDS, `${path}.confidence`),
     notes: asArray(x.notes, `${path}.notes`).map((n, i) => asString(n, `${path}.notes[${i}]`)),
+    executiveSummary: asStringOrNull(x.executiveSummary, `${path}.executiveSummary`),
+    executiveSummaryFromLlm: asBoolean(x.executiveSummaryFromLlm, `${path}.executiveSummaryFromLlm`),
   }
 }
 

@@ -109,7 +109,9 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'catalysts',          endpoint: 'GET /v1/catalysts',                requirement: 'list',     description: 'Catalyst calendar for the org.', tolerate404: true },
   { key: 'catalyst',           endpoint: 'GET /v1/catalysts/:id',            requirement: 'optional', description: 'Single catalyst detail.', tolerate404: true },
   { key: 'catalystBrief',      endpoint: 'GET /v1/catalysts/:id/brief',      requirement: 'optional', description: 'Latest pre-event brief for a catalyst.', tolerate404: true },
-  { key: 'postEventReviews',   endpoint: 'GET /v1/post-event-reviews',       requirement: 'list',     description: 'Post-event reviews (scaffold).', tolerate404: true },
+  { key: 'postEventReviews',   endpoint: 'GET /v1/post-event-reviews',       requirement: 'list',     description: 'Post-event reviews list.', tolerate404: true },
+  { key: 'postEventReview',    endpoint: 'GET /v1/post-event-reviews/:id',   requirement: 'optional', description: 'Single post-event review by id.', tolerate404: true },
+  { key: 'catalystPostEventReview', endpoint: 'GET /v1/catalysts/:id/post-event-review', requirement: 'optional', description: 'Latest post-event review for a catalyst.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

@@ -226,6 +226,7 @@ export interface Repo {
   listPreEventBriefs(orgId: OrgId, limit?: number): readonly PreEventBrief[]
   upsertPostEventReview(rec: PostEventReview): void
   getPostEventReview(orgId: OrgId, id: PostEventReviewId): PostEventReview | null
+  latestPostEventReviewForCatalyst(orgId: OrgId, catalystId: CatalystId): PostEventReview | null
   listPostEventReviews(orgId: OrgId, limit?: number): readonly PostEventReview[]
   loadCatalystsForOrg(orgId: OrgId): {
     readonly catalysts: readonly CatalystEvent[]

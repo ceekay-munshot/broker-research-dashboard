@@ -5,6 +5,7 @@ import { organizations } from './config/organizations'
 import { runAlertsForStore } from './alerts/bootstrap'
 import { runCalibrationForStore } from './calibration/bootstrap'
 import { runCatalystsForStore } from './catalysts/bootstrap'
+import { runPostEventReviewsForStore } from './postEventReview/bootstrap'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -65,6 +66,15 @@ async function main(): Promise<void> {
   const catReport = await runCatalystsForStore(store, organizations.map((o) => o.id))
   for (const r of catReport) {
     console.log(`│  org=${r.orgId as unknown as string}  calendar=${r.calendarSize}  snapshots=${r.snapshots}  briefs=${r.briefs}  reviews=${r.reviews}`)
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  // Module 22 — run full post-event reviews for any just-completed
+  // catalyst (replaces the Module 21 stub when both are present).
+  console.log('┌─ post-event reviews ──────────────────────────────────')
+  const peReport = await runPostEventReviewsForStore(store, organizations.map((o) => o.id))
+  for (const r of peReport) {
+    console.log(`│  org=${r.orgId as unknown as string}  attempted=${r.attempted}  produced=${r.produced}  skipped=${r.skipped}`)
   }
   console.log('└────────────────────────────────────────────────────────')
 

@@ -1,7 +1,7 @@
 import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   AlertId, DigestId, AlertTriggerKind,
-  CatalystId,
+  CatalystId, PostEventReviewId,
 } from '../../domain'
 
 // Every HTTP path the adapter uses, in one place. Changing a URL is a
@@ -74,4 +74,6 @@ export const endpoints = {
   catalyst:                   (id: CatalystId) => v1(`/catalysts/${enc(id as unknown as string)}`),
   catalystBrief:              (id: CatalystId) => v1(`/catalysts/${enc(id as unknown as string)}/brief`),
   postEventReviews:           () => v1('/post-event-reviews'),
+  postEventReview:            (id: PostEventReviewId) => v1(`/post-event-reviews/${enc(id as unknown as string)}`),
+  catalystPostEventReview:    (id: CatalystId) => v1(`/catalysts/${enc(id as unknown as string)}/post-event-review`),
 } as const

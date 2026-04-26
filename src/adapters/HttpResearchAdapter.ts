@@ -13,7 +13,7 @@ import type {
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
   CatalystEvent, PreEventBrief, PostEventReview,
-  CatalystId,
+  CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -38,7 +38,7 @@ import {
   mapAlertEvent, mapAlertEvents, mapAlertDigest, mapAlertDigests,
   mapCalibrationSnapshot, mapBrokerCalibrations, mapBrokerCalibrationSummary,
   mapAlertEffectivenessList, mapAlertEffectivenessSummary, mapCoverageSignalResult,
-  mapCatalystEvent, mapCatalystEvents, mapPreEventBrief, mapPostEventReviews,
+  mapCatalystEvent, mapCatalystEvents, mapPreEventBrief, mapPostEventReviews, mapPostEventReview,
 } from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
@@ -431,6 +431,26 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const items = mapPostEventReviews(raw)
     assertPageOrg('PostEventReview', scope, items, (it) => it.orgId as unknown as string)
     return items
+  }
+
+  async getLatestPostEventReview(scope: OrgScope, id: CatalystId): Promise<PostEventReview | null> {
+    const raw = await this.client.requestOrNull(endpoints.catalystPostEventReview(id), scope, {
+      endpointKey: 'catalystPostEventReview',
+    })
+    if (raw === null) return null
+    const item = mapPostEventReview(raw)
+    assertOrgMatch('PostEventReview', scope, item.orgId as unknown as string)
+    return item
+  }
+
+  async getPostEventReview(scope: OrgScope, id: PostEventReviewId): Promise<PostEventReview | null> {
+    const raw = await this.client.requestOrNull(endpoints.postEventReview(id), scope, {
+      endpointKey: 'postEventReview',
+    })
+    if (raw === null) return null
+    const item = mapPostEventReview(raw)
+    assertOrgMatch('PostEventReview', scope, item.orgId as unknown as string)
+    return item
   }
 }
 

@@ -13,7 +13,7 @@ import type {
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
   CatalystEvent, PreEventBrief, PostEventReview,
-  CatalystId,
+  CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -141,4 +141,8 @@ export interface ResearchAdapter {
   getLatestPreEventBrief(scope: OrgScope, catalystId: CatalystId): Promise<PreEventBrief | null>
   /** All post-event reviews for the org. */
   listPostEventReviews(scope: OrgScope): Promise<readonly PostEventReview[]>
+  /** Latest post-event review for a catalyst, or null. */
+  getLatestPostEventReview(scope: OrgScope, catalystId: CatalystId): Promise<PostEventReview | null>
+  /** Single post-event review by id, or null. */
+  getPostEventReview(scope: OrgScope, id: PostEventReviewId): Promise<PostEventReview | null>
 }

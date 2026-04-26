@@ -387,8 +387,181 @@ export const expectationSnapshots: readonly ExpectationSnapshot[] = [
   tcsSnapshotNow, infySnapshotNow, tatamotorsSnapshotNow, hcltechSnapshotNow,
 ]
 
-export const postEventReviews: readonly PostEventReview[] = [
-  // empty for now — module 21 ships the seam, future modules fill it.
-] as readonly PostEventReview[]
+// ── Completed-event reviews (Module 22) ────────────────────────────────
+//
+// Two hand-tuned reviews on completed catalysts so the Catalysts tab
+// has something to render in the new "Completed events" section
+// without needing a live server. In http/local mode the engine
+// computes these freshly from the canonical store + market provider.
 
-void asPostEventReviewId
+const tatamotorsCompletedSnapshot: ExpectationSnapshot = {
+  orgId: ARANYA,
+  ticker: asTicker('TATAMOTORS'),
+  catalystId: asCatalystId('cat_aranya_tatamotors_completed_demo'),
+  asOf: '2026-04-19T07:30:00.000Z',
+  distinctBrokers: 4,
+  stanceMix: { bullish: 3, neutral: 0, bearish: 1 },
+  avgTargetPrice: 970, medianTargetPrice: 970, targetSpreadPct: 22.0,
+  avgImpliedUpsidePct: 8.5,
+  hasDivergence: true,
+  opinions: [
+    { brokerId: asBrokerId('brk_ambit'), brokerShortName: 'AMBIT', rating: 'Buy', stance: 'bullish', targetPrice: 1020, priorTargetPrice: 920, targetCurrency: 'INR', impliedUpsidePct: 14.0, lastReportId: asReportId('rpt_0019'), lastUpdatedAt: '2026-04-19T05:00:00.000Z', calibrationScore: 28, calibrationConfidence: 'medium' },
+    { brokerId: asBrokerId('brk_kotak'), brokerShortName: 'KOTAK', rating: 'Buy', stance: 'bullish', targetPrice: 940, priorTargetPrice: 940, targetCurrency: 'INR', impliedUpsidePct: 5.1, lastReportId: asReportId('rpt_0007'), lastUpdatedAt: '2026-04-18T05:00:00.000Z', calibrationScore: 38, calibrationConfidence: 'medium' },
+    { brokerId: asBrokerId('brk_jmfin'), brokerShortName: 'JM FIN', rating: 'Buy', stance: 'bullish', targetPrice: 1000, priorTargetPrice: 1000, targetCurrency: 'INR', impliedUpsidePct: 11.2, lastReportId: asReportId('rpt_0009'), lastUpdatedAt: '2026-04-18T05:00:00.000Z', calibrationScore: 14, calibrationConfidence: 'low' },
+    { brokerId: asBrokerId('brk_hdfc'), brokerShortName: 'HDFC',  rating: 'Hold', stance: 'bearish', targetPrice: 880, priorTargetPrice: 880, targetCurrency: 'INR', impliedUpsidePct: -2.0, lastReportId: asReportId('rpt_0030'), lastUpdatedAt: '2026-04-18T05:00:00.000Z', calibrationScore: -8, calibrationConfidence: 'low' },
+  ],
+  tiltSummary: '3/4 brokers bullish into the event.',
+}
+
+const tatamotorsReview: PostEventReview = {
+  id: asPostEventReviewId('postrev_aranya_tatamotors_completed_demo'),
+  orgId: ARANYA,
+  catalystId: asCatalystId('cat_aranya_tatamotors_completed_demo'),
+  generatedAt: '2026-04-26T07:30:00.000Z',
+  reviewedAt: '2026-04-26T07:30:00.000Z',
+  preEventSnapshot: tatamotorsCompletedSnapshot,
+  postEventSnapshot: null,
+  realizedOutcome: {
+    ticker: asTicker('TATAMOTORS'),
+    anchorDate: '2026-04-21',
+    anchorPrice: 894.6,
+    anchorCurrency: 'INR',
+    windows: [
+      { window: '1d',  rawReturnPct: -1.42, benchmarkRelReturnPct: -1.10, direction: 'down' },
+      { window: '3d',  rawReturnPct: -3.10, benchmarkRelReturnPct: -2.40, direction: 'down' },
+      { window: '5d',  rawReturnPct: -4.20, benchmarkRelReturnPct: -3.55, direction: 'down' },
+      { window: '10d', rawReturnPct: -5.60, benchmarkRelReturnPct: -4.30, direction: 'down' },
+    ],
+    headlineDirection: 'down',
+    hasCoverage: true,
+    coverageNote: null,
+  },
+  brokerVerdicts: [
+    { brokerId: asBrokerId('brk_ambit'), brokerShortName: 'AMBIT', preStance: 'bullish', preRating: 'Buy', preTargetPrice: 1020, realizedDirection: 'down', verdict: 'wrong', calibrationScore: 28, hadDirectionalView: true, reason: 'bullish pre-event opposed realized down.' },
+    { brokerId: asBrokerId('brk_kotak'), brokerShortName: 'KOTAK', preStance: 'bullish', preRating: 'Buy', preTargetPrice: 940, realizedDirection: 'down', verdict: 'wrong', calibrationScore: 38, hadDirectionalView: true, reason: 'bullish pre-event opposed realized down.' },
+    { brokerId: asBrokerId('brk_jmfin'), brokerShortName: 'JM FIN', preStance: 'bullish', preRating: 'Buy', preTargetPrice: 1000, realizedDirection: 'down', verdict: 'wrong', calibrationScore: 14, hadDirectionalView: true, reason: 'bullish pre-event opposed realized down.' },
+    { brokerId: asBrokerId('brk_hdfc'),  brokerShortName: 'HDFC',  preStance: 'bearish', preRating: 'Hold', preTargetPrice: 880, realizedDirection: 'down', verdict: 'right', calibrationScore: -8, hadDirectionalView: true, reason: 'bearish pre-event matched realized down.' },
+  ],
+  directionallyRightBrokerIds: [asBrokerId('brk_hdfc')],
+  directionallyWrongBrokerIds: [asBrokerId('brk_ambit'), asBrokerId('brk_kotak'), asBrokerId('brk_jmfin')],
+  inconclusiveBrokerIds: [],
+  divergenceResolution: {
+    kind: 'outlier_vindicated',
+    preClosureState: 'mixed_constructive',
+    postClosureState: 'mixed_cautious',
+    preOutlierBrokerIds: [asBrokerId('brk_hdfc')],
+    vindicatedOutlierBrokerIds: [asBrokerId('brk_hdfc')],
+    invalidatedOutlierBrokerIds: [],
+    note: '1 pre-event outlier was directionally right.',
+  },
+  expectationErrors: [
+    { kind: 'overly_bullish', text: 'Pre-event Street was 75% bullish but realized down.', magnitude: 82 },
+    { kind: 'high_calibration_brokers_wrong', text: '2 high-calibration brokers were on the wrong side.', magnitude: 70 },
+    { kind: 'outlier_was_right', text: '1 pre-event outlier called it correctly — re-weight them in future briefs.', magnitude: 65 },
+    { kind: 'against_position_useful', text: 'Against-position alert pre-event lined up with realized down.', magnitude: 55 },
+  ],
+  topPostEventReportIds: [asReportId('rpt_0019'), asReportId('rpt_0030')],
+  calibrationFeedback: {
+    brokerCorrectness: [
+      { brokerId: asBrokerId('brk_ambit'), correct: 0, wrong: 1, inconclusive: 0 },
+      { brokerId: asBrokerId('brk_kotak'), correct: 0, wrong: 1, inconclusive: 0 },
+      { brokerId: asBrokerId('brk_jmfin'), correct: 0, wrong: 1, inconclusive: 0 },
+      { brokerId: asBrokerId('brk_hdfc'),  correct: 1, wrong: 0, inconclusive: 0 },
+    ],
+    catalystTypePerformance: { type: 'investor_day', directionallyRight: 1, directionallyWrong: 3, inconclusive: 0 },
+    preEventAlertUsefulness: [
+      { alertId: asAlertId('alrt_aranya_against_tatam_001'), useful: true, note: 'Against-position warning matched realized down move.' },
+    ],
+    eventDriven: true,
+    methodologyVersion: 'v1.0',
+  },
+  outcomeSummary: 'TATAMOTORS 5d -4.20% (down) · 1 right / 3 wrong — Street was wrong · divergence outlier vindicated.',
+  confidence: 'medium',
+  notes: [],
+  executiveSummary: 'TATAMOTORS — JLR strategy day: realized down (5d -4.20%). 1 broker right, 3 wrong. Pre-event Street was 75% bullish but realized down. 1 pre-event outlier was directionally right.',
+  executiveSummaryFromLlm: false,
+}
+
+const icicibankCompletedSnapshot: ExpectationSnapshot = {
+  orgId: ARANYA,
+  ticker: asTicker('ICICIBANK'),
+  catalystId: asCatalystId('cat_aranya_icicibank_completed_demo'),
+  asOf: '2026-04-15T07:30:00.000Z',
+  distinctBrokers: 3,
+  stanceMix: { bullish: 2, neutral: 1, bearish: 0 },
+  avgTargetPrice: 1340, medianTargetPrice: 1350, targetSpreadPct: 11.0,
+  avgImpliedUpsidePct: 5.4,
+  hasDivergence: false,
+  opinions: [
+    { brokerId: asBrokerId('brk_kotak'), brokerShortName: 'KOTAK', rating: 'Buy', stance: 'bullish', targetPrice: 1380, priorTargetPrice: 1320, targetCurrency: 'INR', impliedUpsidePct: 7.9, lastReportId: asReportId('rpt_0029'), lastUpdatedAt: '2026-04-14T05:00:00.000Z', calibrationScore: 38, calibrationConfidence: 'medium' },
+    { brokerId: asBrokerId('brk_mosl'),  brokerShortName: 'MOSL',  rating: 'Buy', stance: 'bullish', targetPrice: 1350, priorTargetPrice: 1350, targetCurrency: 'INR', impliedUpsidePct: 5.5, lastReportId: asReportId('rpt_0006'), lastUpdatedAt: '2026-04-14T05:00:00.000Z', calibrationScore: 32, calibrationConfidence: 'medium' },
+    { brokerId: asBrokerId('brk_nuvama'), brokerShortName: 'NUVAMA', rating: 'Hold', stance: 'neutral', targetPrice: 1240, priorTargetPrice: 1240, targetCurrency: 'INR', impliedUpsidePct: -3.1, lastReportId: asReportId('rpt_0015'), lastUpdatedAt: '2026-04-14T05:00:00.000Z', calibrationScore: 6, calibrationConfidence: 'low' },
+  ],
+  tiltSummary: '2/3 brokers bullish into the event.',
+}
+
+const icicibankReview: PostEventReview = {
+  id: asPostEventReviewId('postrev_aranya_icicibank_completed_demo'),
+  orgId: ARANYA,
+  catalystId: asCatalystId('cat_aranya_icicibank_completed_demo'),
+  generatedAt: '2026-04-26T07:30:00.000Z',
+  reviewedAt: '2026-04-26T07:30:00.000Z',
+  preEventSnapshot: icicibankCompletedSnapshot,
+  postEventSnapshot: null,
+  realizedOutcome: {
+    ticker: asTicker('ICICIBANK'),
+    anchorDate: '2026-04-17',
+    anchorPrice: 1279.25,
+    anchorCurrency: 'INR',
+    windows: [
+      { window: '1d',  rawReturnPct: 1.10, benchmarkRelReturnPct: 0.85, direction: 'up' },
+      { window: '3d',  rawReturnPct: 2.40, benchmarkRelReturnPct: 1.80, direction: 'up' },
+      { window: '5d',  rawReturnPct: 3.20, benchmarkRelReturnPct: 2.40, direction: 'up' },
+      { window: '10d', rawReturnPct: 4.10, benchmarkRelReturnPct: 3.05, direction: 'up' },
+    ],
+    headlineDirection: 'up',
+    hasCoverage: true,
+    coverageNote: null,
+  },
+  brokerVerdicts: [
+    { brokerId: asBrokerId('brk_kotak'),  brokerShortName: 'KOTAK',  preStance: 'bullish', preRating: 'Buy',  preTargetPrice: 1380, realizedDirection: 'up', verdict: 'right', calibrationScore: 38, hadDirectionalView: true, reason: 'bullish pre-event matched realized up.' },
+    { brokerId: asBrokerId('brk_mosl'),   brokerShortName: 'MOSL',   preStance: 'bullish', preRating: 'Buy',  preTargetPrice: 1350, realizedDirection: 'up', verdict: 'right', calibrationScore: 32, hadDirectionalView: true, reason: 'bullish pre-event matched realized up.' },
+    { brokerId: asBrokerId('brk_nuvama'), brokerShortName: 'NUVAMA', preStance: 'neutral', preRating: 'Hold', preTargetPrice: 1240, realizedDirection: 'up', verdict: 'no_view', calibrationScore: 6,  hadDirectionalView: false, reason: 'Held no directional view going into the event.' },
+  ],
+  directionallyRightBrokerIds: [asBrokerId('brk_kotak'), asBrokerId('brk_mosl')],
+  directionallyWrongBrokerIds: [],
+  inconclusiveBrokerIds: [],
+  divergenceResolution: {
+    kind: 'no_divergence_pre',
+    preClosureState: 'consensus_bullish',
+    postClosureState: 'consensus_bullish',
+    preOutlierBrokerIds: [],
+    vindicatedOutlierBrokerIds: [],
+    invalidatedOutlierBrokerIds: [],
+    note: 'Street had no material divergence going into the event.',
+  },
+  expectationErrors: [
+    { kind: 'no_significant_error', text: 'No significant pre-event expectation error detected.', magnitude: 0 },
+  ],
+  topPostEventReportIds: [asReportId('rpt_0029'), asReportId('rpt_0006')],
+  calibrationFeedback: {
+    brokerCorrectness: [
+      { brokerId: asBrokerId('brk_kotak'),  correct: 1, wrong: 0, inconclusive: 0 },
+      { brokerId: asBrokerId('brk_mosl'),   correct: 1, wrong: 0, inconclusive: 0 },
+      { brokerId: asBrokerId('brk_nuvama'), correct: 0, wrong: 0, inconclusive: 0 },
+    ],
+    catalystTypePerformance: { type: 'earnings', directionallyRight: 2, directionallyWrong: 0, inconclusive: 0 },
+    preEventAlertUsefulness: [],
+    eventDriven: true,
+    methodologyVersion: 'v1.0',
+  },
+  outcomeSummary: 'ICICIBANK 5d +3.20% (up) · 2 right / 0 wrong — Street was right.',
+  confidence: 'medium',
+  notes: [],
+  executiveSummary: 'ICICIBANK — Q4 FY26 (prior cycle): realized up (5d +3.20%). 2 brokers right, 0 wrong. Street was directionally aligned and right.',
+  executiveSummaryFromLlm: false,
+}
+
+export const postEventReviews: readonly PostEventReview[] = [
+  tatamotorsReview, icicibankReview,
+]

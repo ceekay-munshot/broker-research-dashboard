@@ -13,7 +13,7 @@ import type {
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
   CatalystEvent, PreEventBrief, PostEventReview,
-  CatalystId,
+  CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -450,6 +450,20 @@ export class MockResearchAdapter implements ResearchAdapter {
       .filter((r) => r.orgId === scope.orgId)
       .slice()
       .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+  }
+
+  async getLatestPostEventReview(scope: OrgScope, catalystId: CatalystId): Promise<PostEventReview | null> {
+    await this.delay()
+    const matches = postEventReviews
+      .filter((r) => r.orgId === scope.orgId && r.catalystId === catalystId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return matches[0] ?? null
+  }
+
+  async getPostEventReview(scope: OrgScope, id: PostEventReviewId): Promise<PostEventReview | null> {
+    await this.delay()
+    const r = postEventReviews.find((x) => x.id === id)
+    return r && r.orgId === scope.orgId ? r : null
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {

@@ -125,6 +125,26 @@ export const catalystEvents: readonly CatalystEvent[] = [
     tags: ['earnings', 'short_position'],
   }),
 
+  // ── Aranya — completed events (Module 22) ─────────────────────────
+  event({
+    id: 'cat_aranya_tatamotors_completed_demo', orgId: 'org_aranya', type: 'investor_day', status: 'completed', importance: 'high',
+    ticker: 'TATAMOTORS', stockName: 'Tata Motors', sectorId: 'sec_consumer',
+    headline: 'TATAMOTORS — JLR strategy day (prior)',
+    description: 'JLR investor day held earlier this month. Outlier HDFC was bearish; turned out to be right.',
+    expectedAt: '2026-04-21T05:00:00.000Z', hasIntradayTime: false,
+    source: FIXTURE_SOURCE, updatedAt: '2026-04-21T05:00:00.000Z',
+    tags: ['investor_day', 'completed'],
+  }),
+  event({
+    id: 'cat_aranya_icicibank_completed_demo', orgId: 'org_aranya', type: 'earnings', status: 'completed', importance: 'critical',
+    ticker: 'ICICIBANK', stockName: 'ICICI Bank', sectorId: 'sec_fin',
+    headline: 'ICICIBANK — Q4 FY26 (prior cycle)',
+    description: 'ICICI Bank reported earlier this month. Street was directionally aligned and right.',
+    expectedAt: '2026-04-17T05:00:00.000Z', hasIntradayTime: false,
+    source: FIXTURE_SOURCE, updatedAt: '2026-04-17T05:00:00.000Z',
+    tags: ['earnings', 'completed'],
+  }),
+
   // ── Aranya — watchlist ────────────────────────────────────────────
   event({
     id: 'cat_aranya_hcltech_q4', orgId: 'org_aranya', type: 'earnings', status: 'scheduled', importance: 'medium',
