@@ -1,6 +1,6 @@
 import type {
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
-  AlertId, DigestId,
+  AlertId, DigestId, AlertTriggerKind,
 } from '../../domain'
 
 // Every HTTP path the adapter uses, in one place. Changing a URL is a
@@ -59,4 +59,12 @@ export const endpoints = {
   alertDigests:          () => v1('/alert-digests'),
   alertDigest:           (id: DigestId) => v1(`/alert-digests/${enc(id as unknown as string)}`),
   latestAlertDigest:     () => v1('/alert-digests/latest'),
+
+  // Calibration / signal effectiveness
+  calibrationSnapshot:        () => v1('/calibration/snapshot'),
+  brokerCalibrations:         () => v1('/calibration/brokers'),
+  brokerCalibration:          (id: BrokerId) => v1(`/calibration/brokers/${enc(id as unknown as string)}`),
+  alertEffectivenessList:     () => v1('/calibration/alerts'),
+  alertEffectiveness:         (kind: AlertTriggerKind) => v1(`/calibration/alerts/${enc(kind as unknown as string)}`),
+  coverageSignal:             (t: StockTicker) => v1(`/calibration/coverage/${enc(t as unknown as string)}`),
 } as const

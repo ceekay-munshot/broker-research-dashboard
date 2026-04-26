@@ -3,6 +3,7 @@ import { startApiServer } from './api/server'
 import { HybridCanonicalStore, createDefaultRepo } from './persistence'
 import { organizations } from './config/organizations'
 import { runAlertsForStore } from './alerts/bootstrap'
+import { runCalibrationForStore } from './calibration/bootstrap'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -45,6 +46,15 @@ async function main(): Promise<void> {
   const alertsReport = await runAlertsForStore(store, organizations.map((o) => o.id), 'bootstrap')
   for (const r of alertsReport) {
     console.log(`│  org=${r.orgId as unknown as string}  emitted=${r.emitted}  suppressed=${r.suppressed}  digests=${r.digests}`)
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  // Module 20 — compute broker calibration + alert effectiveness +
+  // per-ticker coverage signals from canonical state + market provider.
+  console.log('┌─ calibration ─────────────────────────────────────────')
+  const calReport = await runCalibrationForStore(store, organizations.map((o) => o.id), 'bootstrap')
+  for (const r of calReport) {
+    console.log(`│  org=${r.orgId as unknown as string}  events=${r.events}  outcomes=${r.outcomes}  brokers=${r.brokers}  alerts=${r.alertKinds}`)
   }
   console.log('└────────────────────────────────────────────────────────')
 

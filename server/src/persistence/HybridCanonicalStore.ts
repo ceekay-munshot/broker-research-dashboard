@@ -15,6 +15,7 @@ import type {
   Attachment, BrokerEmail, BrokerStockOpinion, EvidenceSnippet,
   OrgId, ResearchReport, ReportSummary,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
+  CalibrationSnapshot,
 } from '../../../src/domain'
 import { InMemoryStore } from '../store/InMemoryStore'
 import type { Repo } from './types'
@@ -77,6 +78,10 @@ export class HybridCanonicalStore extends InMemoryStore {
       for (const d of alerts.digests) super.upsertDigest(d)
       for (const r of alerts.digestRuns) super.upsertDigestRun(r)
       for (const n of alerts.notifications) super.upsertNotification(n)
+
+      // Module 20 — calibration snapshots.
+      const cal = this.repo.loadCalibrationForOrg(orgId)
+      for (const s of cal.snapshots) super.upsertCalibrationSnapshot(s)
     }
   }
 
@@ -97,5 +102,11 @@ export class HybridCanonicalStore extends InMemoryStore {
   override upsertNotification(n: NotificationRecord): void {
     super.upsertNotification(n)
     this.repo.upsertNotification(n)
+  }
+
+  // Module 20 — calibration dual-write.
+  override upsertCalibrationSnapshot(s: CalibrationSnapshot): void {
+    super.upsertCalibrationSnapshot(s)
+    this.repo.upsertCalibrationSnapshot(s)
   }
 }

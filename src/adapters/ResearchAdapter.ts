@@ -9,6 +9,9 @@ import type {
   PortfolioSnapshot,
   AlertEvent, AlertDigest, DigestKind,
   AlertId, DigestId,
+  CalibrationSnapshot, BrokerCalibrationSummary,
+  AlertEffectivenessSummary, CoverageSignalResult,
+  AlertTriggerKind,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -115,4 +118,16 @@ export interface ResearchAdapter {
   getAlertDigest(scope: OrgScope, id: DigestId): Promise<AlertDigest | null>
   /** Latest digest of a given kind, or null if none. */
   getLatestAlertDigest(scope: OrgScope, kind: DigestKind): Promise<AlertDigest | null>
+
+  // ─── Calibration / signal effectiveness (Module 20) ───────────────────
+  /** Latest calibration snapshot for the org, or null. */
+  getCalibrationSnapshot(scope: OrgScope): Promise<CalibrationSnapshot | null>
+  /** Per-broker calibration scorecards from the latest snapshot. */
+  listBrokerCalibrations(scope: OrgScope): Promise<readonly BrokerCalibrationSummary[]>
+  getBrokerCalibration(scope: OrgScope, brokerId: BrokerId): Promise<BrokerCalibrationSummary | null>
+  /** Per-alert-kind effectiveness scorecards from the latest snapshot. */
+  listAlertEffectiveness(scope: OrgScope): Promise<readonly AlertEffectivenessSummary[]>
+  getAlertEffectiveness(scope: OrgScope, kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null>
+  /** Per-ticker coverage signal from the latest snapshot. */
+  getCoverageSignal(scope: OrgScope, ticker: StockTicker): Promise<CoverageSignalResult | null>
 }

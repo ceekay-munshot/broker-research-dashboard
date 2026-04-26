@@ -20,6 +20,7 @@ import type {
   OrgId, ReportId, ResearchReport, ReportSummary,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
+  CalibrationSnapshot, CalibrationSnapshotId,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -34,6 +35,8 @@ const TABLES = [
   'llmCallRecords', 'llmCache',
   // Module 19
   'alertEvents', 'alertDigests', 'digestRuns', 'notifications',
+  // Module 20
+  'calibrationSnapshots',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -56,6 +59,7 @@ interface Snapshot {
   alertDigests: AlertDigest[]
   digestRuns: DigestRun[]
   notifications: NotificationRecord[]
+  calibrationSnapshots: CalibrationSnapshot[]
 }
 
 export interface JsonFileRepoOptions {
@@ -161,6 +165,13 @@ export class JsonFileRepo implements Repo {
   listNotifications(orgId: OrgId, limit?: number) { return this.mem.listNotifications(orgId, limit) }
   loadAlertsForOrg(orgId: OrgId) { return this.mem.loadAlertsForOrg(orgId) }
 
+  // Module 20 — calibration snapshots
+  upsertCalibrationSnapshot(rec: CalibrationSnapshot) { this.mem.upsertCalibrationSnapshot(rec); this.touch('calibrationSnapshots') }
+  getCalibrationSnapshot(orgId: OrgId, id: CalibrationSnapshotId) { return this.mem.getCalibrationSnapshot(orgId, id) }
+  listCalibrationSnapshots(orgId: OrgId, limit?: number) { return this.mem.listCalibrationSnapshots(orgId, limit) }
+  latestCalibrationSnapshot(orgId: OrgId) { return this.mem.latestCalibrationSnapshot(orgId) }
+  loadCalibrationForOrg(orgId: OrgId) { return this.mem.loadCalibrationForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -201,6 +212,7 @@ export class JsonFileRepo implements Repo {
       alertDigests: Map<string, AlertDigest>
       digestRuns: Map<string, DigestRun>
       notifications: Map<string, NotificationRecord>
+      calibrationSnapshots: Map<string, CalibrationSnapshot>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -221,6 +233,7 @@ export class JsonFileRepo implements Repo {
       alertDigests:         [...m.alertDigests.values()],
       digestRuns:           [...m.digestRuns.values()],
       notifications:        [...m.notifications.values()],
+      calibrationSnapshots: [...m.calibrationSnapshots.values()],
     }
   }
 
@@ -252,6 +265,7 @@ export class JsonFileRepo implements Repo {
           case 'alertDigests':         this.mem.upsertAlertDigest(rec as AlertDigest); break
           case 'digestRuns':           this.mem.upsertDigestRun(rec as DigestRun); break
           case 'notifications':        this.mem.upsertNotification(rec as NotificationRecord); break
+          case 'calibrationSnapshots': this.mem.upsertCalibrationSnapshot(rec as CalibrationSnapshot); break
         }
       }
     }

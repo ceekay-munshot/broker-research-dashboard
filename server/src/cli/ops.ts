@@ -45,6 +45,12 @@ import {
   cmdAlertsDigestCompare, cmdAlertsSuppressed,
   type AlertsCliFlags,
 } from './alerts'
+import {
+  cmdCalibrationSnapshot, cmdCalibrationRecompute,
+  cmdCalibrationBrokers, cmdCalibrationAlerts, cmdCalibrationCoverage,
+  cmdCalibrationCompare, cmdCalibrationLowSample,
+  type CalibrationCliFlags,
+} from './calibration'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -60,6 +66,10 @@ type Subcommand =
   | 'alerts:morning' | 'alerts:intraday' | 'alerts:hygiene'
   | 'alerts:list' | 'alerts:digest:preview' | 'alerts:replay'
   | 'alerts:digest:compare' | 'alerts:suppressed'
+  // Module 20
+  | 'calibration:snapshot' | 'calibration:recompute'
+  | 'calibration:brokers' | 'calibration:alerts' | 'calibration:coverage'
+  | 'calibration:compare' | 'calibration:low-sample'
   | 'help'
 
 interface Args {
@@ -88,6 +98,9 @@ interface Args {
   readonly limit?: number
   readonly window?: string
   readonly digestKind?: import('../../../src/domain').DigestKind
+  // Module 20 flags
+  readonly bottom?: boolean
+  readonly ticker?: string
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -140,6 +153,8 @@ function parseArgs(argv: readonly string[]): Args {
     limit,
     window: flags.window as string | undefined,
     digestKind,
+    bottom: flags.bottom === true,
+    ticker: flags.ticker as string | undefined,
   }
 }
 
@@ -244,6 +259,28 @@ async function main(): Promise<void> {
     case 'alerts:suppressed':
       cmdAlertsSuppressed(asAlertsFlags(args), store)
       break
+    // Module 20 — calibration
+    case 'calibration:snapshot':
+      await cmdCalibrationSnapshot(asCalibrationFlags(args), store)
+      break
+    case 'calibration:recompute':
+      await cmdCalibrationRecompute(asCalibrationFlags(args), store)
+      break
+    case 'calibration:brokers':
+      cmdCalibrationBrokers(asCalibrationFlags(args), store)
+      break
+    case 'calibration:alerts':
+      cmdCalibrationAlerts(asCalibrationFlags(args), store)
+      break
+    case 'calibration:coverage':
+      cmdCalibrationCoverage(asCalibrationFlags(args), store)
+      break
+    case 'calibration:compare':
+      cmdCalibrationCompare(asCalibrationFlags(args), store)
+      break
+    case 'calibration:low-sample':
+      cmdCalibrationLowSample(asCalibrationFlags(args), store)
+      break
     case 'help':
     default:
       printHelp()
@@ -262,6 +299,17 @@ function asAlertsFlags(args: Args): AlertsCliFlags {
     after: args.after,
     window: args.window,
     kind: args.digestKind,
+  }
+}
+
+function asCalibrationFlags(args: Args): CalibrationCliFlags {
+  return {
+    orgId: args.orgId,
+    limit: args.limit,
+    bottom: args.bottom,
+    ticker: args.ticker,
+    before: args.before,
+    after: args.after,
   }
 }
 
@@ -707,6 +755,14 @@ function printHelp(): void {
   npm run ops -- alerts:replay     [--org=<orgId>] [--window=<7d|24h|...>]
   npm run ops -- alerts:digest:compare --before=<digestId> --after=<digestId> [--org=<orgId>]
   npm run ops -- alerts:suppressed  [--org=<orgId>]
+
+  npm run ops -- calibration:snapshot   [--org=<orgId>]
+  npm run ops -- calibration:recompute  [--org=<orgId>]
+  npm run ops -- calibration:brokers    [--org=<orgId>] [--limit=<n>] [--bottom]
+  npm run ops -- calibration:alerts     [--org=<orgId>]
+  npm run ops -- calibration:coverage   [--org=<orgId>] --ticker=<ticker>
+  npm run ops -- calibration:compare    [--org=<orgId>] --before=<snapshotId> --after=<snapshotId>
+  npm run ops -- calibration:low-sample [--org=<orgId>]
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

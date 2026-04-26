@@ -9,6 +9,9 @@ import type {
   PortfolioSnapshot,
   AlertEvent, AlertDigest, DigestKind,
   AlertId, DigestId,
+  CalibrationSnapshot, BrokerCalibrationSummary,
+  AlertEffectivenessSummary, CoverageSignalResult,
+  AlertTriggerKind,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -30,6 +33,7 @@ import {
   brokerStockOpinions,
   ingestionJobs, kpiSnapshots, ingestionStatuses,
   alertEvents, alertDigests,
+  calibrationSnapshot,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
 import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfolio/PortfolioInputProvider'
@@ -376,6 +380,41 @@ export class MockResearchAdapter implements ResearchAdapter {
       .filter((d) => d.orgId === scope.orgId && d.kind === kind)
       .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
     return list[0] ?? null
+  }
+
+  // ── Calibration (Module 20) ────────────────────────────────────────
+
+  async getCalibrationSnapshot(scope: OrgScope): Promise<CalibrationSnapshot | null> {
+    await this.delay()
+    return calibrationSnapshot.orgId === scope.orgId ? calibrationSnapshot : null
+  }
+
+  async listBrokerCalibrations(scope: OrgScope): Promise<readonly BrokerCalibrationSummary[]> {
+    await this.delay()
+    return calibrationSnapshot.orgId === scope.orgId ? calibrationSnapshot.brokerCalibrations : []
+  }
+
+  async getBrokerCalibration(scope: OrgScope, brokerId: BrokerId): Promise<BrokerCalibrationSummary | null> {
+    await this.delay()
+    if (calibrationSnapshot.orgId !== scope.orgId) return null
+    return calibrationSnapshot.brokerCalibrations.find((b) => b.brokerId === brokerId) ?? null
+  }
+
+  async listAlertEffectiveness(scope: OrgScope): Promise<readonly AlertEffectivenessSummary[]> {
+    await this.delay()
+    return calibrationSnapshot.orgId === scope.orgId ? calibrationSnapshot.alertEffectiveness : []
+  }
+
+  async getAlertEffectiveness(scope: OrgScope, kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null> {
+    await this.delay()
+    if (calibrationSnapshot.orgId !== scope.orgId) return null
+    return calibrationSnapshot.alertEffectiveness.find((a) => a.kind === kind) ?? null
+  }
+
+  async getCoverageSignal(scope: OrgScope, ticker: StockTicker): Promise<CoverageSignalResult | null> {
+    await this.delay()
+    if (calibrationSnapshot.orgId !== scope.orgId) return null
+    return calibrationSnapshot.coverageByTicker.find((c) => c.ticker === ticker) ?? null
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {

@@ -40,6 +40,8 @@ import type {
   KpiSnapshot, IngestionStatus,
   PortfolioSnapshot,
   AlertEvent, AlertDigest,
+  CalibrationSnapshot, BrokerCalibrationSummary,
+  AlertEffectivenessSummary, CoverageSignalResult,
   Page,
 } from '../../domain'
 import type { ConflictClosure, SectorIntelligence } from '../../engine/types'
@@ -52,6 +54,8 @@ import {
   parseKpiSnapshot, parseIngestionStatus, parsePage,
   parsePortfolioSnapshot,
   parseAlertEvent, parseAlertDigest,
+  parseCalibrationSnapshot, parseBrokerCalibrationSummary,
+  parseAlertEffectivenessSummary, parseCoverageSignalResult,
 } from '../http/parsers'
 import { ContractViolationError } from '../errors'
 import { asBrokerId } from '../../lib/ids'
@@ -381,6 +385,58 @@ export function mapAlertDigests(raw: unknown): readonly AlertDigest[] {
   const n = normalizeUpstreamPayload(raw, ctx.endpoint)
   const arr = requireArray(n, 'alert-digests', ctx.endpoint)
   return arr.map((x, i) => mapAlertDigest(x, { endpoint: `${ctx.endpoint}[${i}]` }))
+}
+
+// ── Calibration / signal effectiveness (Module 20) ───────────────────────
+
+export function mapCalibrationSnapshot(raw: unknown, ctx: MappingContext = { endpoint: 'calibrationSnapshot' }): CalibrationSnapshot {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'CalibrationSnapshot', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseCalibrationSnapshot(x)
+  })
+}
+
+export function mapBrokerCalibrationSummary(raw: unknown, ctx: MappingContext = { endpoint: 'brokerCalibration' }): BrokerCalibrationSummary {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'BrokerCalibrationSummary', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseBrokerCalibrationSummary(x)
+  })
+}
+
+export function mapBrokerCalibrations(raw: unknown): readonly BrokerCalibrationSummary[] {
+  const ctx: MappingContext = { endpoint: 'brokerCalibrations' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'broker-calibrations', ctx.endpoint)
+  return arr.map((x, i) => mapBrokerCalibrationSummary(x, { endpoint: `${ctx.endpoint}[${i}]` }))
+}
+
+export function mapAlertEffectivenessSummary(raw: unknown, ctx: MappingContext = { endpoint: 'alertEffectiveness' }): AlertEffectivenessSummary {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'AlertEffectivenessSummary', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseAlertEffectivenessSummary(x)
+  })
+}
+
+export function mapAlertEffectivenessList(raw: unknown): readonly AlertEffectivenessSummary[] {
+  const ctx: MappingContext = { endpoint: 'alertEffectivenessList' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'alert-effectiveness', ctx.endpoint)
+  return arr.map((x, i) => mapAlertEffectivenessSummary(x, { endpoint: `${ctx.endpoint}[${i}]` }))
+}
+
+export function mapCoverageSignalResult(raw: unknown, ctx: MappingContext = { endpoint: 'coverageSignal' }): CoverageSignalResult {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'CoverageSignalResult', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parseCoverageSignalResult(x)
+  })
 }
 
 // ── Degraded-mode helpers exposed for adapters ───────────────────────────

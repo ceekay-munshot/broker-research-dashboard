@@ -39,6 +39,12 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   listAlertDigests:         'alertDigests',
   getAlertDigest:           'alertDigest',
   getLatestAlertDigest:     'latestAlertDigest',
+  getCalibrationSnapshot:   'calibrationSnapshot',
+  listBrokerCalibrations:   'brokerCalibrations',
+  getBrokerCalibration:     'brokerCalibration',
+  listAlertEffectiveness:   'alertEffectivenessList',
+  getAlertEffectiveness:    'alertEffectiveness',
+  getCoverageSignal:        'coverageSignal',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

@@ -179,6 +179,20 @@ function installRoutes(): void {
   })
   push('/v1/alert-digests/:digestId', async ({ mock, scope, params }) =>
     requireFound(await mock.getAlertDigest(scope, asDigestId(params.digestId!)), `digest ${params.digestId}`))
+
+  // Module 20 — calibration
+  push('/v1/calibration/snapshot', async ({ mock, scope }) =>
+    requireFound(await mock.getCalibrationSnapshot(scope), 'calibration snapshot'))
+  push('/v1/calibration/brokers', async ({ mock, scope }) =>
+    await mock.listBrokerCalibrations(scope))
+  push('/v1/calibration/brokers/:brokerId', async ({ mock, scope, params }) =>
+    requireFound(await mock.getBrokerCalibration(scope, asBrokerId(params.brokerId!)), `broker calibration ${params.brokerId}`))
+  push('/v1/calibration/alerts', async ({ mock, scope }) =>
+    await mock.listAlertEffectiveness(scope))
+  push('/v1/calibration/alerts/:kind', async ({ mock, scope, params }) =>
+    requireFound(await mock.getAlertEffectiveness(scope, params.kind! as Parameters<typeof mock.getAlertEffectiveness>[1]), `alert effectiveness ${params.kind}`))
+  push('/v1/calibration/coverage/:ticker', async ({ mock, scope, params }) =>
+    requireFound(await mock.getCoverageSignal(scope, asTicker(params.ticker!)), `coverage ${params.ticker}`))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

@@ -96,6 +96,14 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'alertDigests',       endpoint: 'GET /v1/alert-digests',       requirement: 'list',     description: 'Authored digests for the org.', tolerate404: true },
   { key: 'alertDigest',        endpoint: 'GET /v1/alert-digests/:id',   requirement: 'optional', description: 'Single digest detail.', tolerate404: true },
   { key: 'latestAlertDigest',  endpoint: 'GET /v1/alert-digests/latest', requirement: 'optional', description: 'Latest digest of a given kind.', tolerate404: true },
+
+  // Calibration / signal effectiveness (Module 20) — fully optional.
+  { key: 'calibrationSnapshot',     endpoint: 'GET /v1/calibration/snapshot',          requirement: 'optional', description: 'Latest calibration snapshot for the org.', tolerate404: true },
+  { key: 'brokerCalibrations',      endpoint: 'GET /v1/calibration/brokers',           requirement: 'list',     description: 'Per-broker calibration scorecards.', tolerate404: true },
+  { key: 'brokerCalibration',       endpoint: 'GET /v1/calibration/brokers/:id',       requirement: 'optional', description: 'Single broker calibration scorecard.', tolerate404: true },
+  { key: 'alertEffectivenessList',  endpoint: 'GET /v1/calibration/alerts',            requirement: 'list',     description: 'Per-alert-kind effectiveness scorecards.', tolerate404: true },
+  { key: 'alertEffectiveness',      endpoint: 'GET /v1/calibration/alerts/:kind',      requirement: 'optional', description: 'Single alert-kind effectiveness scorecard.', tolerate404: true },
+  { key: 'coverageSignal',          endpoint: 'GET /v1/calibration/coverage/:ticker',  requirement: 'optional', description: 'Per-ticker coverage signal.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

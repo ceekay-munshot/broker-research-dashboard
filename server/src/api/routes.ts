@@ -3,10 +3,13 @@ import type {
   EmailProcessingStatus, KpiSnapshot, IngestionStatus, Page,
   PortfolioSnapshot,
   AlertDigest, AlertEvent, DigestKind,
+  BrokerCalibrationSummary, AlertEffectivenessSummary, CoverageSignalResult,
+  CalibrationSnapshot,
+  AlertTriggerKind,
 } from '../../../src/domain'
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
-import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId } from '../../../src/lib/ids'
+import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId } from '../../../src/lib/ids'
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
@@ -294,6 +297,44 @@ export function buildRouter(store: InMemoryStore): Router {
     const d = store.getDigest(scope.orgId, asDigestId(params.digestId!))
     if (!d) return reply.notFound(res, `digest ${params.digestId}`)
     reply.ok(res, d)
+  })
+
+  // ── Calibration (Module 20) ───────────────────────────────────────
+  r.get('/v1/calibration/snapshot', ({ res, scope }) => {
+    const snap: CalibrationSnapshot | null = store.latestCalibrationSnapshot(scope.orgId)
+    if (!snap) return reply.notFound(res, 'no calibration snapshot')
+    reply.ok(res, snap)
+  })
+  r.get('/v1/calibration/brokers', ({ res, scope }) => {
+    const snap = store.latestCalibrationSnapshot(scope.orgId)
+    const items: readonly BrokerCalibrationSummary[] = snap?.brokerCalibrations ?? []
+    reply.ok(res, items)
+  })
+  r.get('/v1/calibration/brokers/:brokerId', ({ res, scope, params }) => {
+    const snap = store.latestCalibrationSnapshot(scope.orgId)
+    const id = asBrokerId(params.brokerId!)
+    const item = snap?.brokerCalibrations.find((b) => b.brokerId === id)
+    if (!item) return reply.notFound(res, `broker calibration ${params.brokerId}`)
+    reply.ok(res, item)
+  })
+  r.get('/v1/calibration/alerts', ({ res, scope }) => {
+    const snap = store.latestCalibrationSnapshot(scope.orgId)
+    const items: readonly AlertEffectivenessSummary[] = snap?.alertEffectiveness ?? []
+    reply.ok(res, items)
+  })
+  r.get('/v1/calibration/alerts/:kind', ({ res, scope, params }) => {
+    const snap = store.latestCalibrationSnapshot(scope.orgId)
+    const kind = params.kind as AlertTriggerKind
+    const item = snap?.alertEffectiveness.find((a) => a.kind === kind)
+    if (!item) return reply.notFound(res, `alert calibration ${params.kind}`)
+    reply.ok(res, item)
+  })
+  r.get('/v1/calibration/coverage/:ticker', ({ res, scope, params }) => {
+    const snap = store.latestCalibrationSnapshot(scope.orgId)
+    const t = asTicker(params.ticker!)
+    const item: CoverageSignalResult | undefined = snap?.coverageByTicker.find((c) => c.ticker === t)
+    if (!item) return reply.notFound(res, `coverage ${params.ticker}`)
+    reply.ok(res, item)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

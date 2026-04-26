@@ -9,6 +9,9 @@ import type {
   PortfolioSnapshot,
   AlertEvent, AlertDigest, DigestKind,
   AlertId, DigestId,
+  CalibrationSnapshot, BrokerCalibrationSummary,
+  AlertEffectivenessSummary, CoverageSignalResult,
+  AlertTriggerKind,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -31,6 +34,8 @@ import {
   mapKpiSnapshot, mapIngestionStatus,
   mapPortfolioSnapshot,
   mapAlertEvent, mapAlertEvents, mapAlertDigest, mapAlertDigests,
+  mapCalibrationSnapshot, mapBrokerCalibrations, mapBrokerCalibrationSummary,
+  mapAlertEffectivenessList, mapAlertEffectivenessSummary, mapCoverageSignalResult,
 } from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
@@ -331,6 +336,66 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const d = mapAlertDigest(raw)
     assertOrgMatch('AlertDigest', scope, d.orgId as unknown as string)
     return d
+  }
+
+  // ── Calibration / signal effectiveness (Module 20) ─────────────────
+
+  async getCalibrationSnapshot(scope: OrgScope): Promise<CalibrationSnapshot | null> {
+    const raw = await this.client.requestOrNull(endpoints.calibrationSnapshot(), scope, {
+      endpointKey: 'calibrationSnapshot',
+    })
+    if (raw === null) return null
+    const snap = mapCalibrationSnapshot(raw)
+    assertOrgMatch('CalibrationSnapshot', scope, snap.orgId as unknown as string)
+    return snap
+  }
+
+  async listBrokerCalibrations(scope: OrgScope): Promise<readonly BrokerCalibrationSummary[]> {
+    const raw = await this.client.request(endpoints.brokerCalibrations(), scope, {
+      endpointKey: 'brokerCalibrations',
+    })
+    const items = mapBrokerCalibrations(raw)
+    assertPageOrg('BrokerCalibrationSummary', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getBrokerCalibration(scope: OrgScope, brokerId: BrokerId): Promise<BrokerCalibrationSummary | null> {
+    const raw = await this.client.requestOrNull(endpoints.brokerCalibration(brokerId), scope, {
+      endpointKey: 'brokerCalibration',
+    })
+    if (raw === null) return null
+    const item = mapBrokerCalibrationSummary(raw)
+    assertOrgMatch('BrokerCalibrationSummary', scope, item.orgId as unknown as string)
+    return item
+  }
+
+  async listAlertEffectiveness(scope: OrgScope): Promise<readonly AlertEffectivenessSummary[]> {
+    const raw = await this.client.request(endpoints.alertEffectivenessList(), scope, {
+      endpointKey: 'alertEffectivenessList',
+    })
+    const items = mapAlertEffectivenessList(raw)
+    assertPageOrg('AlertEffectivenessSummary', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getAlertEffectiveness(scope: OrgScope, kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null> {
+    const raw = await this.client.requestOrNull(endpoints.alertEffectiveness(kind), scope, {
+      endpointKey: 'alertEffectiveness',
+    })
+    if (raw === null) return null
+    const item = mapAlertEffectivenessSummary(raw)
+    assertOrgMatch('AlertEffectivenessSummary', scope, item.orgId as unknown as string)
+    return item
+  }
+
+  async getCoverageSignal(scope: OrgScope, ticker: StockTicker): Promise<CoverageSignalResult | null> {
+    const raw = await this.client.requestOrNull(endpoints.coverageSignal(ticker), scope, {
+      endpointKey: 'coverageSignal',
+    })
+    if (raw === null) return null
+    const item = mapCoverageSignalResult(raw)
+    assertOrgMatch('CoverageSignalResult', scope, item.orgId as unknown as string)
+    return item
   }
 }
 

@@ -3,6 +3,7 @@ import type {
   ResearchReport, ReportSummary, OrgId, ReportId,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
+  CalibrationSnapshot, CalibrationSnapshotId,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -38,6 +39,9 @@ export class InMemoryRepo implements Repo {
   private readonly alertDigests = new Map<string, AlertDigest>()
   private readonly digestRuns = new Map<string, DigestRun>()
   private readonly notifications = new Map<string, NotificationRecord>()
+
+  // Module 20 — calibration snapshots
+  private readonly calibrationSnapshots = new Map<string, CalibrationSnapshot>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -276,6 +280,28 @@ export class InMemoryRepo implements Repo {
       digestRuns:    this.listDigestRuns(orgId),
       notifications: this.listNotifications(orgId),
     }
+  }
+
+  // ── Calibration snapshots (Module 20) ───────────────────────────────
+
+  upsertCalibrationSnapshot(rec: CalibrationSnapshot): void {
+    this.calibrationSnapshots.set(rec.id as unknown as string, rec)
+  }
+  getCalibrationSnapshot(orgId: OrgId, id: CalibrationSnapshotId): CalibrationSnapshot | null {
+    const r = this.calibrationSnapshots.get(id as unknown as string)
+    return r && r.orgId === orgId ? r : null
+  }
+  listCalibrationSnapshots(orgId: OrgId, limit?: number): readonly CalibrationSnapshot[] {
+    const arr = [...this.calibrationSnapshots.values()]
+      .filter((r) => r.orgId === orgId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+  latestCalibrationSnapshot(orgId: OrgId): CalibrationSnapshot | null {
+    return this.listCalibrationSnapshots(orgId, 1)[0] ?? null
+  }
+  loadCalibrationForOrg(orgId: OrgId): { snapshots: readonly CalibrationSnapshot[] } {
+    return { snapshots: this.listCalibrationSnapshots(orgId) }
   }
 
   flush(): void { /* noop */ }

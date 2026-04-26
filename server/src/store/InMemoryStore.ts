@@ -5,6 +5,7 @@ import type {
   OrgId,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
+  CalibrationSnapshot, CalibrationSnapshotId,
 } from '../../../src/domain'
 
 // Minimal in-memory record store. Ingestion writes; API reads. The whole
@@ -26,6 +27,8 @@ export class InMemoryStore {
   private readonly digests = new Map<DigestId, AlertDigest>()
   private readonly digestRuns = new Map<DigestRunId, DigestRun>()
   private readonly notifications: NotificationRecord[] = []
+  // Module 20 — calibration snapshots
+  private readonly calibrationSnapshots = new Map<CalibrationSnapshotId, CalibrationSnapshot>()
 
   // ── Writers (used by ingestion) ───────────────────────────────────
 
@@ -58,6 +61,7 @@ export class InMemoryStore {
     this.digests.clear()
     this.digestRuns.clear()
     this.notifications.length = 0
+    this.calibrationSnapshots.clear()
   }
 
   // ── Readers (used by API handlers) ────────────────────────────────
@@ -189,5 +193,24 @@ export class InMemoryStore {
       .filter((n) => n.orgId === orgId)
       .sort((a, b) => b.attemptedAt.localeCompare(a.attemptedAt))
     return limit ? arr.slice(0, limit) : arr
+  }
+
+  // ── Calibration (Module 20) ───────────────────────────────────────
+
+  upsertCalibrationSnapshot(s: CalibrationSnapshot): void {
+    this.calibrationSnapshots.set(s.id, s)
+  }
+  getCalibrationSnapshot(orgId: OrgId, id: CalibrationSnapshotId): CalibrationSnapshot | null {
+    const s = this.calibrationSnapshots.get(id)
+    return s && s.orgId === orgId ? s : null
+  }
+  listCalibrationSnapshots(orgId: OrgId, limit?: number): CalibrationSnapshot[] {
+    const arr = [...this.calibrationSnapshots.values()]
+      .filter((s) => s.orgId === orgId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+  latestCalibrationSnapshot(orgId: OrgId): CalibrationSnapshot | null {
+    return this.listCalibrationSnapshots(orgId, 1)[0] ?? null
   }
 }

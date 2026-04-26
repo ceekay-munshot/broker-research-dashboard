@@ -13,6 +13,10 @@ import type {
   AlertSeverity, AlertTriggerKind, DeliveryChannel, AlertAudience,
   AlertReason, AlertBookContext, AlertLineage,
   PortfolioMembership,
+  CalibrationSnapshot, BrokerCalibrationSummary, BrokerSectorBreakdown,
+  AlertEffectivenessSummary, AlertEffectivenessByMembership, AlertEffectivenessMembership,
+  CoverageSignalResult, OutcomeWindowResult, CalibrationReason,
+  ConfidenceBand, ReturnWindow,
   OrgScope, Page, Stance, Rating,
 } from '../../domain'
 import type {
@@ -26,6 +30,7 @@ import {
   asOrgId, asUserId, asBrokerId, asEmailId, asAttachmentId,
   asReportId, asSummaryId, asEvidenceId, asSectorId, asTicker, asPortfolioId,
   asAlertId, asDigestId, asDigestRunId,
+  asCalibrationSnapshotId,
 } from '../../lib/ids'
 import { ContractViolationError } from '../errors'
 
@@ -726,6 +731,159 @@ function parseDigestSection(raw: unknown, path: string): DigestSection {
     alertIds: asArray(x.alertIds, `${path}.alertIds`).map((a, i) => asAlertId(asString(a, `${path}.alertIds[${i}]`))),
     prose: asStringOrNull(x.prose, `${path}.prose`),
     proseFromLlm: asBoolean(x.proseFromLlm, `${path}.proseFromLlm`),
+  }
+}
+
+// ─── Calibration / signal effectiveness (Module 20) ────────────────────
+
+const RETURN_WINDOWS_LOCAL: readonly ReturnWindow[] = ['1d', '3d', '5d', '10d', '20d']
+const CONFIDENCE_BANDS_LOCAL: readonly ConfidenceBand[] = ['very_low', 'low', 'medium', 'high']
+const ALERT_KINDS_LOCAL2: readonly AlertTriggerKind[] = [
+  'new_research_held', 'new_research_watchlist',
+  'significant_change_held', 'against_position',
+  'unresolved_divergence_held', 'broker_outlier_held',
+  'pile_in_book',
+  'stale_coverage_high_conviction', 'stale_coverage_held', 'stale_coverage_watchlist',
+  'watchlist_fresh_candidate', 'correction_replay_change',
+]
+const ALERT_MEMBERSHIPS_LOCAL: readonly AlertEffectivenessMembership[] = ['all', 'held', 'watchlist']
+
+function parseCalibrationReason(raw: unknown, path: string): CalibrationReason {
+  const x = asObject(raw, path)
+  return { code: asString(x.code, `${path}.code`), text: asString(x.text, `${path}.text`) }
+}
+
+function parseOutcomeWindow(raw: unknown, path: string): OutcomeWindowResult {
+  const x = asObject(raw, path)
+  return {
+    window: asEnum<ReturnWindow>(x.window, RETURN_WINDOWS_LOCAL, `${path}.window`),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+    medianReturnPct: asNumber(x.medianReturnPct, `${path}.medianReturnPct`),
+    p25ReturnPct: asNumber(x.p25ReturnPct, `${path}.p25ReturnPct`),
+    p75ReturnPct: asNumber(x.p75ReturnPct, `${path}.p75ReturnPct`),
+    upsideAvgPct: asNumber(x.upsideAvgPct, `${path}.upsideAvgPct`),
+    downsideAvgPct: asNumber(x.downsideAvgPct, `${path}.downsideAvgPct`),
+    stddevPct: asNumber(x.stddevPct, `${path}.stddevPct`),
+    meanRelReturnPct: x.meanRelReturnPct === null ? null : asNumber(x.meanRelReturnPct, `${path}.meanRelReturnPct`),
+    directionalSampleSize: asInt(x.directionalSampleSize, `${path}.directionalSampleSize`),
+  }
+}
+
+function parseBrokerSectorBreakdown(raw: unknown, path: string): BrokerSectorBreakdown {
+  const x = asObject(raw, path)
+  return {
+    sectorId: asSectorId(asString(x.sectorId, `${path}.sectorId`)),
+    sectorName: asStringOrNull(x.sectorName, `${path}.sectorName`),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+  }
+}
+
+export function parseBrokerCalibrationSummary(raw: unknown, path = 'BrokerCalibrationSummary'): BrokerCalibrationSummary {
+  const x = asObject(raw, path)
+  return {
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    brokerId: asBrokerId(asString(x.brokerId, `${path}.brokerId`)),
+    brokerShortName: asString(x.brokerShortName, `${path}.brokerShortName`),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    score: asNumber(x.score, `${path}.score`),
+    confidence: asEnum<ConfidenceBand>(x.confidence, CONFIDENCE_BANDS_LOCAL, `${path}.confidence`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+    byWindow: asArray(x.byWindow, `${path}.byWindow`).map((w, i) => parseOutcomeWindow(w, `${path}.byWindow[${i}]`)),
+    heldByWindow: asArray(x.heldByWindow, `${path}.heldByWindow`).map((w, i) => parseOutcomeWindow(w, `${path}.heldByWindow[${i}]`)),
+    bySector: asArray(x.bySector, `${path}.bySector`).map((s, i) => parseBrokerSectorBreakdown(s, `${path}.bySector[${i}]`)),
+    longHitRate: x.longHitRate === null ? null : asNumber(x.longHitRate, `${path}.longHitRate`),
+    shortHitRate: x.shortHitRate === null ? null : asNumber(x.shortHitRate, `${path}.shortHitRate`),
+    againstPositionHitRate: x.againstPositionHitRate === null ? null : asNumber(x.againstPositionHitRate, `${path}.againstPositionHitRate`),
+    againstPositionSampleSize: asInt(x.againstPositionSampleSize, `${path}.againstPositionSampleSize`),
+    reasons: asArray(x.reasons, `${path}.reasons`).map((r, i) => parseCalibrationReason(r, `${path}.reasons[${i}]`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+  }
+}
+
+function parseAlertEffectivenessByMembership(raw: unknown, path: string): AlertEffectivenessByMembership {
+  const x = asObject(raw, path)
+  return {
+    membership: asEnum<AlertEffectivenessMembership>(x.membership, ALERT_MEMBERSHIPS_LOCAL, `${path}.membership`),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+  }
+}
+
+export function parseAlertEffectivenessSummary(raw: unknown, path = 'AlertEffectivenessSummary'): AlertEffectivenessSummary {
+  const x = asObject(raw, path)
+  return {
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    kind: asEnum<AlertTriggerKind>(x.kind, ALERT_KINDS_LOCAL2, `${path}.kind`),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    score: asNumber(x.score, `${path}.score`),
+    confidence: asEnum<ConfidenceBand>(x.confidence, CONFIDENCE_BANDS_LOCAL, `${path}.confidence`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+    byWindow: asArray(x.byWindow, `${path}.byWindow`).map((w, i) => parseOutcomeWindow(w, `${path}.byWindow[${i}]`)),
+    byMembership: asArray(x.byMembership, `${path}.byMembership`).map((m, i) => parseAlertEffectivenessByMembership(m, `${path}.byMembership[${i}]`)),
+    reasons: asArray(x.reasons, `${path}.reasons`).map((r, i) => parseCalibrationReason(r, `${path}.reasons[${i}]`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+  }
+}
+
+export function parseCoverageSignalResult(raw: unknown, path = 'CoverageSignalResult'): CoverageSignalResult {
+  const x = asObject(raw, path)
+  const topRaw = asArray(x.topBrokers, `${path}.topBrokers`)
+  return {
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    sampleSize: asInt(x.sampleSize, `${path}.sampleSize`),
+    score: x.score === null ? null : asNumber(x.score, `${path}.score`),
+    confidence: asEnum<ConfidenceBand>(x.confidence, CONFIDENCE_BANDS_LOCAL, `${path}.confidence`),
+    hitRate: x.hitRate === null ? null : asNumber(x.hitRate, `${path}.hitRate`),
+    meanReturnPct: asNumber(x.meanReturnPct, `${path}.meanReturnPct`),
+    topBrokers: topRaw.map((b, i) => {
+      const o = asObject(b, `${path}.topBrokers[${i}]`)
+      return {
+        brokerId: asBrokerId(asString(o.brokerId, `${path}.topBrokers[${i}].brokerId`)),
+        brokerShortName: asString(o.brokerShortName, `${path}.topBrokers[${i}].brokerShortName`),
+        sampleSize: asInt(o.sampleSize, `${path}.topBrokers[${i}].sampleSize`),
+        score: asNumber(o.score, `${path}.topBrokers[${i}].score`),
+        hitRate: o.hitRate === null ? null : asNumber(o.hitRate, `${path}.topBrokers[${i}].hitRate`),
+      }
+    }),
+    recentAlertEffectivenessNote: asStringOrNull(x.recentAlertEffectivenessNote, `${path}.recentAlertEffectivenessNote`),
+    reasons: asArray(x.reasons, `${path}.reasons`).map((r, i) => parseCalibrationReason(r, `${path}.reasons[${i}]`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+  }
+}
+
+const CAL_SOURCES_LOCAL: readonly CalibrationSnapshot['source'][] = ['cli', 'cron', 'fixture', 'replay', 'bootstrap']
+
+export function parseCalibrationSnapshot(raw: unknown, path = 'CalibrationSnapshot'): CalibrationSnapshot {
+  const x = asObject(raw, path)
+  const counters = asObject(x.counters, `${path}.counters`)
+  return {
+    id: asCalibrationSnapshotId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    methodologyVersion: asString(x.methodologyVersion, `${path}.methodologyVersion`),
+    source: asEnum(x.source, CAL_SOURCES_LOCAL, `${path}.source`),
+    brokerCalibrations: asArray(x.brokerCalibrations, `${path}.brokerCalibrations`)
+      .map((b, i) => parseBrokerCalibrationSummary(b, `${path}.brokerCalibrations[${i}]`)),
+    alertEffectiveness: asArray(x.alertEffectiveness, `${path}.alertEffectiveness`)
+      .map((a, i) => parseAlertEffectivenessSummary(a, `${path}.alertEffectiveness[${i}]`)),
+    coverageByTicker: asArray(x.coverageByTicker, `${path}.coverageByTicker`)
+      .map((c, i) => parseCoverageSignalResult(c, `${path}.coverageByTicker[${i}]`)),
+    counters: {
+      events: asInt(counters.events, `${path}.counters.events`),
+      outcomes: asInt(counters.outcomes, `${path}.counters.outcomes`),
+      directionalEvents: asInt(counters.directionalEvents, `${path}.counters.directionalEvents`),
+      priceCoveredTickers: asInt(counters.priceCoveredTickers, `${path}.counters.priceCoveredTickers`),
+      benchmarkCoveredTickers: asInt(counters.benchmarkCoveredTickers, `${path}.counters.benchmarkCoveredTickers`),
+      skippedNoPrice: asInt(counters.skippedNoPrice, `${path}.counters.skippedNoPrice`),
+    },
   }
 }
 

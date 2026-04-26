@@ -28,6 +28,9 @@ import type {
   PortfolioSnapshot,
   AlertEvent, AlertDigest, DigestKind,
   AlertId, DigestId,
+  CalibrationSnapshot, BrokerCalibrationSummary,
+  AlertEffectivenessSummary, CoverageSignalResult,
+  AlertTriggerKind,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../../domain'
@@ -213,6 +216,16 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async listAlertDigests(_scope: OrgScope): Promise<readonly AlertDigest[]> { return [] }
   async getAlertDigest(_scope: OrgScope, _id: DigestId): Promise<AlertDigest | null> { return null }
   async getLatestAlertDigest(_scope: OrgScope, _kind: DigestKind): Promise<AlertDigest | null> { return null }
+
+  // ── Calibration / signal effectiveness (Module 20) ──────────────
+  // No fixture for the rehearsal mode; returns null/empty so the
+  // calibration UI exercises the "no snapshot yet" degraded path.
+  async getCalibrationSnapshot(_scope: OrgScope): Promise<CalibrationSnapshot | null> { return null }
+  async listBrokerCalibrations(_scope: OrgScope): Promise<readonly BrokerCalibrationSummary[]> { return [] }
+  async getBrokerCalibration(_scope: OrgScope, _id: BrokerId): Promise<BrokerCalibrationSummary | null> { return null }
+  async listAlertEffectiveness(_scope: OrgScope): Promise<readonly AlertEffectivenessSummary[]> { return [] }
+  async getAlertEffectiveness(_scope: OrgScope, _kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null> { return null }
+  async getCoverageSignal(_scope: OrgScope, _t: StockTicker): Promise<CoverageSignalResult | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

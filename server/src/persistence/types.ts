@@ -23,6 +23,7 @@ import type {
   ResearchReport, ReportSummary, OrgId, ReportId,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
+  CalibrationSnapshot, CalibrationSnapshotId,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -198,6 +199,14 @@ export interface Repo {
     readonly digestRuns: readonly DigestRun[]
     readonly notifications: readonly NotificationRecord[]
   }
+
+  // Calibration snapshots (Module 20) ───────────────────────────────────
+  upsertCalibrationSnapshot(rec: CalibrationSnapshot): void
+  getCalibrationSnapshot(orgId: OrgId, id: CalibrationSnapshotId): CalibrationSnapshot | null
+  listCalibrationSnapshots(orgId: OrgId, limit?: number): readonly CalibrationSnapshot[]
+  /** Most-recent snapshot for an org. */
+  latestCalibrationSnapshot(orgId: OrgId): CalibrationSnapshot | null
+  loadCalibrationForOrg(orgId: OrgId): { readonly snapshots: readonly CalibrationSnapshot[] }
 
   // Lifecycle ───────────────────────────────────────────────────────────
   /** Best-effort flush of any in-memory buffers to durable storage.

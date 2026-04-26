@@ -22,6 +22,7 @@ import SectorFeed from './components/views/SectorFeed'
 import DailyWorklog from './components/views/DailyWorklog'
 import MyBook from './components/views/MyBook'
 import Briefing from './components/views/Briefing'
+import Calibration from './components/views/Calibration'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('mybook')
@@ -132,6 +133,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'stock':      return <ByStock    filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'divergence': return <Divergence filters={filters} onSelectTicker={onSelectTicker}/>
     case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
+    case 'calibration': return <Calibration onSelectTicker={onSelectTicker}/>
   }
 }
 
