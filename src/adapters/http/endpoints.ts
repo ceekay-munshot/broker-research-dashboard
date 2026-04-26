@@ -79,4 +79,8 @@ export const endpoints = {
 
   // Sources (Module 24)
   sourcesHealth:              () => v1('/sources/health'),
+
+  // Delivery (Module 25)
+  deliveries:                 () => v1('/deliveries'),
+  delivery:                   (id: string) => v1(`/deliveries/${enc(id)}`),
 } as const

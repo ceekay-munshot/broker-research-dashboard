@@ -8,6 +8,9 @@ import type {
   CatalystId, PreEventBriefId, PostEventReviewId,
   SourceId, SourceKind, SourceSyncRun, SourceWatermark, BackfillJob,
   BackfillJobId, BackfillJobState,
+  DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
+  DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
+  DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -57,6 +60,12 @@ export class InMemoryRepo implements Repo {
   private readonly sourceSyncRuns: SourceSyncRun[] = []
   private readonly sourceWatermarks = new Map<string, SourceWatermark>()
   private readonly backfillJobs = new Map<string, BackfillJob>()
+
+  // Module 25 — delivery + workflow integrations
+  private readonly deliverySchedules = new Map<string, DeliverySchedule>()
+  private readonly deliveryRuns = new Map<string, DeliveryRun>()
+  private readonly deliveryAttempts = new Map<string, DeliveryAttempt>()
+  private readonly deliverySuppressions = new Map<string, DeliverySuppression>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -458,6 +467,96 @@ export class InMemoryRepo implements Repo {
       syncRuns: this.listSourceSyncRuns(orgId),
       watermarks: [...this.sourceWatermarks.values()].filter((w) => w.orgId === orgId),
       backfills: this.listBackfillJobs(orgId),
+    }
+  }
+
+  // ── Module 25: delivery + workflow integrations ────────────────────
+  upsertDeliverySchedule(rec: DeliverySchedule): void {
+    this.deliverySchedules.set(rec.id as string, rec)
+  }
+  getDeliverySchedule(orgId: OrgId, id: DeliveryScheduleId): DeliverySchedule | null {
+    const r = this.deliverySchedules.get(id as string)
+    return r && r.orgId === orgId ? r : null
+  }
+  listDeliverySchedules(orgId: OrgId, filter?: {
+    contentKind?: DeliveryContentKind; enabledOnly?: boolean
+  }): readonly DeliverySchedule[] {
+    let arr = [...this.deliverySchedules.values()].filter((r) => r.orgId === orgId)
+    if (filter?.contentKind) arr = arr.filter((r) => r.contentKind === filter.contentKind)
+    if (filter?.enabledOnly) arr = arr.filter((r) => r.enabled)
+    arr.sort((a, b) => a.contentKind.localeCompare(b.contentKind))
+    return arr
+  }
+  appendDeliveryRun(rec: DeliveryRun): void {
+    this.deliveryRuns.set(rec.id as string, rec)
+  }
+  getDeliveryRun(orgId: OrgId, id: DeliveryRunId): DeliveryRun | null {
+    const r = this.deliveryRuns.get(id as string)
+    return r && r.orgId === orgId ? r : null
+  }
+  listDeliveryRuns(orgId: OrgId, filter?: {
+    contentKind?: DeliveryContentKind; limit?: number
+  }): readonly DeliveryRun[] {
+    let arr = [...this.deliveryRuns.values()].filter((r) => r.orgId === orgId)
+    if (filter?.contentKind) arr = arr.filter((r) => r.contentKind === filter.contentKind)
+    arr.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  appendDeliveryAttempt(rec: DeliveryAttempt): void {
+    this.deliveryAttempts.set(rec.id as string, rec)
+  }
+  getDeliveryAttempt(orgId: OrgId, id: DeliveryAttemptId): DeliveryAttempt | null {
+    const r = this.deliveryAttempts.get(id as string)
+    return r && r.orgId === orgId ? r : null
+  }
+  listDeliveryAttempts(orgId: OrgId, filter?: {
+    runId?: DeliveryRunId; contentKind?: DeliveryContentKind;
+    channel?: DeliveryChannel; targetId?: DeliveryTargetId; limit?: number;
+  }): readonly DeliveryAttempt[] {
+    let arr = [...this.deliveryAttempts.values()].filter((r) => r.orgId === orgId)
+    if (filter?.runId)       arr = arr.filter((r) => r.runId === filter.runId)
+    if (filter?.contentKind) arr = arr.filter((r) => r.contentKind === filter.contentKind)
+    if (filter?.channel)     arr = arr.filter((r) => r.channel === filter.channel)
+    if (filter?.targetId)    arr = arr.filter((r) => r.target.id === filter.targetId)
+    arr.sort((a, b) => b.enqueuedAt.localeCompare(a.enqueuedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  updateDeliveryAttempt(rec: DeliveryAttempt): void {
+    this.deliveryAttempts.set(rec.id as string, rec)
+  }
+  upsertDeliverySuppression(rec: DeliverySuppression): void {
+    const k = `${rec.orgId}::${rec.contentKind}::${rec.targetId}::${rec.fingerprint}`
+    this.deliverySuppressions.set(k, rec)
+  }
+  findDeliverySuppression(orgId: OrgId, query: {
+    contentKind: DeliveryContentKind; targetId: DeliveryTargetId; fingerprint: string
+  }): DeliverySuppression | null {
+    const k = `${orgId}::${query.contentKind}::${query.targetId}::${query.fingerprint}`
+    const rec = this.deliverySuppressions.get(k)
+    if (!rec) return null
+    // Expired suppressions are silently ignored.
+    if (Date.parse(rec.expiresAt) < Date.now()) return null
+    return rec
+  }
+  listDeliverySuppressions(orgId: OrgId, filter?: { limit?: number }): readonly DeliverySuppression[] {
+    let arr = [...this.deliverySuppressions.values()].filter((r) => r.orgId === orgId)
+    arr.sort((a, b) => b.suppressedAt.localeCompare(a.suppressedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  loadDeliveryForOrg(orgId: OrgId): {
+    schedules: readonly DeliverySchedule[]
+    runs: readonly DeliveryRun[]
+    attempts: readonly DeliveryAttempt[]
+    suppressions: readonly DeliverySuppression[]
+  } {
+    return {
+      schedules: this.listDeliverySchedules(orgId),
+      runs: this.listDeliveryRuns(orgId),
+      attempts: this.listDeliveryAttempts(orgId),
+      suppressions: this.listDeliverySuppressions(orgId),
     }
   }
 

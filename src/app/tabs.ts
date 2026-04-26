@@ -10,6 +10,7 @@ export const TABS = [
   { id: 'calibration', label: 'Calibration',       hint: 'Broker + alert effectiveness' },
   { id: 'catalysts',   label: 'Catalysts',         hint: 'Calendar + pre-event briefs' },
   { id: 'sources',     label: 'Sources',           hint: 'Source integrations + health' },
+  { id: 'inbox',       label: 'Inbox',             hint: 'Delivered briefs, alerts, incidents' },
 ] as const
 
 export type TabId = typeof TABS[number]['id']

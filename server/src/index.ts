@@ -7,6 +7,7 @@ import { runCalibrationForStore } from './calibration/bootstrap'
 import { runCatalystsForStore } from './catalysts/bootstrap'
 import { runPostEventReviewsForStore } from './postEventReview/bootstrap'
 import { buildRegistryForOrgs, SourceManager } from './sources'
+import { buildDeliveryStack } from './delivery'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -95,7 +96,21 @@ async function main(): Promise<void> {
   }
   console.log('└────────────────────────────────────────────────────────')
 
-  const server = await startApiServer({ port, store, sourceManager })
+  // Module 25 — wire the delivery stack: registry + templates + channels +
+  // scheduler. Schedules are seeded lazily on first build per org.
+  const deliveryStack = buildDeliveryStack({
+    orgIds: organizations.map((o) => o.id),
+    repo, store, sourceManager,
+  })
+  console.log('┌─ delivery ────────────────────────────────────────────')
+  for (const ch of deliveryStack.registry.listChannels()) {
+    console.log(`│  channel ${ch.channel.padEnd(10)} available=${ch.available}`)
+  }
+  console.log('│  schedules seeded for', organizations.length, 'org(s).')
+  console.log('└────────────────────────────────────────────────────────')
+  void deliveryStack  // referenced again only when CLI invokes scheduler
+
+  const server = await startApiServer({ port, store, sourceManager, repo })
   const addr = server.address()
   const url = typeof addr === 'object' && addr !== null ? `http://localhost:${addr.port}` : `http://localhost:${port}`
   console.log(`API listening on ${url}`)

@@ -1,0 +1,141 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Inbox view-model — read-only surface for delivered items.
+//
+// Pure transform over `DeliveryAttempt[]`. Groups by date + content kind,
+// applies tone classes, builds tooltips.
+// ─────────────────────────────────────────────────────────────────────────
+
+import type {
+  DeliveryAttempt, DeliveryStatus, DeliveryContentKind, DeliveryChannel,
+} from '../domain'
+
+export interface InboxRowViewModel {
+  readonly attempt: DeliveryAttempt
+  readonly statusTone: 'sent' | 'failed' | 'suppressed' | 'queued' | 'retrying' | 'skipped' | 'other'
+  readonly channelLabel: string
+  readonly when: string
+  readonly relativeWhen: string
+  readonly contentKindLabel: string
+  readonly badges: readonly string[]
+}
+
+export interface InboxGroupViewModel {
+  readonly key: string
+  readonly label: string
+  readonly rows: readonly InboxRowViewModel[]
+}
+
+export interface InboxViewModel {
+  readonly hasData: boolean
+  readonly counts: {
+    readonly total: number
+    readonly sent: number
+    readonly failed: number
+    readonly suppressed: number
+    readonly queued: number
+  }
+  readonly groups: readonly InboxGroupViewModel[]
+}
+
+const KIND_LABEL: Record<DeliveryContentKind, string> = {
+  morning_book_brief: 'Morning Book Brief',
+  intraday_critical: 'Intraday Critical',
+  coverage_hygiene: 'Coverage Hygiene',
+  weekly_catalyst_brief: 'Weekly Catalyst Brief',
+  source_health_incident: 'Source Health Incident',
+}
+
+const CHANNEL_LABEL: Record<DeliveryChannel, string> = {
+  in_app: 'In-app',
+  email: 'Email',
+  slack: 'Slack',
+  webhook: 'Webhook',
+  cli: 'CLI',
+}
+
+export function buildInboxViewModel(
+  attempts: readonly DeliveryAttempt[],
+  now: Date = new Date(),
+): InboxViewModel {
+  if (attempts.length === 0) {
+    return {
+      hasData: false,
+      counts: { total: 0, sent: 0, failed: 0, suppressed: 0, queued: 0 },
+      groups: [],
+    }
+  }
+  const sorted = [...attempts].sort((a, b) => b.enqueuedAt.localeCompare(a.enqueuedAt))
+  const counts = {
+    total: sorted.length,
+    sent: sorted.filter((a) => a.status === 'sent').length,
+    failed: sorted.filter((a) => a.status === 'failed').length,
+    suppressed: sorted.filter((a) => a.status === 'suppressed').length,
+    queued: sorted.filter((a) => a.status === 'queued' || a.status === 'retrying').length,
+  }
+  const rows = sorted.map<InboxRowViewModel>((a) => ({
+    attempt: a,
+    statusTone: toTone(a.status),
+    channelLabel: CHANNEL_LABEL[a.channel] ?? a.channel,
+    when: a.enqueuedAt.slice(0, 16).replace('T', ' '),
+    relativeWhen: formatRelative(now, new Date(a.enqueuedAt)),
+    contentKindLabel: KIND_LABEL[a.contentKind] ?? a.contentKind,
+    badges: a.payloadSummary.badges,
+  }))
+
+  // Group by date (YYYY-MM-DD).
+  const byDate = new Map<string, InboxRowViewModel[]>()
+  for (const r of rows) {
+    const k = r.attempt.enqueuedAt.slice(0, 10)
+    const arr = byDate.get(k) ?? []
+    arr.push(r)
+    byDate.set(k, arr)
+  }
+  const groups: InboxGroupViewModel[] = [...byDate.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([k, items]) => ({
+      key: k,
+      label: formatDayLabel(now, k),
+      rows: items,
+    }))
+
+  return { hasData: true, counts, groups }
+}
+
+function toTone(s: DeliveryStatus): InboxRowViewModel['statusTone'] {
+  if (s === 'sent') return 'sent'
+  if (s === 'failed') return 'failed'
+  if (s === 'suppressed') return 'suppressed'
+  if (s === 'queued') return 'queued'
+  if (s === 'retrying') return 'retrying'
+  if (s === 'skipped_freshness' || s === 'skipped_empty') return 'skipped'
+  return 'other'
+}
+
+export const STATUS_CLASS: Record<InboxRowViewModel['statusTone'], string> = {
+  sent:        'text-emerald-300 border-emerald-500/30 bg-emerald-500/[0.06]',
+  failed:      'text-rose-300 border-rose-500/30 bg-rose-500/10',
+  suppressed:  'text-slate-300 border-line/15',
+  queued:      'text-amber-300 border-amber-500/30',
+  retrying:    'text-amber-300 border-amber-500/30',
+  skipped:     'text-slate-500 border-line/10',
+  other:       'text-slate-400 border-line/10',
+}
+
+function formatRelative(now: Date, when: Date): string {
+  const ms = now.getTime() - when.getTime()
+  if (ms < 0) return when.toISOString().slice(0, 16).replace('T', ' ')
+  const sec = Math.floor(ms / 1000)
+  if (sec < 60) return `${sec}s ago`
+  if (sec < 3600) return `${Math.floor(sec / 60)}m ago`
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h ago`
+  return `${Math.floor(sec / 86400)}d ago`
+}
+
+function formatDayLabel(now: Date, iso: string): string {
+  const today = now.toISOString().slice(0, 10)
+  if (iso === today) return 'Today'
+  const ydate = new Date(now); ydate.setUTCDate(ydate.getUTCDate() - 1)
+  if (iso === ydate.toISOString().slice(0, 10)) return 'Yesterday'
+  const d = new Date(iso + 'T00:00:00Z')
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' })
+}

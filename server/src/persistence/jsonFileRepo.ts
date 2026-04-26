@@ -25,6 +25,8 @@ import type {
   CatalystId, PreEventBriefId, PostEventReviewId,
   SourceId, SourceSyncRun, SourceWatermark, BackfillJob,
   BackfillJobId,
+  DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
+  DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -45,6 +47,8 @@ const TABLES = [
   'catalysts', 'expectationSnapshots', 'preEventBriefs', 'postEventReviews',
   // Module 24 — source integrations
   'sourceSyncRuns', 'sourceWatermarks', 'backfillJobs',
+  // Module 25 — delivery + workflow
+  'deliverySchedules', 'deliveryRuns', 'deliveryAttempts', 'deliverySuppressions',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -75,6 +79,10 @@ interface Snapshot {
   sourceSyncRuns: SourceSyncRun[]
   sourceWatermarks: SourceWatermark[]
   backfillJobs: BackfillJob[]
+  deliverySchedules: DeliverySchedule[]
+  deliveryRuns: DeliveryRun[]
+  deliveryAttempts: DeliveryAttempt[]
+  deliverySuppressions: DeliverySuppression[]
 }
 
 export interface JsonFileRepoOptions {
@@ -218,6 +226,32 @@ export class JsonFileRepo implements Repo {
   }
   loadSourcesForOrg(orgId: OrgId) { return this.mem.loadSourcesForOrg(orgId) }
 
+  // Module 25 — delivery
+  upsertDeliverySchedule(rec: DeliverySchedule) { this.mem.upsertDeliverySchedule(rec); this.touch('deliverySchedules') }
+  getDeliverySchedule(orgId: OrgId, id: DeliveryScheduleId) { return this.mem.getDeliverySchedule(orgId, id) }
+  listDeliverySchedules(orgId: OrgId, filter?: Parameters<Repo['listDeliverySchedules']>[1]) {
+    return this.mem.listDeliverySchedules(orgId, filter)
+  }
+  appendDeliveryRun(rec: DeliveryRun) { this.mem.appendDeliveryRun(rec); this.touch('deliveryRuns') }
+  getDeliveryRun(orgId: OrgId, id: DeliveryRunId) { return this.mem.getDeliveryRun(orgId, id) }
+  listDeliveryRuns(orgId: OrgId, filter?: Parameters<Repo['listDeliveryRuns']>[1]) {
+    return this.mem.listDeliveryRuns(orgId, filter)
+  }
+  appendDeliveryAttempt(rec: DeliveryAttempt) { this.mem.appendDeliveryAttempt(rec); this.touch('deliveryAttempts') }
+  getDeliveryAttempt(orgId: OrgId, id: DeliveryAttemptId) { return this.mem.getDeliveryAttempt(orgId, id) }
+  listDeliveryAttempts(orgId: OrgId, filter?: Parameters<Repo['listDeliveryAttempts']>[1]) {
+    return this.mem.listDeliveryAttempts(orgId, filter)
+  }
+  updateDeliveryAttempt(rec: DeliveryAttempt) { this.mem.updateDeliveryAttempt(rec); this.touch('deliveryAttempts') }
+  upsertDeliverySuppression(rec: DeliverySuppression) { this.mem.upsertDeliverySuppression(rec); this.touch('deliverySuppressions') }
+  findDeliverySuppression(orgId: OrgId, query: Parameters<Repo['findDeliverySuppression']>[1]) {
+    return this.mem.findDeliverySuppression(orgId, query)
+  }
+  listDeliverySuppressions(orgId: OrgId, filter?: Parameters<Repo['listDeliverySuppressions']>[1]) {
+    return this.mem.listDeliverySuppressions(orgId, filter)
+  }
+  loadDeliveryForOrg(orgId: OrgId) { return this.mem.loadDeliveryForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -266,6 +300,10 @@ export class JsonFileRepo implements Repo {
       sourceSyncRuns: SourceSyncRun[]
       sourceWatermarks: Map<string, SourceWatermark>
       backfillJobs: Map<string, BackfillJob>
+      deliverySchedules: Map<string, DeliverySchedule>
+      deliveryRuns: Map<string, DeliveryRun>
+      deliveryAttempts: Map<string, DeliveryAttempt>
+      deliverySuppressions: Map<string, DeliverySuppression>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -294,6 +332,10 @@ export class JsonFileRepo implements Repo {
       sourceSyncRuns:       [...m.sourceSyncRuns],
       sourceWatermarks:     [...m.sourceWatermarks.values()],
       backfillJobs:         [...m.backfillJobs.values()],
+      deliverySchedules:    [...m.deliverySchedules.values()],
+      deliveryRuns:         [...m.deliveryRuns.values()],
+      deliveryAttempts:     [...m.deliveryAttempts.values()],
+      deliverySuppressions: [...m.deliverySuppressions.values()],
     }
   }
 
@@ -333,6 +375,10 @@ export class JsonFileRepo implements Repo {
           case 'sourceSyncRuns':       this.mem.appendSourceSyncRun(rec as SourceSyncRun); break
           case 'sourceWatermarks':     this.mem.upsertSourceWatermark(rec as SourceWatermark); break
           case 'backfillJobs':         this.mem.upsertBackfillJob(rec as BackfillJob); break
+          case 'deliverySchedules':    this.mem.upsertDeliverySchedule(rec as DeliverySchedule); break
+          case 'deliveryRuns':         this.mem.appendDeliveryRun(rec as DeliveryRun); break
+          case 'deliveryAttempts':     this.mem.appendDeliveryAttempt(rec as DeliveryAttempt); break
+          case 'deliverySuppressions': this.mem.upsertDeliverySuppression(rec as DeliverySuppression); break
         }
       }
     }

@@ -17,8 +17,11 @@ import type {
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot, SourceIntegration, SourceKind,
+  DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
 } from '../domain'
-import { asSourceId } from '../lib/ids'
+import {
+  asSourceId, asDeliveryAttemptId, asDeliveryRunId, asDeliveryTargetId, asUserId,
+} from '../lib/ids'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../engine'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -556,6 +559,98 @@ export class MockResearchAdapter implements ResearchAdapter {
       sources,
       backfillsInFlight: [],
     }
+  }
+
+  /** Module 25 — synthetic delivery history.
+   *
+   *  The mock fabricates a small in-app inbox so the dashboard's Inbox
+   *  tab is exercised end-to-end without a live server. Real production
+   *  data comes through the HTTP adapter against `/v1/deliveries`. */
+  async listDeliveries(scope: OrgScope, query?: {
+    contentKind?: DeliveryContentKind
+    channel?: DeliveryChannel
+    limit?: number
+  }): Promise<readonly DeliveryAttempt[]> {
+    await this.delay()
+    const all = this.synthesiseInbox(scope.orgId)
+    let arr = all.slice()
+    if (query?.contentKind) arr = arr.filter((a) => a.contentKind === query.contentKind)
+    if (query?.channel)     arr = arr.filter((a) => a.channel === query.channel)
+    arr.sort((a, b) => b.enqueuedAt.localeCompare(a.enqueuedAt))
+    if (query?.limit) arr = arr.slice(0, query.limit)
+    return arr
+  }
+
+  async getDelivery(scope: OrgScope, id: DeliveryAttemptId): Promise<DeliveryAttempt | null> {
+    await this.delay()
+    const all = this.synthesiseInbox(scope.orgId)
+    return all.find((a) => a.id === id) ?? null
+  }
+
+  private synthesiseInbox(orgId: import('../domain').OrgId): DeliveryAttempt[] {
+    const now = Date.now()
+    const userTarget = {
+      id: asDeliveryTargetId(`${orgId as unknown as string}::in_app::usr_default`),
+      orgId,
+      channel: 'in_app' as const,
+      label: 'In-app inbox',
+      address: 'usr_default',
+      userId: asUserId('usr_default'),
+      enabled: true,
+    }
+    const mk = (
+      offsetMin: number,
+      contentKind: DeliveryContentKind,
+      title: string,
+      subtitle: string,
+      bullets: readonly string[],
+      counts: Readonly<Record<string, number>>,
+      badges: readonly string[] = [],
+      tab: 'briefing' | 'mybook' | 'catalysts' | 'sources' | 'worklog' = 'briefing',
+    ): DeliveryAttempt => ({
+      id: asDeliveryAttemptId(`mock_att_${contentKind}_${offsetMin}`),
+      runId: asDeliveryRunId(`mock_run_${contentKind}_${offsetMin}`),
+      orgId,
+      contentKind,
+      channel: 'in_app',
+      target: userTarget,
+      attemptNumber: 1,
+      status: 'sent',
+      fingerprint: `fp_${contentKind}_${offsetMin}`,
+      enqueuedAt: new Date(now - offsetMin * 60 * 1000).toISOString(),
+      sentAt: new Date(now - offsetMin * 60 * 1000).toISOString(),
+      latencyMs: 0,
+      errorCategory: null,
+      errorMessage: null,
+      nextRetryAt: null,
+      payloadSummary: { title, subtitle, bullets, counts, badges },
+      inAppBody: [title, '', ...bullets].join('\n'),
+      clickThrough: { tab, entityId: null },
+    })
+    return [
+      mk(15, 'morning_book_brief', 'Morning Book Brief',
+         '2 critical · 5 high · 12 on book',
+         ['INFY — Ambit raises target +13% on improving deal ramp',
+          'TCS — Nuvama cuts to Sell on discretionary deferrals',
+          '12 reports landed on book in last 24h'],
+         { critical: 2, high: 5, onBookLast24h: 12 }, [], 'briefing'),
+      mk(180, 'intraday_critical', 'Intraday Critical',
+         '1 critical alert in last 15m',
+         ['[CRITICAL] TCS — Nuvama downgrades to Sell, target ₹3,400'],
+         { total: 1, critical: 1, high: 0 }, ['CRITICAL'], 'briefing'),
+      mk(60 * 26, 'coverage_hygiene', 'Coverage Hygiene',
+         '3 hygiene flags',
+         ['HCLTECH — single-broker coverage on held name',
+          'WIPRO — stale coverage 18d on watchlist',
+          'ONGC — single-broker coverage on held name'],
+         { hygiene_flags: 3 }, [], 'mybook'),
+      mk(60 * 36, 'weekly_catalyst_brief', 'Weekly Catalyst Brief',
+         '14 events · 4 high/critical',
+         ['Tue 29 Apr · TCS · earnings · critical',
+          'Thu 02 May · ICICIBANK · earnings · critical',
+          'Fri 30 Apr · INFY · earnings · critical'],
+         { upcoming: 14, high: 4 }, ['HIGH'], 'catalysts'),
+    ]
   }
 
   // ── Internal ────────────────────────────────────────────────────────

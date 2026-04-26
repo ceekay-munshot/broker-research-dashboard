@@ -238,6 +238,10 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
 
   // ── Sources health (Module 24) ─────────────────────────────────────
   async getSourcesHealth(_scope: OrgScope): Promise<import('../../domain').SourcesHealthSnapshot | null> { return null }
+
+  // ── Delivery (Module 25) ───────────────────────────────────────────
+  async listDeliveries(_scope: OrgScope): Promise<readonly import('../../domain').DeliveryAttempt[]> { return [] }
+  async getDelivery(_scope: OrgScope, _id: import('../../domain').DeliveryAttemptId): Promise<import('../../domain').DeliveryAttempt | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

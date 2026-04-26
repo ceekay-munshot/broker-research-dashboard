@@ -17,6 +17,7 @@ import type {
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot,
+  DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
@@ -152,4 +153,14 @@ export interface ResearchAdapter {
    *  sync, freshness, errors, backfills. Returns null when the adapter
    *  has no sources layer configured (older mock builds). */
   getSourcesHealth(scope: OrgScope): Promise<SourcesHealthSnapshot | null>
+
+  // ─── Delivery / workflow (Module 25) ─────────────────────────────────
+  /** Recent delivery attempts for the in-app inbox + operator surfaces. */
+  listDeliveries(scope: OrgScope, query?: {
+    readonly contentKind?: DeliveryContentKind
+    readonly channel?: DeliveryChannel
+    readonly limit?: number
+  }): Promise<readonly DeliveryAttempt[]>
+  /** Single delivery attempt by id — used for the inbox detail view. */
+  getDelivery(scope: OrgScope, id: DeliveryAttemptId): Promise<DeliveryAttempt | null>
 }

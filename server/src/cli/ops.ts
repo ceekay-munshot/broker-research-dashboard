@@ -72,6 +72,15 @@ import {
   parseSourceKind, type SourcesCliFlags,
 } from './sources'
 import { buildRegistryForOrgs, SourceManager } from '../sources'
+import {
+  cmdDeliveryListSchedules, cmdDeliveryListSubscriptions, cmdDeliveryListChannels,
+  cmdDeliveryRunDue, cmdDeliveryPreview, cmdDeliveryResend,
+  cmdDeliveryHistory, cmdDeliverySuppressions, cmdDeliveryChannelFailures,
+  cmdDeliveryComparePayloads,
+  parseContentKind, type DeliveryCliFlags,
+} from './delivery'
+import { buildDeliveryStack } from '../delivery'
+import { DeliveryDispatcher } from '../delivery/dispatcher'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -103,6 +112,11 @@ type Subcommand =
   // Module 24
   | 'sources:list' | 'sources:health' | 'sources:sync' | 'sources:sync-all'
   | 'sources:retry' | 'sources:backfill' | 'sources:inspect' | 'sources:compare-modes'
+  // Module 25
+  | 'delivery:list-schedules' | 'delivery:list-subscriptions' | 'delivery:list-channels'
+  | 'delivery:run-due' | 'delivery:preview' | 'delivery:resend'
+  | 'delivery:history' | 'delivery:suppressions' | 'delivery:channel-failures'
+  | 'delivery:compare-payloads'
   | 'help'
 
 interface Args {
@@ -142,6 +156,8 @@ interface Args {
   readonly sourceKind?: string
   readonly fromIso?: string
   readonly toIso?: string
+  // Module 25 flags
+  readonly deliveryKind?: string
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -205,6 +221,7 @@ function parseArgs(argv: readonly string[]): Args {
     sourceKind: flags.kind as string | undefined,
     fromIso: flags.from as string | undefined,
     toIso: flags.to as string | undefined,
+    deliveryKind: (flags['kind'] as string | undefined) ?? (flags['content-kind'] as string | undefined),
   }
 }
 
@@ -410,6 +427,48 @@ async function main(): Promise<void> {
     case 'sources:compare-modes':
       cmdSourcesCompareModes(asSourcesFlags(args))
       break
+    // Module 25 — delivery + workflow
+    case 'delivery:list-schedules':
+      cmdDeliveryListSchedules(asDeliveryFlags(args), repo)
+      break
+    case 'delivery:list-subscriptions': {
+      const stack = buildDeliveryStackFor(repo, store)
+      cmdDeliveryListSubscriptions(asDeliveryFlags(args), stack.registry)
+      break
+    }
+    case 'delivery:list-channels': {
+      const stack = buildDeliveryStackFor(repo, store)
+      cmdDeliveryListChannels(asDeliveryFlags(args), stack.registry)
+      break
+    }
+    case 'delivery:run-due': {
+      const stack = buildDeliveryStackFor(repo, store)
+      await cmdDeliveryRunDue(asDeliveryFlags(args), stack.scheduler)
+      break
+    }
+    case 'delivery:preview': {
+      const stack = buildDeliveryStackFor(repo, store)
+      await cmdDeliveryPreview(asDeliveryFlags(args), stack.scheduler)
+      break
+    }
+    case 'delivery:resend': {
+      const stack = buildDeliveryStackFor(repo, store)
+      const dispatcher = new DeliveryDispatcher({ repo, registry: stack.registry })
+      await cmdDeliveryResend(asDeliveryFlags(args), dispatcher)
+      break
+    }
+    case 'delivery:history':
+      cmdDeliveryHistory(asDeliveryFlags(args), repo)
+      break
+    case 'delivery:suppressions':
+      cmdDeliverySuppressions(asDeliveryFlags(args), repo)
+      break
+    case 'delivery:channel-failures':
+      cmdDeliveryChannelFailures(asDeliveryFlags(args), repo)
+      break
+    case 'delivery:compare-payloads':
+      cmdDeliveryComparePayloads(asDeliveryFlags(args), repo)
+      break
     case 'help':
     default:
       printHelp()
@@ -485,6 +544,23 @@ function buildSourceManager(repo: Repo): SourceManager {
   const orgIds = organizations.map((o) => o.id)
   const registry = buildRegistryForOrgs(orgIds, { repo })
   return new SourceManager({ repo, registry })
+}
+
+function asDeliveryFlags(args: Args): DeliveryCliFlags {
+  return {
+    orgId: args.orgId,
+    contentKind: parseContentKind(args.deliveryKind),
+    attemptId: args.id,
+    limit: args.limit,
+    before: args.before,
+    after: args.after,
+  }
+}
+
+function buildDeliveryStackFor(repo: Repo, store: import('../store/InMemoryStore').InMemoryStore) {
+  const orgIds = organizations.map((o) => o.id)
+  const sourceManager = buildSourceManager(repo)
+  return buildDeliveryStack({ orgIds, repo, store, sourceManager })
 }
 
 // ── Subcommands ──────────────────────────────────────────────────────────
@@ -967,7 +1043,20 @@ function printHelp(): void {
   npm run ops -- sources:inspect         --kind=<kind> [--org=<orgId>]
   npm run ops -- sources:compare-modes   --kind=<kind>
 
-Source kinds: raw_upstream, portfolio, catalyst_calendar, market_data.
+  npm run ops -- delivery:list-schedules        [--org=<orgId>]
+  npm run ops -- delivery:list-subscriptions    [--org=<orgId>]
+  npm run ops -- delivery:list-channels
+  npm run ops -- delivery:run-due               [--org=<orgId>]
+  npm run ops -- delivery:preview --kind=<kind> [--org=<orgId>]
+  npm run ops -- delivery:resend --id=<attemptId>
+  npm run ops -- delivery:history               [--kind=<kind>] [--limit=<n>]
+  npm run ops -- delivery:suppressions          [--limit=<n>]
+  npm run ops -- delivery:channel-failures      [--limit=<n>]
+  npm run ops -- delivery:compare-payloads --before=<runId> --after=<runId>
+
+Source kinds:   raw_upstream, portfolio, catalyst_calendar, market_data.
+Delivery kinds: morning_book_brief, intraday_critical, coverage_hygiene,
+                weekly_catalyst_brief, source_health_incident.
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

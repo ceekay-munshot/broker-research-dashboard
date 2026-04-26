@@ -15,6 +15,11 @@ import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
 import type { SourceManager } from '../sources'
+import type { Repo } from '../persistence'
+import type {
+  DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
+} from '../../../src/domain'
+import { asDeliveryAttemptId } from '../../../src/lib/ids'
 import {
   organizations, users, brokers, sectors, stocks,
 } from '../config/organizations'
@@ -38,6 +43,8 @@ const FIXED_SESSION_SCOPE: OrgScope = {
 
 export interface BuildRouterOptions {
   readonly sourceManager?: SourceManager
+  /** Repo is required for the delivery endpoints (Module 25). */
+  readonly repo?: Repo
 }
 
 export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {}): Router {
@@ -388,6 +395,27 @@ export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {})
       return reply.notFound(res, 'sources health: source manager not configured')
     }
     reply.ok(res, opts.sourceManager.snapshot(scope.orgId))
+  })
+
+  // ── Delivery / inbox (Module 25) ───────────────────────────────────
+  r.get('/v1/deliveries', ({ res, scope, url }) => {
+    if (!opts.repo) return reply.notFound(res, 'deliveries: repo not configured')
+    const ck = url.searchParams.get('contentKind') ?? undefined
+    const ch = url.searchParams.get('channel') ?? undefined
+    const lim = url.searchParams.get('limit')
+    const items = opts.repo.listDeliveryAttempts(scope.orgId, {
+      contentKind: ck as DeliveryContentKind | undefined,
+      channel: ch as DeliveryChannel | undefined,
+      limit: lim ? Number(lim) : 50,
+    })
+    reply.ok(res, { items })
+  })
+  r.get('/v1/deliveries/:attemptId', ({ res, scope, params }) => {
+    if (!opts.repo) return reply.notFound(res, 'delivery: repo not configured')
+    const id = asDeliveryAttemptId(params.attemptId!) as DeliveryAttemptId
+    const a = opts.repo.getDeliveryAttempt(scope.orgId, id)
+    if (!a) return reply.notFound(res, `delivery ${params.attemptId}`)
+    reply.ok(res, a)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

@@ -115,6 +115,10 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
 
   // Sources health (Module 24) — optional; the chrome chip degrades when missing.
   { key: 'sourcesHealth',      endpoint: 'GET /v1/sources/health',           requirement: 'optional', description: 'Source-integration health snapshot (Module 24).', tolerate404: true },
+
+  // Delivery / inbox (Module 25) — optional list; tolerate-404 means no inbox.
+  { key: 'deliveries',         endpoint: 'GET /v1/deliveries',               requirement: 'list',     description: 'Recent delivery attempts (Module 25 inbox).', tolerate404: true },
+  { key: 'delivery',           endpoint: 'GET /v1/deliveries/:id',           requirement: 'optional', description: 'Single delivery attempt by id.', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

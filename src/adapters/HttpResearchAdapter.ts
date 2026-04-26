@@ -17,6 +17,7 @@ import type {
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
   SourcesHealthSnapshot,
+  DeliveryAttempt, DeliveryAttemptId, DeliveryContentKind, DeliveryChannel,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -464,6 +465,35 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const snap = raw as SourcesHealthSnapshot
     assertOrgMatch('SourcesHealthSnapshot', scope, snap.orgId as unknown as string)
     return snap
+  }
+
+  // ── Delivery (Module 25) ────────────────────────────────────────────
+
+  async listDeliveries(scope: OrgScope, query?: {
+    readonly contentKind?: DeliveryContentKind
+    readonly channel?: DeliveryChannel
+    readonly limit?: number
+  }): Promise<readonly DeliveryAttempt[]> {
+    const search: Record<string, string> = {}
+    if (query?.contentKind) search.contentKind = query.contentKind
+    if (query?.channel)     search.channel = query.channel
+    if (query?.limit !== undefined) search.limit = String(query.limit)
+    const raw = await this.client.request(endpoints.deliveries(), scope, {
+      query: search as QueryInput, endpointKey: 'deliveries',
+    })
+    const items = (raw as { items?: readonly DeliveryAttempt[] }).items ?? (raw as readonly DeliveryAttempt[])
+    assertPageOrg('DeliveryAttempt', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getDelivery(scope: OrgScope, id: DeliveryAttemptId): Promise<DeliveryAttempt | null> {
+    const raw = await this.client.requestOrNull(endpoints.delivery(id as unknown as string), scope, {
+      endpointKey: 'delivery',
+    })
+    if (raw === null) return null
+    const item = raw as DeliveryAttempt
+    assertOrgMatch('DeliveryAttempt', scope, item.orgId as unknown as string)
+    return item
   }
 }
 

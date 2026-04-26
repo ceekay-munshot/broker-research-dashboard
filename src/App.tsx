@@ -25,6 +25,7 @@ import Briefing from './components/views/Briefing'
 import Calibration from './components/views/Calibration'
 import Catalysts from './components/views/Catalysts'
 import SourceHealth from './components/views/SourceHealth'
+import Inbox from './components/views/Inbox'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('mybook')
@@ -139,6 +140,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'calibration': return <Calibration onSelectTicker={onSelectTicker}/>
     case 'catalysts':  return <Catalysts onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('briefing')}/>
     case 'sources':    return <SourceHealth/>
+    case 'inbox':      return <Inbox setActiveTab={setActiveTab}/>
   }
 }
 

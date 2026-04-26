@@ -28,6 +28,9 @@ import type {
   CatalystId, PreEventBriefId, PostEventReviewId,
   SourceId, SourceKind, SourceSyncRun, SourceWatermark, BackfillJob,
   BackfillJobId, BackfillJobState,
+  DeliverySchedule, DeliveryRun, DeliveryAttempt, DeliverySuppression,
+  DeliveryScheduleId, DeliveryRunId, DeliveryAttemptId,
+  DeliveryContentKind, DeliveryChannel, DeliveryTargetId,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -263,6 +266,50 @@ export interface Repo {
     readonly syncRuns: readonly SourceSyncRun[]
     readonly watermarks: readonly SourceWatermark[]
     readonly backfills: readonly BackfillJob[]
+  }
+
+  // Delivery + workflow integrations (Module 25) ────────────────────────
+  /** Schedules drive when each content kind fires. The scheduler
+   *  upserts after each tick to advance `lastFiredAt` + `nextDueAt`. */
+  upsertDeliverySchedule(rec: DeliverySchedule): void
+  getDeliverySchedule(orgId: OrgId, id: DeliveryScheduleId): DeliverySchedule | null
+  listDeliverySchedules(orgId: OrgId, filter?: {
+    readonly contentKind?: DeliveryContentKind
+    readonly enabledOnly?: boolean
+  }): readonly DeliverySchedule[]
+  /** A scheduler tick that produced one rendered payload. */
+  appendDeliveryRun(rec: DeliveryRun): void
+  getDeliveryRun(orgId: OrgId, id: DeliveryRunId): DeliveryRun | null
+  listDeliveryRuns(orgId: OrgId, filter?: {
+    readonly contentKind?: DeliveryContentKind
+    readonly limit?: number
+  }): readonly DeliveryRun[]
+  /** One attempt per (run × target). Retries append more attempts. */
+  appendDeliveryAttempt(rec: DeliveryAttempt): void
+  getDeliveryAttempt(orgId: OrgId, id: DeliveryAttemptId): DeliveryAttempt | null
+  listDeliveryAttempts(orgId: OrgId, filter?: {
+    readonly runId?: DeliveryRunId
+    readonly contentKind?: DeliveryContentKind
+    readonly channel?: DeliveryChannel
+    readonly targetId?: DeliveryTargetId
+    readonly limit?: number
+  }): readonly DeliveryAttempt[]
+  /** Update an existing attempt (used when retry resolves status). */
+  updateDeliveryAttempt(rec: DeliveryAttempt): void
+  /** Suppression records. We look up by (orgId, contentKind, targetId, fingerprint). */
+  upsertDeliverySuppression(rec: DeliverySuppression): void
+  findDeliverySuppression(orgId: OrgId, query: {
+    readonly contentKind: DeliveryContentKind
+    readonly targetId: DeliveryTargetId
+    readonly fingerprint: string
+  }): DeliverySuppression | null
+  listDeliverySuppressions(orgId: OrgId, filter?: { readonly limit?: number }): readonly DeliverySuppression[]
+  /** Bulk hydration on server boot. */
+  loadDeliveryForOrg(orgId: OrgId): {
+    readonly schedules: readonly DeliverySchedule[]
+    readonly runs: readonly DeliveryRun[]
+    readonly attempts: readonly DeliveryAttempt[]
+    readonly suppressions: readonly DeliverySuppression[]
   }
 
   // Lifecycle ───────────────────────────────────────────────────────────
