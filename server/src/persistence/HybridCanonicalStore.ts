@@ -16,6 +16,7 @@ import type {
   OrgId, ResearchReport, ReportSummary,
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   CalibrationSnapshot,
+  CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
 } from '../../../src/domain'
 import { InMemoryStore } from '../store/InMemoryStore'
 import type { Repo } from './types'
@@ -82,6 +83,13 @@ export class HybridCanonicalStore extends InMemoryStore {
       // Module 20 — calibration snapshots.
       const cal = this.repo.loadCalibrationForOrg(orgId)
       for (const s of cal.snapshots) super.upsertCalibrationSnapshot(s)
+
+      // Module 21 — catalysts / snapshots / briefs / reviews.
+      const cats = this.repo.loadCatalystsForOrg(orgId)
+      for (const c of cats.catalysts) super.upsertCatalyst(c)
+      for (const s of cats.snapshots) super.upsertExpectationSnapshot(s)
+      for (const b of cats.briefs)    super.upsertPreEventBrief(b)
+      for (const r of cats.reviews)   super.upsertPostEventReview(r)
     }
   }
 
@@ -108,5 +116,23 @@ export class HybridCanonicalStore extends InMemoryStore {
   override upsertCalibrationSnapshot(s: CalibrationSnapshot): void {
     super.upsertCalibrationSnapshot(s)
     this.repo.upsertCalibrationSnapshot(s)
+  }
+
+  // Module 21 — catalyst dual-writes.
+  override upsertCatalyst(c: CatalystEvent): void {
+    super.upsertCatalyst(c)
+    this.repo.upsertCatalyst(c)
+  }
+  override upsertExpectationSnapshot(s: ExpectationSnapshot): void {
+    super.upsertExpectationSnapshot(s)
+    this.repo.upsertExpectationSnapshot(s)
+  }
+  override upsertPreEventBrief(b: PreEventBrief): void {
+    super.upsertPreEventBrief(b)
+    this.repo.upsertPreEventBrief(b)
+  }
+  override upsertPostEventReview(r: PostEventReview): void {
+    super.upsertPostEventReview(r)
+    this.repo.upsertPostEventReview(r)
   }
 }

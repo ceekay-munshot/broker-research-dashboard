@@ -104,6 +104,12 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'alertEffectivenessList',  endpoint: 'GET /v1/calibration/alerts',            requirement: 'list',     description: 'Per-alert-kind effectiveness scorecards.', tolerate404: true },
   { key: 'alertEffectiveness',      endpoint: 'GET /v1/calibration/alerts/:kind',      requirement: 'optional', description: 'Single alert-kind effectiveness scorecard.', tolerate404: true },
   { key: 'coverageSignal',          endpoint: 'GET /v1/calibration/coverage/:ticker',  requirement: 'optional', description: 'Per-ticker coverage signal.', tolerate404: true },
+
+  // Catalysts (Module 21) — fully optional. 404 → no calendar data yet.
+  { key: 'catalysts',          endpoint: 'GET /v1/catalysts',                requirement: 'list',     description: 'Catalyst calendar for the org.', tolerate404: true },
+  { key: 'catalyst',           endpoint: 'GET /v1/catalysts/:id',            requirement: 'optional', description: 'Single catalyst detail.', tolerate404: true },
+  { key: 'catalystBrief',      endpoint: 'GET /v1/catalysts/:id/brief',      requirement: 'optional', description: 'Latest pre-event brief for a catalyst.', tolerate404: true },
+  { key: 'postEventReviews',   endpoint: 'GET /v1/post-event-reviews',       requirement: 'list',     description: 'Post-event reviews (scaffold).', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

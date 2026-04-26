@@ -51,6 +51,11 @@ import {
   cmdCalibrationCompare, cmdCalibrationLowSample,
   type CalibrationCliFlags,
 } from './calibration'
+import {
+  cmdCatalystsUpcoming, cmdCatalystsBrief, cmdCatalystsWeeklyBriefs,
+  cmdCatalystsDelta, cmdCatalystsWeakCoverage, cmdCatalystsReplay,
+  type CatalystCliFlags,
+} from './catalysts'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -70,6 +75,9 @@ type Subcommand =
   | 'calibration:snapshot' | 'calibration:recompute'
   | 'calibration:brokers' | 'calibration:alerts' | 'calibration:coverage'
   | 'calibration:compare' | 'calibration:low-sample'
+  // Module 21
+  | 'catalysts:upcoming' | 'catalysts:brief' | 'catalysts:weekly-briefs'
+  | 'catalysts:delta' | 'catalysts:weak-coverage' | 'catalysts:replay'
   | 'help'
 
 interface Args {
@@ -101,6 +109,10 @@ interface Args {
   // Module 20 flags
   readonly bottom?: boolean
   readonly ticker?: string
+  // Module 21 flags
+  readonly days?: number
+  readonly catalystId?: import('../../../src/domain').CatalystId
+  readonly eventWindow?: import('../../../src/domain').EventMonitoringWindow
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -155,6 +167,12 @@ function parseArgs(argv: readonly string[]): Args {
     digestKind,
     bottom: flags.bottom === true,
     ticker: flags.ticker as string | undefined,
+    days: typeof flags.days === 'string' && /^\d+$/.test(flags.days as string) ? Number(flags.days) : undefined,
+    catalystId: typeof flags.catalyst === 'string' ? (flags.catalyst as unknown as import('../../../src/domain').CatalystId) : undefined,
+    eventWindow: (() => {
+      const w = flags.window as string | undefined
+      return (w === '24h' || w === '3d' || w === '7d' || w === '14d' || w === '30d') ? w : undefined
+    })(),
   }
 }
 
@@ -281,6 +299,25 @@ async function main(): Promise<void> {
     case 'calibration:low-sample':
       cmdCalibrationLowSample(asCalibrationFlags(args), store)
       break
+    // Module 21 — catalysts
+    case 'catalysts:upcoming':
+      await cmdCatalystsUpcoming(asCatalystFlags(args), store)
+      break
+    case 'catalysts:brief':
+      await cmdCatalystsBrief(asCatalystFlags(args), store)
+      break
+    case 'catalysts:weekly-briefs':
+      await cmdCatalystsWeeklyBriefs(asCatalystFlags(args), store)
+      break
+    case 'catalysts:delta':
+      await cmdCatalystsDelta(asCatalystFlags(args), store)
+      break
+    case 'catalysts:weak-coverage':
+      cmdCatalystsWeakCoverage(asCatalystFlags(args), store)
+      break
+    case 'catalysts:replay':
+      await cmdCatalystsReplay(asCatalystFlags(args), store)
+      break
     case 'help':
     default:
       printHelp()
@@ -310,6 +347,15 @@ function asCalibrationFlags(args: Args): CalibrationCliFlags {
     ticker: args.ticker,
     before: args.before,
     after: args.after,
+  }
+}
+
+function asCatalystFlags(args: Args): CatalystCliFlags {
+  return {
+    orgId: args.orgId,
+    days: args.days,
+    catalystId: args.catalystId,
+    window: args.eventWindow,
   }
 }
 
@@ -763,6 +809,13 @@ function printHelp(): void {
   npm run ops -- calibration:coverage   [--org=<orgId>] --ticker=<ticker>
   npm run ops -- calibration:compare    [--org=<orgId>] --before=<snapshotId> --after=<snapshotId>
   npm run ops -- calibration:low-sample [--org=<orgId>]
+
+  npm run ops -- catalysts:upcoming      [--org=<orgId>] [--days=<n>]
+  npm run ops -- catalysts:brief         --catalyst=<id>
+  npm run ops -- catalysts:weekly-briefs [--org=<orgId>]
+  npm run ops -- catalysts:delta         --catalyst=<id> --window=<7d|30d>
+  npm run ops -- catalysts:weak-coverage [--org=<orgId>]
+  npm run ops -- catalysts:replay        [--org=<orgId>]
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

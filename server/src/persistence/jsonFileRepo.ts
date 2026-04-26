@@ -21,6 +21,8 @@ import type {
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
   CalibrationSnapshot, CalibrationSnapshotId,
+  CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
+  CatalystId, PreEventBriefId, PostEventReviewId,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -37,6 +39,8 @@ const TABLES = [
   'alertEvents', 'alertDigests', 'digestRuns', 'notifications',
   // Module 20
   'calibrationSnapshots',
+  // Module 21
+  'catalysts', 'expectationSnapshots', 'preEventBriefs', 'postEventReviews',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -60,6 +64,10 @@ interface Snapshot {
   digestRuns: DigestRun[]
   notifications: NotificationRecord[]
   calibrationSnapshots: CalibrationSnapshot[]
+  catalysts: CatalystEvent[]
+  expectationSnapshots: ExpectationSnapshot[]
+  preEventBriefs: PreEventBrief[]
+  postEventReviews: PostEventReview[]
 }
 
 export interface JsonFileRepoOptions {
@@ -172,6 +180,22 @@ export class JsonFileRepo implements Repo {
   latestCalibrationSnapshot(orgId: OrgId) { return this.mem.latestCalibrationSnapshot(orgId) }
   loadCalibrationForOrg(orgId: OrgId) { return this.mem.loadCalibrationForOrg(orgId) }
 
+  // Module 21 — catalysts
+  upsertCatalyst(rec: CatalystEvent) { this.mem.upsertCatalyst(rec); this.touch('catalysts') }
+  getCatalyst(orgId: OrgId, id: CatalystId) { return this.mem.getCatalyst(orgId, id) }
+  listCatalysts(orgId: OrgId) { return this.mem.listCatalysts(orgId) }
+  upsertExpectationSnapshot(rec: ExpectationSnapshot) { this.mem.upsertExpectationSnapshot(rec); this.touch('expectationSnapshots') }
+  listExpectationSnapshots(orgId: OrgId, catalystId: CatalystId) { return this.mem.listExpectationSnapshots(orgId, catalystId) }
+  priorExpectationSnapshot(orgId: OrgId, catalystId: string, atOrBefore: Date) { return this.mem.priorExpectationSnapshot(orgId, catalystId, atOrBefore) }
+  upsertPreEventBrief(rec: PreEventBrief) { this.mem.upsertPreEventBrief(rec); this.touch('preEventBriefs') }
+  getPreEventBrief(orgId: OrgId, id: PreEventBriefId) { return this.mem.getPreEventBrief(orgId, id) }
+  latestPreEventBriefForCatalyst(orgId: OrgId, catalystId: CatalystId) { return this.mem.latestPreEventBriefForCatalyst(orgId, catalystId) }
+  listPreEventBriefs(orgId: OrgId, limit?: number) { return this.mem.listPreEventBriefs(orgId, limit) }
+  upsertPostEventReview(rec: PostEventReview) { this.mem.upsertPostEventReview(rec); this.touch('postEventReviews') }
+  getPostEventReview(orgId: OrgId, id: PostEventReviewId) { return this.mem.getPostEventReview(orgId, id) }
+  listPostEventReviews(orgId: OrgId, limit?: number) { return this.mem.listPostEventReviews(orgId, limit) }
+  loadCatalystsForOrg(orgId: OrgId) { return this.mem.loadCatalystsForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -213,6 +237,10 @@ export class JsonFileRepo implements Repo {
       digestRuns: Map<string, DigestRun>
       notifications: Map<string, NotificationRecord>
       calibrationSnapshots: Map<string, CalibrationSnapshot>
+      catalysts: Map<string, CatalystEvent>
+      expectationSnapshots: Map<string, ExpectationSnapshot>
+      preEventBriefs: Map<string, PreEventBrief>
+      postEventReviews: Map<string, PostEventReview>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -234,6 +262,10 @@ export class JsonFileRepo implements Repo {
       digestRuns:           [...m.digestRuns.values()],
       notifications:        [...m.notifications.values()],
       calibrationSnapshots: [...m.calibrationSnapshots.values()],
+      catalysts:            [...m.catalysts.values()],
+      expectationSnapshots: [...m.expectationSnapshots.values()],
+      preEventBriefs:       [...m.preEventBriefs.values()],
+      postEventReviews:     [...m.postEventReviews.values()],
     }
   }
 
@@ -266,6 +298,10 @@ export class JsonFileRepo implements Repo {
           case 'digestRuns':           this.mem.upsertDigestRun(rec as DigestRun); break
           case 'notifications':        this.mem.upsertNotification(rec as NotificationRecord); break
           case 'calibrationSnapshots': this.mem.upsertCalibrationSnapshot(rec as CalibrationSnapshot); break
+          case 'catalysts':            this.mem.upsertCatalyst(rec as CatalystEvent); break
+          case 'expectationSnapshots': this.mem.upsertExpectationSnapshot(rec as ExpectationSnapshot); break
+          case 'preEventBriefs':       this.mem.upsertPreEventBrief(rec as PreEventBrief); break
+          case 'postEventReviews':     this.mem.upsertPostEventReview(rec as PostEventReview); break
         }
       }
     }

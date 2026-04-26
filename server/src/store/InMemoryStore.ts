@@ -6,6 +6,8 @@ import type {
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
   CalibrationSnapshot, CalibrationSnapshotId,
+  CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
+  CatalystId, PreEventBriefId, PostEventReviewId,
 } from '../../../src/domain'
 
 // Minimal in-memory record store. Ingestion writes; API reads. The whole
@@ -29,6 +31,11 @@ export class InMemoryStore {
   private readonly notifications: NotificationRecord[] = []
   // Module 20 — calibration snapshots
   private readonly calibrationSnapshots = new Map<CalibrationSnapshotId, CalibrationSnapshot>()
+  // Module 21 — catalysts / snapshots / briefs / reviews
+  private readonly catalysts = new Map<CatalystId, CatalystEvent>()
+  private readonly expectationSnapshots: ExpectationSnapshot[] = []
+  private readonly preEventBriefs = new Map<PreEventBriefId, PreEventBrief>()
+  private readonly postEventReviews = new Map<PostEventReviewId, PostEventReview>()
 
   // ── Writers (used by ingestion) ───────────────────────────────────
 
@@ -62,6 +69,10 @@ export class InMemoryStore {
     this.digestRuns.clear()
     this.notifications.length = 0
     this.calibrationSnapshots.clear()
+    this.catalysts.clear()
+    this.expectationSnapshots.length = 0
+    this.preEventBriefs.clear()
+    this.postEventReviews.clear()
   }
 
   // ── Readers (used by API handlers) ────────────────────────────────
@@ -212,5 +223,72 @@ export class InMemoryStore {
   }
   latestCalibrationSnapshot(orgId: OrgId): CalibrationSnapshot | null {
     return this.listCalibrationSnapshots(orgId, 1)[0] ?? null
+  }
+
+  // ── Catalysts (Module 21) ───────────────────────────────────────
+
+  upsertCatalyst(c: CatalystEvent): void { this.catalysts.set(c.id, c) }
+  upsertExpectationSnapshot(s: ExpectationSnapshot): void {
+    // Replace if (catalystId, asOf) already exists; else append.
+    const i = this.expectationSnapshots.findIndex((x) => x.orgId === s.orgId && x.catalystId === s.catalystId && x.asOf === s.asOf)
+    if (i >= 0) this.expectationSnapshots[i] = s
+    else this.expectationSnapshots.push(s)
+  }
+  upsertPreEventBrief(b: PreEventBrief): void { this.preEventBriefs.set(b.id, b) }
+  upsertPostEventReview(r: PostEventReview): void { this.postEventReviews.set(r.id, r) }
+
+  getCatalyst(orgId: OrgId, id: CatalystId): CatalystEvent | null {
+    const c = this.catalysts.get(id)
+    return c && c.orgId === orgId ? c : null
+  }
+  listCatalysts(orgId: OrgId): CatalystEvent[] {
+    return [...this.catalysts.values()]
+      .filter((c) => c.orgId === orgId)
+      .sort((a, b) => a.expectedAt.localeCompare(b.expectedAt))
+  }
+  listExpectationSnapshots(orgId: OrgId, catalystId: CatalystId): ExpectationSnapshot[] {
+    return this.expectationSnapshots
+      .filter((s) => s.orgId === orgId && s.catalystId === catalystId)
+      .sort((a, b) => a.asOf.localeCompare(b.asOf))
+  }
+  priorExpectationSnapshot(orgId: OrgId, catalystId: string, atOrBefore: Date): ExpectationSnapshot | null {
+    const cutoff = atOrBefore.getTime()
+    let best: ExpectationSnapshot | null = null
+    for (const s of this.expectationSnapshots) {
+      if (s.orgId !== orgId) continue
+      if ((s.catalystId as unknown as string) !== catalystId) continue
+      if (Date.parse(s.asOf) > cutoff) continue
+      if (!best || Date.parse(s.asOf) > Date.parse(best.asOf)) best = s
+    }
+    return best
+  }
+  getPreEventBrief(orgId: OrgId, id: PreEventBriefId): PreEventBrief | null {
+    const b = this.preEventBriefs.get(id)
+    return b && b.orgId === orgId ? b : null
+  }
+  latestPreEventBriefForCatalyst(orgId: OrgId, catalystId: CatalystId): PreEventBrief | null {
+    let best: PreEventBrief | null = null
+    for (const b of this.preEventBriefs.values()) {
+      if (b.orgId !== orgId) continue
+      if (b.catalystId !== catalystId) continue
+      if (!best || b.generatedAt > best.generatedAt) best = b
+    }
+    return best
+  }
+  listPreEventBriefs(orgId: OrgId, limit?: number): PreEventBrief[] {
+    const arr = [...this.preEventBriefs.values()]
+      .filter((b) => b.orgId === orgId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return limit ? arr.slice(0, limit) : arr
+  }
+  getPostEventReview(orgId: OrgId, id: PostEventReviewId): PostEventReview | null {
+    const r = this.postEventReviews.get(id)
+    return r && r.orgId === orgId ? r : null
+  }
+  listPostEventReviews(orgId: OrgId, limit?: number): PostEventReview[] {
+    const arr = [...this.postEventReviews.values()]
+      .filter((r) => r.orgId === orgId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return limit ? arr.slice(0, limit) : arr
   }
 }

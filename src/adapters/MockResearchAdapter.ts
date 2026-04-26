@@ -12,6 +12,8 @@ import type {
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
+  CatalystEvent, PreEventBrief, PostEventReview,
+  CatalystId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -34,6 +36,7 @@ import {
   ingestionJobs, kpiSnapshots, ingestionStatuses,
   alertEvents, alertDigests,
   calibrationSnapshot,
+  catalystEvents, preEventBriefs, postEventReviews,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
 import { FixturePortfolioProvider, type PortfolioInputProvider } from './portfolio/PortfolioInputProvider'
@@ -415,6 +418,38 @@ export class MockResearchAdapter implements ResearchAdapter {
     await this.delay()
     if (calibrationSnapshot.orgId !== scope.orgId) return null
     return calibrationSnapshot.coverageByTicker.find((c) => c.ticker === ticker) ?? null
+  }
+
+  // ── Catalysts (Module 21) ────────────────────────────────────────
+
+  async listCatalysts(scope: OrgScope): Promise<readonly CatalystEvent[]> {
+    await this.delay()
+    return catalystEvents
+      .filter((c) => c.orgId === scope.orgId)
+      .slice()
+      .sort((a, b) => a.expectedAt.localeCompare(b.expectedAt))
+  }
+
+  async getCatalyst(scope: OrgScope, id: CatalystId): Promise<CatalystEvent | null> {
+    await this.delay()
+    const c = catalystEvents.find((x) => x.id === id)
+    return c && c.orgId === scope.orgId ? c : null
+  }
+
+  async getLatestPreEventBrief(scope: OrgScope, catalystId: CatalystId): Promise<PreEventBrief | null> {
+    await this.delay()
+    const matches = preEventBriefs
+      .filter((b) => b.orgId === scope.orgId && b.catalystId === catalystId)
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
+    return matches[0] ?? null
+  }
+
+  async listPostEventReviews(scope: OrgScope): Promise<readonly PostEventReview[]> {
+    await this.delay()
+    return postEventReviews
+      .filter((r) => r.orgId === scope.orgId)
+      .slice()
+      .sort((a, b) => b.generatedAt.localeCompare(a.generatedAt))
   }
 
   async getIngestionStatus(scope: OrgScope): Promise<IngestionStatus> {

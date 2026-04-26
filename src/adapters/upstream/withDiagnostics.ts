@@ -45,6 +45,10 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   listAlertEffectiveness:   'alertEffectivenessList',
   getAlertEffectiveness:    'alertEffectiveness',
   getCoverageSignal:        'coverageSignal',
+  listCatalysts:            'catalysts',
+  getCatalyst:              'catalyst',
+  getLatestPreEventBrief:   'catalystBrief',
+  listPostEventReviews:     'postEventReviews',
 }
 
 export function withDiagnostics(inner: ResearchAdapter): ResearchAdapter {

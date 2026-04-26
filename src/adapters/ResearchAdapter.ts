@@ -12,6 +12,8 @@ import type {
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
+  CatalystEvent, PreEventBrief, PostEventReview,
+  CatalystId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -130,4 +132,13 @@ export interface ResearchAdapter {
   getAlertEffectiveness(scope: OrgScope, kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null>
   /** Per-ticker coverage signal from the latest snapshot. */
   getCoverageSignal(scope: OrgScope, ticker: StockTicker): Promise<CoverageSignalResult | null>
+
+  // ─── Catalysts (Module 21) ────────────────────────────────────────────
+  /** All catalysts for the org, sorted by expectedAt asc. */
+  listCatalysts(scope: OrgScope): Promise<readonly CatalystEvent[]>
+  getCatalyst(scope: OrgScope, id: CatalystId): Promise<CatalystEvent | null>
+  /** Latest pre-event brief for a catalyst, or null. */
+  getLatestPreEventBrief(scope: OrgScope, catalystId: CatalystId): Promise<PreEventBrief | null>
+  /** All post-event reviews for the org. */
+  listPostEventReviews(scope: OrgScope): Promise<readonly PostEventReview[]>
 }

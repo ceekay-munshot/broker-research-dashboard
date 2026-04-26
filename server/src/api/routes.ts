@@ -6,10 +6,11 @@ import type {
   BrokerCalibrationSummary, AlertEffectivenessSummary, CoverageSignalResult,
   CalibrationSnapshot,
   AlertTriggerKind,
+  CatalystEvent, PreEventBrief, PostEventReview,
 } from '../../../src/domain'
 import type { ConflictClosure, SectorIntelligence, ResultantState } from '../../../src/engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../../../src/engine'
-import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId } from '../../../src/lib/ids'
+import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asBrokerId, asCatalystId, asPreEventBriefId } from '../../../src/lib/ids'
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
@@ -335,6 +336,35 @@ export function buildRouter(store: InMemoryStore): Router {
     const item: CoverageSignalResult | undefined = snap?.coverageByTicker.find((c) => c.ticker === t)
     if (!item) return reply.notFound(res, `coverage ${params.ticker}`)
     reply.ok(res, item)
+  })
+
+  // ── Catalysts (Module 21) ─────────────────────────────────────────
+  r.get('/v1/catalysts', ({ res, scope }) => {
+    const items: readonly CatalystEvent[] = store.listCatalysts(scope.orgId)
+    reply.ok(res, items)
+  })
+  r.get('/v1/catalysts/:catalystId', ({ res, scope, params }) => {
+    const c = store.getCatalyst(scope.orgId, asCatalystId(params.catalystId!))
+    if (!c) return reply.notFound(res, `catalyst ${params.catalystId}`)
+    reply.ok(res, c)
+  })
+  r.get('/v1/catalysts/:catalystId/brief', ({ res, scope, params }) => {
+    const b: PreEventBrief | null = store.latestPreEventBriefForCatalyst(scope.orgId, asCatalystId(params.catalystId!))
+    if (!b) return reply.notFound(res, `pre-event brief for ${params.catalystId}`)
+    reply.ok(res, b)
+  })
+  r.get('/v1/catalysts/:catalystId/snapshots', ({ res, scope, params }) => {
+    const items = store.listExpectationSnapshots(scope.orgId, asCatalystId(params.catalystId!))
+    reply.ok(res, items)
+  })
+  r.get('/v1/catalyst-briefs/:briefId', ({ res, scope, params }) => {
+    const b = store.getPreEventBrief(scope.orgId, asPreEventBriefId(params.briefId!))
+    if (!b) return reply.notFound(res, `brief ${params.briefId}`)
+    reply.ok(res, b)
+  })
+  r.get('/v1/post-event-reviews', ({ res, scope }) => {
+    const items: readonly PostEventReview[] = store.listPostEventReviews(scope.orgId)
+    reply.ok(res, items)
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

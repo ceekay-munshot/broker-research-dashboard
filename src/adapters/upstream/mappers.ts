@@ -42,6 +42,7 @@ import type {
   AlertEvent, AlertDigest,
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
+  CatalystEvent, PreEventBrief, PostEventReview,
   Page,
 } from '../../domain'
 import type { ConflictClosure, SectorIntelligence } from '../../engine/types'
@@ -56,6 +57,7 @@ import {
   parseAlertEvent, parseAlertDigest,
   parseCalibrationSnapshot, parseBrokerCalibrationSummary,
   parseAlertEffectivenessSummary, parseCoverageSignalResult,
+  parseCatalystEvent, parsePreEventBrief, parsePostEventReview,
 } from '../http/parsers'
 import { ContractViolationError } from '../errors'
 import { asBrokerId } from '../../lib/ids'
@@ -437,6 +439,41 @@ export function mapCoverageSignalResult(raw: unknown, ctx: MappingContext = { en
     aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
     return parseCoverageSignalResult(x)
   })
+}
+
+// ── Catalysts (Module 21) ────────────────────────────────────────────────
+
+export function mapCatalystEvent(raw: unknown, ctx: MappingContext = { endpoint: 'catalyst' }): CatalystEvent {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'CatalystEvent', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    aliasField(x, 'ticker', ['symbol'], ctx.endpoint)
+    return parseCatalystEvent(x)
+  })
+}
+
+export function mapCatalystEvents(raw: unknown): readonly CatalystEvent[] {
+  const ctx: MappingContext = { endpoint: 'catalysts' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'catalysts', ctx.endpoint)
+  return arr.map((x, i) => mapCatalystEvent(x, { endpoint: `${ctx.endpoint}[${i}]` }))
+}
+
+export function mapPreEventBrief(raw: unknown, ctx: MappingContext = { endpoint: 'catalystBrief' }): PreEventBrief {
+  return tagged(ctx.endpoint, () => {
+    const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+    const x = requireObject(n, 'PreEventBrief', ctx.endpoint)
+    aliasField(x, 'orgId', ['organizationId'], ctx.endpoint)
+    return parsePreEventBrief(x)
+  })
+}
+
+export function mapPostEventReviews(raw: unknown): readonly PostEventReview[] {
+  const ctx: MappingContext = { endpoint: 'postEventReviews' }
+  const n = normalizeUpstreamPayload(raw, ctx.endpoint)
+  const arr = requireArray(n, 'post-event-reviews', ctx.endpoint)
+  return arr.map((x, i) => tagged(`${ctx.endpoint}[${i}]`, () => parsePostEventReview(x, `${ctx.endpoint}[${i}]`)))
 }
 
 // ── Degraded-mode helpers exposed for adapters ───────────────────────────

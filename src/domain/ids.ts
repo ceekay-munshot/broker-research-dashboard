@@ -23,6 +23,9 @@ export type AlertRuleId    = string & { readonly [brand]: 'AlertRuleId' }
 export type BenchmarkId    = string & { readonly [brand]: 'BenchmarkId' }
 export type CalibrationSnapshotId = string & { readonly [brand]: 'CalibrationSnapshotId' }
 export type SignalEventId  = string & { readonly [brand]: 'SignalEventId' }
+export type CatalystId     = string & { readonly [brand]: 'CatalystId' }
+export type PreEventBriefId = string & { readonly [brand]: 'PreEventBriefId' }
+export type PostEventReviewId = string & { readonly [brand]: 'PostEventReviewId' }
 
 // Tickers are branded too so they cannot be confused with arbitrary strings.
 export type StockTicker = string & { readonly [brand]: 'StockTicker' }

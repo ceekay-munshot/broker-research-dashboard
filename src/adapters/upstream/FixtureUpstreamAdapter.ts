@@ -31,6 +31,7 @@ import type {
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
+  CatalystEvent, PreEventBrief, PostEventReview, CatalystId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../../domain'
@@ -226,6 +227,12 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async listAlertEffectiveness(_scope: OrgScope): Promise<readonly AlertEffectivenessSummary[]> { return [] }
   async getAlertEffectiveness(_scope: OrgScope, _kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null> { return null }
   async getCoverageSignal(_scope: OrgScope, _t: StockTicker): Promise<CoverageSignalResult | null> { return null }
+
+  // ── Catalysts (Module 21) ────────────────────────────────────────
+  async listCatalysts(_scope: OrgScope): Promise<readonly CatalystEvent[]> { return [] }
+  async getCatalyst(_scope: OrgScope, _id: CatalystId): Promise<CatalystEvent | null> { return null }
+  async getLatestPreEventBrief(_scope: OrgScope, _id: CatalystId): Promise<PreEventBrief | null> { return null }
+  async listPostEventReviews(_scope: OrgScope): Promise<readonly PostEventReview[]> { return [] }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

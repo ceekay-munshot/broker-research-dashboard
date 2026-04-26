@@ -24,6 +24,8 @@ import type {
   AlertEvent, AlertDigest, DigestRun, NotificationRecord,
   AlertId, DigestId, DigestRunId, DigestKind,
   CalibrationSnapshot, CalibrationSnapshotId,
+  CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
+  CatalystId, PreEventBriefId, PostEventReviewId,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -207,6 +209,30 @@ export interface Repo {
   /** Most-recent snapshot for an org. */
   latestCalibrationSnapshot(orgId: OrgId): CalibrationSnapshot | null
   loadCalibrationForOrg(orgId: OrgId): { readonly snapshots: readonly CalibrationSnapshot[] }
+
+  // Catalysts (Module 21) ───────────────────────────────────────────────
+  upsertCatalyst(rec: CatalystEvent): void
+  getCatalyst(orgId: OrgId, id: CatalystId): CatalystEvent | null
+  listCatalysts(orgId: OrgId): readonly CatalystEvent[]
+  upsertExpectationSnapshot(rec: ExpectationSnapshot): void
+  listExpectationSnapshots(orgId: OrgId, catalystId: CatalystId): readonly ExpectationSnapshot[]
+  /** Most-recent snapshot at-or-before the given moment, used for delta
+   *  computation. Returns null if no prior snapshot exists. */
+  priorExpectationSnapshot(orgId: OrgId, catalystId: string, atOrBefore: Date): ExpectationSnapshot | null
+  upsertPreEventBrief(rec: PreEventBrief): void
+  getPreEventBrief(orgId: OrgId, id: PreEventBriefId): PreEventBrief | null
+  /** Latest brief for a given catalyst — what the UI loads. */
+  latestPreEventBriefForCatalyst(orgId: OrgId, catalystId: CatalystId): PreEventBrief | null
+  listPreEventBriefs(orgId: OrgId, limit?: number): readonly PreEventBrief[]
+  upsertPostEventReview(rec: PostEventReview): void
+  getPostEventReview(orgId: OrgId, id: PostEventReviewId): PostEventReview | null
+  listPostEventReviews(orgId: OrgId, limit?: number): readonly PostEventReview[]
+  loadCatalystsForOrg(orgId: OrgId): {
+    readonly catalysts: readonly CatalystEvent[]
+    readonly snapshots: readonly ExpectationSnapshot[]
+    readonly briefs: readonly PreEventBrief[]
+    readonly reviews: readonly PostEventReview[]
+  }
 
   // Lifecycle ───────────────────────────────────────────────────────────
   /** Best-effort flush of any in-memory buffers to durable storage.

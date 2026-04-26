@@ -6,7 +6,7 @@ import type { ResultantState } from '../../engine/types'
 import type {
   ListEmailsQuery, ListReportsQuery, ListOpinionsQuery, ListClosuresQuery,
 } from '../queries'
-import { asOrgId, asUserId, asBrokerId, asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId } from '../../lib/ids'
+import { asOrgId, asUserId, asBrokerId, asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asCatalystId } from '../../lib/ids'
 import type { FetchImpl } from './HttpClient'
 import { MockResearchAdapter } from '../MockResearchAdapter'
 import {
@@ -193,6 +193,14 @@ function installRoutes(): void {
     requireFound(await mock.getAlertEffectiveness(scope, params.kind! as Parameters<typeof mock.getAlertEffectiveness>[1]), `alert effectiveness ${params.kind}`))
   push('/v1/calibration/coverage/:ticker', async ({ mock, scope, params }) =>
     requireFound(await mock.getCoverageSignal(scope, asTicker(params.ticker!)), `coverage ${params.ticker}`))
+
+  // Module 21 — catalysts
+  push('/v1/catalysts', async ({ mock, scope }) => await mock.listCatalysts(scope))
+  push('/v1/catalysts/:catalystId', async ({ mock, scope, params }) =>
+    requireFound(await mock.getCatalyst(scope, asCatalystId(params.catalystId!)), `catalyst ${params.catalystId}`))
+  push('/v1/catalysts/:catalystId/brief', async ({ mock, scope, params }) =>
+    requireFound(await mock.getLatestPreEventBrief(scope, asCatalystId(params.catalystId!)), `pre-event brief for ${params.catalystId}`))
+  push('/v1/post-event-reviews', async ({ mock, scope }) => await mock.listPostEventReviews(scope))
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────

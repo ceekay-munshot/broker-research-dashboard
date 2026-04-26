@@ -4,6 +4,7 @@ import { HybridCanonicalStore, createDefaultRepo } from './persistence'
 import { organizations } from './config/organizations'
 import { runAlertsForStore } from './alerts/bootstrap'
 import { runCalibrationForStore } from './calibration/bootstrap'
+import { runCatalystsForStore } from './catalysts/bootstrap'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -55,6 +56,15 @@ async function main(): Promise<void> {
   const calReport = await runCalibrationForStore(store, organizations.map((o) => o.id), 'bootstrap')
   for (const r of calReport) {
     console.log(`│  org=${r.orgId as unknown as string}  events=${r.events}  outcomes=${r.outcomes}  brokers=${r.brokers}  alerts=${r.alertKinds}`)
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  // Module 21 — build the catalyst calendar + expectation snapshots +
+  // pre-event briefs + post-event review stubs.
+  console.log('┌─ catalysts ───────────────────────────────────────────')
+  const catReport = await runCatalystsForStore(store, organizations.map((o) => o.id))
+  for (const r of catReport) {
+    console.log(`│  org=${r.orgId as unknown as string}  calendar=${r.calendarSize}  snapshots=${r.snapshots}  briefs=${r.briefs}  reviews=${r.reviews}`)
   }
   console.log('└────────────────────────────────────────────────────────')
 

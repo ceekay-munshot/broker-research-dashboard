@@ -12,6 +12,8 @@ import type {
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
   AlertTriggerKind,
+  CatalystEvent, PreEventBrief, PostEventReview,
+  CatalystId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
 } from '../domain'
@@ -36,6 +38,7 @@ import {
   mapAlertEvent, mapAlertEvents, mapAlertDigest, mapAlertDigests,
   mapCalibrationSnapshot, mapBrokerCalibrations, mapBrokerCalibrationSummary,
   mapAlertEffectivenessList, mapAlertEffectivenessSummary, mapCoverageSignalResult,
+  mapCatalystEvent, mapCatalystEvents, mapPreEventBrief, mapPostEventReviews,
 } from './upstream/mappers'
 
 export interface HttpResearchAdapterOptions extends HttpClientOptions {
@@ -396,6 +399,38 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const item = mapCoverageSignalResult(raw)
     assertOrgMatch('CoverageSignalResult', scope, item.orgId as unknown as string)
     return item
+  }
+
+  // ── Catalysts (Module 21) ──────────────────────────────────────────
+
+  async listCatalysts(scope: OrgScope): Promise<readonly CatalystEvent[]> {
+    const raw = await this.client.request(endpoints.catalysts(), scope, { endpointKey: 'catalysts' })
+    const items = mapCatalystEvents(raw)
+    assertPageOrg('CatalystEvent', scope, items, (it) => it.orgId as unknown as string)
+    return items
+  }
+
+  async getCatalyst(scope: OrgScope, id: CatalystId): Promise<CatalystEvent | null> {
+    const raw = await this.client.requestOrNull(endpoints.catalyst(id), scope, { endpointKey: 'catalyst' })
+    if (raw === null) return null
+    const item = mapCatalystEvent(raw)
+    assertOrgMatch('CatalystEvent', scope, item.orgId as unknown as string)
+    return item
+  }
+
+  async getLatestPreEventBrief(scope: OrgScope, id: CatalystId): Promise<PreEventBrief | null> {
+    const raw = await this.client.requestOrNull(endpoints.catalystBrief(id), scope, { endpointKey: 'catalystBrief' })
+    if (raw === null) return null
+    const item = mapPreEventBrief(raw)
+    assertOrgMatch('PreEventBrief', scope, item.orgId as unknown as string)
+    return item
+  }
+
+  async listPostEventReviews(scope: OrgScope): Promise<readonly PostEventReview[]> {
+    const raw = await this.client.request(endpoints.postEventReviews(), scope, { endpointKey: 'postEventReviews' })
+    const items = mapPostEventReviews(raw)
+    assertPageOrg('PostEventReview', scope, items, (it) => it.orgId as unknown as string)
+    return items
   }
 }
 

@@ -17,6 +17,11 @@ import type {
   AlertEffectivenessSummary, AlertEffectivenessByMembership, AlertEffectivenessMembership,
   CoverageSignalResult, OutcomeWindowResult, CalibrationReason,
   ConfidenceBand, ReturnWindow,
+  CatalystEvent, CatalystType, CatalystStatus, CatalystImportance,
+  CatalystSource, CatalystCalendarEntry, EventRiskFlag,
+  ExpectationSnapshot, ExpectationBrokerOpinion, ExpectationStanceMix,
+  EventExpectationDelta, EventMonitoringWindow, ExpectationDeltaSign,
+  PreEventBrief, PreEventBriefSection, PostEventReview,
   OrgScope, Page, Stance, Rating,
 } from '../../domain'
 import type {
@@ -31,6 +36,7 @@ import {
   asReportId, asSummaryId, asEvidenceId, asSectorId, asTicker, asPortfolioId,
   asAlertId, asDigestId, asDigestRunId,
   asCalibrationSnapshotId,
+  asCatalystId, asPreEventBriefId, asPostEventReviewId,
 } from '../../lib/ids'
 import { ContractViolationError } from '../errors'
 
@@ -886,6 +892,182 @@ export function parseCalibrationSnapshot(raw: unknown, path = 'CalibrationSnapsh
     },
   }
 }
+
+// ─── Catalysts (Module 21) ────────────────────────────────────────────
+
+const CATALYST_TYPES_LOCAL: readonly CatalystType[] = [
+  'earnings', 'guidance_update', 'investor_day', 'capital_markets_day',
+  'product_launch', 'agm', 'regulatory_decision', 'mna', 'other',
+]
+const CATALYST_STATUSES_LOCAL: readonly CatalystStatus[] = ['scheduled', 'estimated', 'overdue', 'completed', 'cancelled']
+const CATALYST_IMPORTANCES_LOCAL: readonly CatalystImportance[] = ['critical', 'high', 'medium', 'low']
+const RISK_FLAGS_LOCAL: readonly EventRiskFlag[] = [
+  'thin_coverage', 'widening_divergence', 'against_position_pressure',
+  'stale_coverage', 'high_calibration_brokers_silent', 'outlier_active',
+]
+const EVENT_WINDOWS_LOCAL: readonly EventMonitoringWindow[] = ['24h', '3d', '7d', '14d', '30d']
+const DELTA_SIGNS_LOCAL: readonly ExpectationDeltaSign[] = ['more_bullish', 'more_cautious', 'flat', 'mixed']
+const PE_SECTION_KEYS: readonly PreEventBriefSection['key'][] = [
+  'event_summary', 'why_it_matters', 'expectation_snapshot', 'recent_changes',
+  'unresolved_questions', 'top_reads', 'calibration_context', 'risk_flags',
+]
+
+function parseCatalystSource(raw: unknown, path: string): CatalystSource {
+  const x = asObject(raw, path)
+  return {
+    id: asString(x.id, `${path}.id`),
+    label: asString(x.label, `${path}.label`),
+    confidence: asNumber(x.confidence, `${path}.confidence`),
+  }
+}
+
+export function parseCatalystEvent(raw: unknown, path = 'CatalystEvent'): CatalystEvent {
+  const x = asObject(raw, path)
+  return {
+    id: asCatalystId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    type: asEnum<CatalystType>(x.type, CATALYST_TYPES_LOCAL, `${path}.type`),
+    status: asEnum<CatalystStatus>(x.status, CATALYST_STATUSES_LOCAL, `${path}.status`),
+    importance: asEnum<CatalystImportance>(x.importance, CATALYST_IMPORTANCES_LOCAL, `${path}.importance`),
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    stockName: asStringOrNull(x.stockName, `${path}.stockName`),
+    sectorId: x.sectorId === null ? null : asSectorId(asString(x.sectorId, `${path}.sectorId`)),
+    headline: asString(x.headline, `${path}.headline`),
+    description: asString(x.description, `${path}.description`),
+    expectedAt: asString(x.expectedAt, `${path}.expectedAt`),
+    expectedDate: asString(x.expectedDate, `${path}.expectedDate`),
+    hasIntradayTime: asBoolean(x.hasIntradayTime, `${path}.hasIntradayTime`),
+    source: parseCatalystSource(x.source, `${path}.source`),
+    updatedAt: asString(x.updatedAt, `${path}.updatedAt`),
+    tags: asStringArray(x.tags, `${path}.tags`),
+  }
+}
+
+function parseExpectationStanceMix(raw: unknown, path: string): ExpectationStanceMix {
+  const x = asObject(raw, path)
+  return {
+    bullish: asInt(x.bullish, `${path}.bullish`),
+    neutral: asInt(x.neutral, `${path}.neutral`),
+    bearish: asInt(x.bearish, `${path}.bearish`),
+  }
+}
+
+const CONFIDENCE_BANDS_FOR_OPINION: readonly ConfidenceBand[] = ['very_low', 'low', 'medium', 'high']
+
+function parseExpectationOpinion(raw: unknown, path: string): ExpectationBrokerOpinion {
+  const x = asObject(raw, path)
+  return {
+    brokerId: asBrokerId(asString(x.brokerId, `${path}.brokerId`)),
+    brokerShortName: asString(x.brokerShortName, `${path}.brokerShortName`),
+    rating: asStringOrNull(x.rating, `${path}.rating`),
+    stance: asEnum<'bullish' | 'neutral' | 'bearish'>(x.stance, ['bullish', 'neutral', 'bearish'], `${path}.stance`),
+    targetPrice: x.targetPrice === null ? null : asNumber(x.targetPrice, `${path}.targetPrice`),
+    priorTargetPrice: x.priorTargetPrice === null ? null : asNumber(x.priorTargetPrice, `${path}.priorTargetPrice`),
+    targetCurrency: asStringOrNull(x.targetCurrency, `${path}.targetCurrency`),
+    impliedUpsidePct: x.impliedUpsidePct === null ? null : asNumber(x.impliedUpsidePct, `${path}.impliedUpsidePct`),
+    lastReportId: asReportId(asString(x.lastReportId, `${path}.lastReportId`)),
+    lastUpdatedAt: asString(x.lastUpdatedAt, `${path}.lastUpdatedAt`),
+    calibrationScore: x.calibrationScore === null ? null : asNumber(x.calibrationScore, `${path}.calibrationScore`),
+    calibrationConfidence: x.calibrationConfidence === null ? null
+      : asEnum<ConfidenceBand>(x.calibrationConfidence, CONFIDENCE_BANDS_FOR_OPINION, `${path}.calibrationConfidence`),
+  }
+}
+
+export function parseExpectationSnapshot(raw: unknown, path = 'ExpectationSnapshot'): ExpectationSnapshot {
+  const x = asObject(raw, path)
+  return {
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    ticker: asTicker(asString(x.ticker, `${path}.ticker`)),
+    catalystId: asCatalystId(asString(x.catalystId, `${path}.catalystId`)),
+    asOf: asString(x.asOf, `${path}.asOf`),
+    distinctBrokers: asInt(x.distinctBrokers, `${path}.distinctBrokers`),
+    stanceMix: parseExpectationStanceMix(x.stanceMix, `${path}.stanceMix`),
+    avgTargetPrice: x.avgTargetPrice === null ? null : asNumber(x.avgTargetPrice, `${path}.avgTargetPrice`),
+    medianTargetPrice: x.medianTargetPrice === null ? null : asNumber(x.medianTargetPrice, `${path}.medianTargetPrice`),
+    targetSpreadPct: x.targetSpreadPct === null ? null : asNumber(x.targetSpreadPct, `${path}.targetSpreadPct`),
+    avgImpliedUpsidePct: x.avgImpliedUpsidePct === null ? null : asNumber(x.avgImpliedUpsidePct, `${path}.avgImpliedUpsidePct`),
+    hasDivergence: asBoolean(x.hasDivergence, `${path}.hasDivergence`),
+    opinions: asArray(x.opinions, `${path}.opinions`).map((o, i) => parseExpectationOpinion(o, `${path}.opinions[${i}]`)),
+    tiltSummary: asString(x.tiltSummary, `${path}.tiltSummary`),
+  }
+}
+
+export function parseExpectationDelta(raw: unknown, path = 'EventExpectationDelta'): EventExpectationDelta {
+  const x = asObject(raw, path)
+  return {
+    catalystId: asCatalystId(asString(x.catalystId, `${path}.catalystId`)),
+    window: asEnum<EventMonitoringWindow>(x.window, EVENT_WINDOWS_LOCAL, `${path}.window`),
+    priorAsOf: asString(x.priorAsOf, `${path}.priorAsOf`),
+    currentAsOf: asString(x.currentAsOf, `${path}.currentAsOf`),
+    stanceShift: asEnum<ExpectationDeltaSign>(x.stanceShift, DELTA_SIGNS_LOCAL, `${path}.stanceShift`),
+    meanTargetChangePct: x.meanTargetChangePct === null ? null : asNumber(x.meanTargetChangePct, `${path}.meanTargetChangePct`),
+    opinionUpdates: asInt(x.opinionUpdates, `${path}.opinionUpdates`),
+    ratingDowngrades: asInt(x.ratingDowngrades, `${path}.ratingDowngrades`),
+    ratingUpgrades: asInt(x.ratingUpgrades, `${path}.ratingUpgrades`),
+    divergenceShift: asEnum<'widened' | 'narrowed' | 'unchanged'>(x.divergenceShift, ['widened', 'narrowed', 'unchanged'], `${path}.divergenceShift`),
+    againstPositionAlerts: asInt(x.againstPositionAlerts, `${path}.againstPositionAlerts`),
+    outlierEmergence: asInt(x.outlierEmergence, `${path}.outlierEmergence`),
+    coverageIntensityDelta: asInt(x.coverageIntensityDelta, `${path}.coverageIntensityDelta`),
+    reasons: asArray(x.reasons, `${path}.reasons`).map((r, i) => {
+      const o = asObject(r, `${path}.reasons[${i}]`)
+      return { code: asString(o.code, `${path}.reasons[${i}].code`), text: asString(o.text, `${path}.reasons[${i}].text`) }
+    }),
+  }
+}
+
+function parsePreEventSection(raw: unknown, path: string): PreEventBriefSection {
+  const x = asObject(raw, path)
+  return {
+    key: asEnum<PreEventBriefSection['key']>(x.key, PE_SECTION_KEYS, `${path}.key`),
+    title: asString(x.title, `${path}.title`),
+    subtitle: asString(x.subtitle, `${path}.subtitle`),
+    prose: asStringOrNull(x.prose, `${path}.prose`),
+    proseFromLlm: asBoolean(x.proseFromLlm, `${path}.proseFromLlm`),
+    reportIds: asArray(x.reportIds, `${path}.reportIds`).map((r, i) => asReportId(asString(r, `${path}.reportIds[${i}]`))),
+    alertIds: asArray(x.alertIds, `${path}.alertIds`).map((a, i) => asAlertId(asString(a, `${path}.alertIds[${i}]`))),
+    bullets: asArray(x.bullets, `${path}.bullets`).map((b, i) => asString(b, `${path}.bullets[${i}]`)),
+  }
+}
+
+export function parsePreEventBrief(raw: unknown, path = 'PreEventBrief'): PreEventBrief {
+  const x = asObject(raw, path)
+  return {
+    id: asPreEventBriefId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    catalystId: asCatalystId(asString(x.catalystId, `${path}.catalystId`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    daysUntilEvent: asInt(x.daysUntilEvent, `${path}.daysUntilEvent`),
+    snapshot: parseExpectationSnapshot(x.snapshot, `${path}.snapshot`),
+    delta7d: x.delta7d === null ? null : parseExpectationDelta(x.delta7d, `${path}.delta7d`),
+    delta30d: x.delta30d === null ? null : parseExpectationDelta(x.delta30d, `${path}.delta30d`),
+    sections: asArray(x.sections, `${path}.sections`).map((s, i) => parsePreEventSection(s, `${path}.sections[${i}]`)),
+    riskFlags: asArray(x.riskFlags, `${path}.riskFlags`)
+      .map((f, i) => asEnum<EventRiskFlag>(f, RISK_FLAGS_LOCAL, `${path}.riskFlags[${i}]`)),
+    executiveSummary: asStringOrNull(x.executiveSummary, `${path}.executiveSummary`),
+    executiveSummaryFromLlm: asBoolean(x.executiveSummaryFromLlm, `${path}.executiveSummaryFromLlm`),
+  }
+}
+
+export function parsePostEventReview(raw: unknown, path = 'PostEventReview'): PostEventReview {
+  const x = asObject(raw, path)
+  return {
+    id: asPostEventReviewId(asString(x.id, `${path}.id`)),
+    orgId: asOrgId(asString(x.orgId, `${path}.orgId`)),
+    catalystId: asCatalystId(asString(x.catalystId, `${path}.catalystId`)),
+    generatedAt: asString(x.generatedAt, `${path}.generatedAt`),
+    preEventSnapshot: parseExpectationSnapshot(x.preEventSnapshot, `${path}.preEventSnapshot`),
+    postEventSnapshot: x.postEventSnapshot === null ? null : parseExpectationSnapshot(x.postEventSnapshot, `${path}.postEventSnapshot`),
+    directionallyRightBrokerIds: asArray(x.directionallyRightBrokerIds, `${path}.directionallyRightBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.directionallyRightBrokerIds[${i}]`))),
+    directionallyWrongBrokerIds: asArray(x.directionallyWrongBrokerIds, `${path}.directionallyWrongBrokerIds`)
+      .map((b, i) => asBrokerId(asString(b, `${path}.directionallyWrongBrokerIds[${i}]`))),
+    divergenceResolved: asBoolean(x.divergenceResolved, `${path}.divergenceResolved`),
+    notes: asArray(x.notes, `${path}.notes`).map((n, i) => asString(n, `${path}.notes[${i}]`)),
+  }
+}
+
+// Touch types we don't currently use as values — keeps imports stable.
+void ([] as readonly CatalystCalendarEntry[])
 
 // Silence "declared but not used" for unused asBoolean helper in the build.
 // It's kept exported because future body-bearing endpoints may need it.

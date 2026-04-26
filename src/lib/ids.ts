@@ -4,6 +4,7 @@ import type {
   IngestionJobId, StockTicker, PortfolioId,
   AlertId, DigestId, DigestRunId, NotificationId, AlertRuleId,
   BenchmarkId, CalibrationSnapshotId, SignalEventId,
+  CatalystId, PreEventBriefId, PostEventReviewId,
 } from '../domain/ids'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
@@ -30,3 +31,6 @@ export const asAlertRuleId    = (s: string): AlertRuleId    => s as AlertRuleId
 export const asBenchmarkId    = (s: string): BenchmarkId    => s as BenchmarkId
 export const asCalibrationSnapshotId = (s: string): CalibrationSnapshotId => s as CalibrationSnapshotId
 export const asSignalEventId  = (s: string): SignalEventId  => s as SignalEventId
+export const asCatalystId     = (s: string): CatalystId     => s as CatalystId
+export const asPreEventBriefId = (s: string): PreEventBriefId => s as PreEventBriefId
+export const asPostEventReviewId = (s: string): PostEventReviewId => s as PostEventReviewId
