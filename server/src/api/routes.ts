@@ -14,6 +14,7 @@ import { asEmailId, asReportId, asSectorId, asTicker, asAlertId, asDigestId, asB
 import { Router } from './router'
 import { reply } from './responses'
 import type { InMemoryStore } from '../store/InMemoryStore'
+import type { SourceManager } from '../sources'
 import {
   organizations, users, brokers, sectors, stocks,
 } from '../config/organizations'
@@ -35,7 +36,11 @@ const FIXED_SESSION_SCOPE: OrgScope = {
   actingUserId: VIMANA_USER_ID,
 }
 
-export function buildRouter(store: InMemoryStore): Router {
+export interface BuildRouterOptions {
+  readonly sourceManager?: SourceManager
+}
+
+export function buildRouter(store: InMemoryStore, opts: BuildRouterOptions = {}): Router {
   const r = new Router()
 
   // ── Session ────────────────────────────────────────────────────────
@@ -375,6 +380,14 @@ export function buildRouter(store: InMemoryStore): Router {
     const rev = store.latestPostEventReviewForCatalyst(scope.orgId, asCatalystId(params.catalystId!))
     if (!rev) return reply.notFound(res, `post-event review for ${params.catalystId}`)
     reply.ok(res, rev)
+  })
+
+  // ── Sources health (Module 24) ─────────────────────────────────────
+  r.get('/v1/sources/health', ({ res, scope }) => {
+    if (!opts.sourceManager) {
+      return reply.notFound(res, 'sources health: source manager not configured')
+    }
+    reply.ok(res, opts.sourceManager.snapshot(scope.orgId))
   })
 
   r.get('/v1/ingestion-status', ({ res, scope }) => {

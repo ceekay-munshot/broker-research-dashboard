@@ -23,6 +23,8 @@ import type {
   CalibrationSnapshot, CalibrationSnapshotId,
   CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
   CatalystId, PreEventBriefId, PostEventReviewId,
+  SourceId, SourceSyncRun, SourceWatermark, BackfillJob,
+  BackfillJobId,
 } from '../../../src/domain'
 import type { MaterializationQuality } from '../pipeline/quality'
 import type { CorrectionRule, CorrectionAuditEntry } from '../corrections/types'
@@ -41,6 +43,8 @@ const TABLES = [
   'calibrationSnapshots',
   // Module 21
   'catalysts', 'expectationSnapshots', 'preEventBriefs', 'postEventReviews',
+  // Module 24 — source integrations
+  'sourceSyncRuns', 'sourceWatermarks', 'backfillJobs',
 ] as const
 type TableName = typeof TABLES[number]
 
@@ -68,6 +72,9 @@ interface Snapshot {
   expectationSnapshots: ExpectationSnapshot[]
   preEventBriefs: PreEventBrief[]
   postEventReviews: PostEventReview[]
+  sourceSyncRuns: SourceSyncRun[]
+  sourceWatermarks: SourceWatermark[]
+  backfillJobs: BackfillJob[]
 }
 
 export interface JsonFileRepoOptions {
@@ -197,6 +204,20 @@ export class JsonFileRepo implements Repo {
   listPostEventReviews(orgId: OrgId, limit?: number) { return this.mem.listPostEventReviews(orgId, limit) }
   loadCatalystsForOrg(orgId: OrgId) { return this.mem.loadCatalystsForOrg(orgId) }
 
+  // Module 24 — source integrations
+  appendSourceSyncRun(rec: SourceSyncRun) { this.mem.appendSourceSyncRun(rec); this.touch('sourceSyncRuns') }
+  listSourceSyncRuns(orgId: OrgId, filter?: Parameters<Repo['listSourceSyncRuns']>[1]) {
+    return this.mem.listSourceSyncRuns(orgId, filter)
+  }
+  getSourceWatermark(orgId: OrgId, sourceId: SourceId) { return this.mem.getSourceWatermark(orgId, sourceId) }
+  upsertSourceWatermark(rec: SourceWatermark) { this.mem.upsertSourceWatermark(rec); this.touch('sourceWatermarks') }
+  upsertBackfillJob(rec: BackfillJob) { this.mem.upsertBackfillJob(rec); this.touch('backfillJobs') }
+  getBackfillJob(orgId: OrgId, id: BackfillJobId) { return this.mem.getBackfillJob(orgId, id) }
+  listBackfillJobs(orgId: OrgId, filter?: Parameters<Repo['listBackfillJobs']>[1]) {
+    return this.mem.listBackfillJobs(orgId, filter)
+  }
+  loadSourcesForOrg(orgId: OrgId) { return this.mem.loadSourcesForOrg(orgId) }
+
   // ── Disk I/O (atomic write per table) ────────────────────────────────
 
   flush(): void {
@@ -242,6 +263,9 @@ export class JsonFileRepo implements Repo {
       expectationSnapshots: Map<string, ExpectationSnapshot>
       preEventBriefs: Map<string, PreEventBrief>
       postEventReviews: Map<string, PostEventReview>
+      sourceSyncRuns: SourceSyncRun[]
+      sourceWatermarks: Map<string, SourceWatermark>
+      backfillJobs: Map<string, BackfillJob>
     }
     return {
       rawEmails:            [...m.rawEmails.values()],
@@ -267,6 +291,9 @@ export class JsonFileRepo implements Repo {
       expectationSnapshots: [...m.expectationSnapshots.values()],
       preEventBriefs:       [...m.preEventBriefs.values()],
       postEventReviews:     [...m.postEventReviews.values()],
+      sourceSyncRuns:       [...m.sourceSyncRuns],
+      sourceWatermarks:     [...m.sourceWatermarks.values()],
+      backfillJobs:         [...m.backfillJobs.values()],
     }
   }
 
@@ -303,6 +330,9 @@ export class JsonFileRepo implements Repo {
           case 'expectationSnapshots': this.mem.upsertExpectationSnapshot(rec as ExpectationSnapshot); break
           case 'preEventBriefs':       this.mem.upsertPreEventBrief(rec as PreEventBrief); break
           case 'postEventReviews':     this.mem.upsertPostEventReview(rec as PostEventReview); break
+          case 'sourceSyncRuns':       this.mem.appendSourceSyncRun(rec as SourceSyncRun); break
+          case 'sourceWatermarks':     this.mem.upsertSourceWatermark(rec as SourceWatermark); break
+          case 'backfillJobs':         this.mem.upsertBackfillJob(rec as BackfillJob); break
         }
       }
     }

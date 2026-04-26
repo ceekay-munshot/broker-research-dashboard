@@ -24,6 +24,7 @@ import MyBook from './components/views/MyBook'
 import Briefing from './components/views/Briefing'
 import Calibration from './components/views/Calibration'
 import Catalysts from './components/views/Catalysts'
+import SourceHealth from './components/views/SourceHealth'
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<TabId>('mybook')
@@ -73,6 +74,7 @@ export default function App() {
       <Header
         lastUpdated={kpi.data?.asOf ?? null}
         orgShortName={org.data?.shortName ?? null}
+        onOpenSources={() => setActiveTab('sources')}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -136,6 +138,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'calibration': return <Calibration onSelectTicker={onSelectTicker}/>
     case 'catalysts':  return <Catalysts onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('briefing')}/>
+    case 'sources':    return <SourceHealth/>
   }
 }
 

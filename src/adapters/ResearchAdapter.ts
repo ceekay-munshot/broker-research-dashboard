@@ -16,6 +16,7 @@ import type {
   CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
+  SourcesHealthSnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type {
@@ -145,4 +146,10 @@ export interface ResearchAdapter {
   getLatestPostEventReview(scope: OrgScope, catalystId: CatalystId): Promise<PostEventReview | null>
   /** Single post-event review by id, or null. */
   getPostEventReview(scope: OrgScope, id: PostEventReviewId): Promise<PostEventReview | null>
+
+  // ─── Sources health (Module 24) ───────────────────────────────────────
+  /** Org-level snapshot of all source integrations: provider mode, last
+   *  sync, freshness, errors, backfills. Returns null when the adapter
+   *  has no sources layer configured (older mock builds). */
+  getSourcesHealth(scope: OrgScope): Promise<SourcesHealthSnapshot | null>
 }

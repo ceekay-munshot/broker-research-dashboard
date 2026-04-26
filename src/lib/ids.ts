@@ -6,6 +6,7 @@ import type {
   BenchmarkId, CalibrationSnapshotId, SignalEventId,
   CatalystId, PreEventBriefId, PostEventReviewId,
 } from '../domain/ids'
+import type { SourceId, SyncRunId, BackfillJobId } from '../domain/sources'
 
 // Typed cast helpers. The runtime value is unchanged; the cast only narrows
 // the compile-time type. Every entry point that receives a raw string (mock
@@ -34,3 +35,7 @@ export const asSignalEventId  = (s: string): SignalEventId  => s as SignalEventI
 export const asCatalystId     = (s: string): CatalystId     => s as CatalystId
 export const asPreEventBriefId = (s: string): PreEventBriefId => s as PreEventBriefId
 export const asPostEventReviewId = (s: string): PostEventReviewId => s as PostEventReviewId
+
+export const asSourceId      = (s: string): SourceId      => s as SourceId
+export const asSyncRunId     = (s: string): SyncRunId     => s as SyncRunId
+export const asBackfillJobId = (s: string): BackfillJobId => s as BackfillJobId

@@ -235,6 +235,9 @@ export class FixtureUpstreamAdapter implements ResearchAdapter {
   async listPostEventReviews(_scope: OrgScope): Promise<readonly PostEventReview[]> { return [] }
   async getLatestPostEventReview(_scope: OrgScope, _id: CatalystId): Promise<PostEventReview | null> { return null }
   async getPostEventReview(_scope: OrgScope, _id: PostEventReviewId): Promise<PostEventReview | null> { return null }
+
+  // ── Sources health (Module 24) ─────────────────────────────────────
+  async getSourcesHealth(_scope: OrgScope): Promise<import('../../domain').SourcesHealthSnapshot | null> { return null }
 }
 
 // Last-line cross-tenant guard — identical to HttpResearchAdapter's.

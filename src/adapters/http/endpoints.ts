@@ -76,4 +76,7 @@ export const endpoints = {
   postEventReviews:           () => v1('/post-event-reviews'),
   postEventReview:            (id: PostEventReviewId) => v1(`/post-event-reviews/${enc(id as unknown as string)}`),
   catalystPostEventReview:    (id: CatalystId) => v1(`/catalysts/${enc(id as unknown as string)}/post-event-review`),
+
+  // Sources (Module 24)
+  sourcesHealth:              () => v1('/sources/health'),
 } as const

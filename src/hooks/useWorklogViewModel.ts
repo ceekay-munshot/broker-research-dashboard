@@ -7,10 +7,11 @@ import {
 import type {
   ReportSummary, EvidenceSnippet, BrokerStockOpinion,
   ResearchReport, BrokerEmail, PortfolioSnapshot,
-  CalibrationSnapshot, PostEventReview,
+  CalibrationSnapshot, PostEventReview, SourcesHealthSnapshot,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { buildPortfolioOverlay, EMPTY_PORTFOLIO_OVERLAY } from '../viewModels/portfolio'
+import { stalenessDegradationsForKinds } from '../viewModels/sources'
 
 /** Stable primitive dep fingerprint for worklog filters. */
 function worklogFiltersFingerprint(f: WorklogFiltersState): string {
@@ -114,6 +115,11 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
     },
     [],
   )
+  // Module 24 — sources health, used for degraded-mode banners.
+  const sourcesQ = useAdapterQuery<SourcesHealthSnapshot | null>(
+    async (a, s) => { try { return await a.getSourcesHealth(s) } catch { return null } },
+    [],
+  )
 
   const requiredLoading = brokers.loading || sectors.loading || stocks.loading || reports.loading
   const requiredError   = brokers.error ?? sectors.error ?? stocks.error ?? reports.error
@@ -149,6 +155,10 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
   if (opinionsArr.length === 0)   degradations.push('No broker opinions — multi-broker convergence and divergence signals unavailable.')
   if (emailsArr.length === 0)     degradations.push('No broker emails — parent-email lineage hidden.')
   if (snapshot === null)          degradations.push('No portfolio configured — book overlay disabled. See My Book tab.')
+  // Module 24 — prepend stale/failing source notes so they're visible first.
+  for (const note of stalenessDegradationsForKinds(sourcesQ.data ?? null, ['raw_upstream', 'portfolio'])) {
+    degradations.unshift(note)
+  }
 
   const overlay = snapshot
     ? buildPortfolioOverlay({

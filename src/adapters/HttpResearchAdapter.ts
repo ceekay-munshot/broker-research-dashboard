@@ -16,6 +16,7 @@ import type {
   CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
+  SourcesHealthSnapshot,
 } from '../domain'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -451,6 +452,18 @@ export class HttpResearchAdapter implements ResearchAdapter {
     const item = mapPostEventReview(raw)
     assertOrgMatch('PostEventReview', scope, item.orgId as unknown as string)
     return item
+  }
+
+  // ── Sources health (Module 24) ──────────────────────────────────────
+
+  async getSourcesHealth(scope: OrgScope): Promise<SourcesHealthSnapshot | null> {
+    const raw = await this.client.requestOrNull(endpoints.sourcesHealth(), scope, {
+      endpointKey: 'sourcesHealth',
+    })
+    if (raw === null) return null
+    const snap = raw as SourcesHealthSnapshot
+    assertOrgMatch('SourcesHealthSnapshot', scope, snap.orgId as unknown as string)
+    return snap
   }
 }
 

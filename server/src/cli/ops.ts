@@ -66,6 +66,12 @@ import {
   cmdAdaptiveFlags, cmdAdaptiveInspect, cmdAdaptivePreview, cmdAdaptiveCompare,
   type AdaptiveCliFlags,
 } from './adaptiveRanking'
+import {
+  cmdSourcesList, cmdSourcesHealth, cmdSourcesSync, cmdSourcesSyncAll,
+  cmdSourcesRetry, cmdSourcesBackfill, cmdSourcesInspect, cmdSourcesCompareModes,
+  parseSourceKind, type SourcesCliFlags,
+} from './sources'
+import { buildRegistryForOrgs, SourceManager } from '../sources'
 
 type Subcommand =
   | 'sync' | 'replay' | 'replay-failed'
@@ -94,6 +100,9 @@ type Subcommand =
   | 'postevent:replay'
   // Module 23
   | 'adaptive:flags' | 'adaptive:inspect' | 'adaptive:preview' | 'adaptive:compare'
+  // Module 24
+  | 'sources:list' | 'sources:health' | 'sources:sync' | 'sources:sync-all'
+  | 'sources:retry' | 'sources:backfill' | 'sources:inspect' | 'sources:compare-modes'
   | 'help'
 
 interface Args {
@@ -129,6 +138,10 @@ interface Args {
   readonly days?: number
   readonly catalystId?: import('../../../src/domain').CatalystId
   readonly eventWindow?: import('../../../src/domain').EventMonitoringWindow
+  // Module 24 flags
+  readonly sourceKind?: string
+  readonly fromIso?: string
+  readonly toIso?: string
 }
 
 function parseArgs(argv: readonly string[]): Args {
@@ -189,6 +202,9 @@ function parseArgs(argv: readonly string[]): Args {
       const w = flags.window as string | undefined
       return (w === '24h' || w === '3d' || w === '7d' || w === '14d' || w === '30d') ? w : undefined
     })(),
+    sourceKind: flags.kind as string | undefined,
+    fromIso: flags.from as string | undefined,
+    toIso: flags.to as string | undefined,
   }
 }
 
@@ -369,6 +385,31 @@ async function main(): Promise<void> {
     case 'adaptive:compare':
       cmdAdaptiveCompare(asAdaptiveFlags(args), store)
       break
+    // Module 24 — source integrations
+    case 'sources:list':
+      cmdSourcesList(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:health':
+      cmdSourcesHealth(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:sync':
+      await cmdSourcesSync(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:sync-all':
+      await cmdSourcesSyncAll(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:retry':
+      await cmdSourcesRetry(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:backfill':
+      await cmdSourcesBackfill(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:inspect':
+      cmdSourcesInspect(asSourcesFlags(args), buildSourceManager(repo))
+      break
+    case 'sources:compare-modes':
+      cmdSourcesCompareModes(asSourcesFlags(args))
+      break
     case 'help':
     default:
       printHelp()
@@ -424,6 +465,26 @@ function asAdaptiveFlags(args: Args): AdaptiveCliFlags {
     brokerId: args.broker,
     limit: args.limit,
   }
+}
+
+function asSourcesFlags(args: Args): SourcesCliFlags {
+  return {
+    orgId: args.orgId,
+    kind: parseSourceKind(args.sourceKind),
+    from: args.fromIso,
+    to: args.toIso,
+    note: args.note,
+    limit: args.limit,
+  }
+}
+
+/** Build the SourceManager on demand (read repo state, register providers
+ *  per env). The CLI is short-lived so this is fine; long-running servers
+ *  cache it once. */
+function buildSourceManager(repo: Repo): SourceManager {
+  const orgIds = organizations.map((o) => o.id)
+  const registry = buildRegistryForOrgs(orgIds, { repo })
+  return new SourceManager({ repo, registry })
 }
 
 // ── Subcommands ──────────────────────────────────────────────────────────
@@ -896,6 +957,17 @@ function printHelp(): void {
   npm run ops -- adaptive:inspect        --broker=<brokerId> [--org=<orgId>]
   npm run ops -- adaptive:preview        [--org=<orgId>] [--limit=<n>]
   npm run ops -- adaptive:compare        [--org=<orgId>] [--limit=<n>]
+
+  npm run ops -- sources:list            [--org=<orgId>]
+  npm run ops -- sources:health          [--org=<orgId>]
+  npm run ops -- sources:sync            --kind=<kind> [--org=<orgId>]
+  npm run ops -- sources:sync-all        [--org=<orgId>]
+  npm run ops -- sources:retry           [--org=<orgId>]
+  npm run ops -- sources:backfill        --kind=<kind> --from=<iso> --to=<iso> [--org=<orgId>]
+  npm run ops -- sources:inspect         --kind=<kind> [--org=<orgId>]
+  npm run ops -- sources:compare-modes   --kind=<kind>
+
+Source kinds: raw_upstream, portfolio, catalyst_calendar, market_data.
 
 Correction types: broker, ticker, rating, target, prior-target, report-type.
 

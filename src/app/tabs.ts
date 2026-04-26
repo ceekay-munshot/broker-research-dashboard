@@ -9,6 +9,7 @@ export const TABS = [
   { id: 'sector',     label: 'Sector Feed',        hint: 'Rolling sector intelligence' },
   { id: 'calibration', label: 'Calibration',       hint: 'Broker + alert effectiveness' },
   { id: 'catalysts',   label: 'Catalysts',         hint: 'Calendar + pre-event briefs' },
+  { id: 'sources',     label: 'Sources',           hint: 'Source integrations + health' },
 ] as const
 
 export type TabId = typeof TABS[number]['id']

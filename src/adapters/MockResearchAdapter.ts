@@ -16,7 +16,9 @@ import type {
   CatalystId, PostEventReviewId,
   OrgScope, Page,
   BrokerId, EmailId, ReportId, SectorId, StockTicker,
+  SourcesHealthSnapshot, SourceIntegration, SourceKind,
 } from '../domain'
+import { asSourceId } from '../lib/ids'
 import type { ConflictClosure, SectorIntelligence } from '../engine/types'
 import { buildConflictClosure, buildSectorIntelligence } from '../engine'
 import type { ResearchAdapter } from './ResearchAdapter'
@@ -480,6 +482,79 @@ export class MockResearchAdapter implements ResearchAdapter {
       readyLast24h: jobs.filter((j) => j.status === 'ready').length,
       failedLast24h: jobs.filter((j) => j.status === 'failed').length,
       throughputPerHour: 0,
+    }
+  }
+
+  /** Module 24 — sources health.
+   *
+   *  The mock adapter doesn't speak to the server source manager, so it
+   *  synthesizes a snapshot that mirrors what the manager would produce
+   *  in `fixture` mode: every kind present, healthy-now (just synced),
+   *  serving fixture data, with the canonical "affected modules" wiring.
+   *  This keeps the UI Sources tab + chip exercised end-to-end in dev
+   *  even without a live server. */
+  async getSourcesHealth(scope: OrgScope): Promise<SourcesHealthSnapshot | null> {
+    await this.delay()
+    const kinds: readonly SourceKind[] = ['raw_upstream', 'portfolio', 'catalyst_calendar', 'market_data']
+    const display: Record<SourceKind, string> = {
+      raw_upstream:      'Research upstream (raw emails)',
+      portfolio:         'Portfolio snapshot',
+      catalyst_calendar: 'Catalyst calendar',
+      market_data:       'Market data + benchmarks',
+    }
+    const affected: Record<SourceKind, readonly string[]> = {
+      raw_upstream:      ['Daily Worklog', 'My Book', 'By Broker', 'By Stock', 'Alerts & Briefing'],
+      portfolio:         ['My Book', 'Daily Worklog (book overlay)', 'Catalysts (book filter)'],
+      catalyst_calendar: ['Catalysts', 'Pre-event briefs'],
+      market_data:       ['Calibration', 'Post-event reviews', 'Adaptive ranking (limited)'],
+    }
+    const staleness: Record<SourceKind, number> = {
+      raw_upstream: 30 * 60, portfolio: 24 * 60 * 60,
+      catalyst_calendar: 6 * 60 * 60, market_data: 4 * 60 * 60,
+    }
+    const now = new Date().toISOString()
+    const sources: SourceIntegration[] = kinds.map((k) => ({
+      id: asSourceId(`${scope.orgId as unknown as string}::${k}`),
+      orgId: scope.orgId,
+      kind: k,
+      displayName: display[k],
+      providerMode: 'fixture',
+      status: 'degraded',
+      freshness: {
+        lastSyncedAt: now,
+        ageSeconds: 0,
+        stalenessThresholdSeconds: staleness[k],
+        isStale: false,
+      },
+      degraded: {
+        reasons: ['Serving fixture data.'],
+        affectedModules: affected[k],
+        servingFallback: true,
+      },
+      lastError: null,
+      lastSuccessAt: now,
+      nextScheduledAt: null,
+      recentRuns: [],
+      recentBackfills: [],
+      watermark: null,
+      config: {
+        stalenessThresholdSeconds: staleness[k],
+        retryBackoffSeconds: 60,
+        pollIntervalSeconds: null,
+        tokenEnvName: null,
+        baseUrl: null,
+      },
+    }))
+    return {
+      orgId: scope.orgId,
+      generatedAt: now,
+      overall: 'degraded',
+      counts: {
+        total: sources.length,
+        healthy: 0, stale: 0, degraded: sources.length, failing: 0, unknown: 0,
+      },
+      sources,
+      backfillsInFlight: [],
     }
   }
 

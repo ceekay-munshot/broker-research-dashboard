@@ -26,6 +26,8 @@ import type {
   CalibrationSnapshot, CalibrationSnapshotId,
   CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
   CatalystId, PreEventBriefId, PostEventReviewId,
+  SourceId, SourceKind, SourceSyncRun, SourceWatermark, BackfillJob,
+  BackfillJobId, BackfillJobState,
 } from '../../../src/domain'
 import type {
   RawEmailArtifact, RawEmailArtifactJob, ReviewQueueItem,
@@ -233,6 +235,34 @@ export interface Repo {
     readonly snapshots: readonly ExpectationSnapshot[]
     readonly briefs: readonly PreEventBrief[]
     readonly reviews: readonly PostEventReview[]
+  }
+
+  // Source integrations (Module 24) ─────────────────────────────────────
+  /** Append a sync-run record. The manager calls this for every attempt,
+   *  successful or not. The operator UI reads the most recent N. */
+  appendSourceSyncRun(rec: SourceSyncRun): void
+  listSourceSyncRuns(orgId: OrgId, filter?: {
+    readonly sourceId?: SourceId
+    readonly sourceKind?: SourceKind
+    readonly limit?: number
+  }): readonly SourceSyncRun[]
+  /** Get/upsert the durable watermark for a source — the cursor that
+   *  the next incremental sync should pick up from. */
+  getSourceWatermark(orgId: OrgId, sourceId: SourceId): SourceWatermark | null
+  upsertSourceWatermark(rec: SourceWatermark): void
+  /** Backfill jobs are queued by the operator + drained by the manager. */
+  upsertBackfillJob(rec: BackfillJob): void
+  getBackfillJob(orgId: OrgId, id: BackfillJobId): BackfillJob | null
+  listBackfillJobs(orgId: OrgId, filter?: {
+    readonly sourceId?: SourceId
+    readonly state?: BackfillJobState
+    readonly limit?: number
+  }): readonly BackfillJob[]
+  /** Bulk hydration for the source manager on startup. */
+  loadSourcesForOrg(orgId: OrgId): {
+    readonly syncRuns: readonly SourceSyncRun[]
+    readonly watermarks: readonly SourceWatermark[]
+    readonly backfills: readonly BackfillJob[]
   }
 
   // Lifecycle ───────────────────────────────────────────────────────────

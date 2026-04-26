@@ -1,9 +1,11 @@
 import IngestionChip from './IngestionChip'
 import ThemeToggle from './ThemeToggle'
+import SourcesHealthChip from './sources/SourcesHealthChip'
 
 interface HeaderProps {
   readonly lastUpdated: string | null
   readonly orgShortName: string | null
+  readonly onOpenSources?: () => void
 }
 
 function formatStamp(iso: string | null): string {
@@ -11,7 +13,7 @@ function formatStamp(iso: string | null): string {
   return new Date(iso).toUTCString().replace('GMT', 'UTC')
 }
 
-export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
+export default function Header({ lastUpdated, orgShortName, onOpenSources }: HeaderProps) {
   return (
     <header className="border-b border-line/5 bg-ink-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 h-14">
@@ -35,6 +37,7 @@ export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
 
         <div className="flex items-center gap-5">
           <IngestionChip />
+          {onOpenSources && <SourcesHealthChip onOpen={onOpenSources}/>}
           <div className="flex flex-col items-end">
             <span className="section-title">Last updated</span>
             <span className="num text-slate-200 text-[12px]">{formatStamp(lastUpdated)}</span>

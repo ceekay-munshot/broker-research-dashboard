@@ -112,6 +112,9 @@ export const RESOURCE_CATALOG: readonly ResourceSpec[] = [
   { key: 'postEventReviews',   endpoint: 'GET /v1/post-event-reviews',       requirement: 'list',     description: 'Post-event reviews list.', tolerate404: true },
   { key: 'postEventReview',    endpoint: 'GET /v1/post-event-reviews/:id',   requirement: 'optional', description: 'Single post-event review by id.', tolerate404: true },
   { key: 'catalystPostEventReview', endpoint: 'GET /v1/catalysts/:id/post-event-review', requirement: 'optional', description: 'Latest post-event review for a catalyst.', tolerate404: true },
+
+  // Sources health (Module 24) — optional; the chrome chip degrades when missing.
+  { key: 'sourcesHealth',      endpoint: 'GET /v1/sources/health',           requirement: 'optional', description: 'Source-integration health snapshot (Module 24).', tolerate404: true },
 ] as const
 
 /** Lookup a resource spec by `key`; returns undefined when the key is not

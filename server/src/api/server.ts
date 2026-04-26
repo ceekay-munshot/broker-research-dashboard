@@ -1,15 +1,18 @@
 import { createServer, type Server } from 'node:http'
 import { buildRouter } from './routes'
 import type { InMemoryStore } from '../store/InMemoryStore'
+import type { SourceManager } from '../sources'
 
 export interface StartServerOptions {
   readonly port: number
   readonly store: InMemoryStore
   readonly logRequests?: boolean
+  /** Optional source manager — when provided, /v1/sources/health is served. */
+  readonly sourceManager?: SourceManager
 }
 
 export async function startApiServer(opts: StartServerOptions): Promise<Server> {
-  const router = buildRouter(opts.store)
+  const router = buildRouter(opts.store, { sourceManager: opts.sourceManager })
 
   const server = createServer(async (req, res) => {
     const t0 = Date.now()

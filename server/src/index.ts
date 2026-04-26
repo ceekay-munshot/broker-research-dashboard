@@ -6,6 +6,7 @@ import { runAlertsForStore } from './alerts/bootstrap'
 import { runCalibrationForStore } from './calibration/bootstrap'
 import { runCatalystsForStore } from './catalysts/bootstrap'
 import { runPostEventReviewsForStore } from './postEventReview/bootstrap'
+import { buildRegistryForOrgs, SourceManager } from './sources'
 
 // Entry point for both `npm run server:dev` (ingest + serve) and
 // `npm run server:ingest` (ingest only, print summary, exit).
@@ -83,7 +84,18 @@ async function main(): Promise<void> {
     process.exit(0)
   }
 
-  const server = await startApiServer({ port, store })
+  // Module 24 — build the source-integration manager so /v1/sources/health
+  // is served. Provider modes are chosen by env (default: fixture in dev,
+  // disabled in prod). Real HTTP providers activate when SOURCE_<KIND>_MODE=http.
+  const sourceRegistry = buildRegistryForOrgs(organizations.map((o) => o.id), { repo })
+  const sourceManager = new SourceManager({ repo, registry: sourceRegistry })
+  console.log('┌─ sources ─────────────────────────────────────────────')
+  for (const e of sourceRegistry.listAll()) {
+    console.log(`│  ${e.config.orgId as unknown as string} :: ${e.config.kind.padEnd(20)} mode=${e.config.providerMode}`)
+  }
+  console.log('└────────────────────────────────────────────────────────')
+
+  const server = await startApiServer({ port, store, sourceManager })
   const addr = server.address()
   const url = typeof addr === 'object' && addr !== null ? `http://localhost:${addr.port}` : `http://localhost:${port}`
   console.log(`API listening on ${url}`)

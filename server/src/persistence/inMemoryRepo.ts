@@ -6,6 +6,8 @@ import type {
   CalibrationSnapshot, CalibrationSnapshotId,
   CatalystEvent, ExpectationSnapshot, PreEventBrief, PostEventReview,
   CatalystId, PreEventBriefId, PostEventReviewId,
+  SourceId, SourceKind, SourceSyncRun, SourceWatermark, BackfillJob,
+  BackfillJobId, BackfillJobState,
 } from '../../../src/domain'
 import type { ProcessingState } from '../pipeline/states'
 import type { PipelineErrorCategory } from '../pipeline/errors'
@@ -50,6 +52,11 @@ export class InMemoryRepo implements Repo {
   private readonly expectationSnapshots = new Map<string, ExpectationSnapshot>()
   private readonly preEventBriefs = new Map<string, PreEventBrief>()
   private readonly postEventReviews = new Map<string, PostEventReview>()
+
+  // Module 24 — source integrations
+  private readonly sourceSyncRuns: SourceSyncRun[] = []
+  private readonly sourceWatermarks = new Map<string, SourceWatermark>()
+  private readonly backfillJobs = new Map<string, BackfillJob>()
 
   // ── Raw artifacts ────────────────────────────────────────────────────
   upsertRawEmail(rec: PersistedRawEmail): void { this.rawEmails.set(rec.id, rec) }
@@ -404,6 +411,53 @@ export class InMemoryRepo implements Repo {
       snapshots: [...this.expectationSnapshots.values()].filter((s) => s.orgId === orgId),
       briefs: this.listPreEventBriefs(orgId),
       reviews: this.listPostEventReviews(orgId),
+    }
+  }
+
+  // ── Module 24: source integrations ─────────────────────────────────
+  appendSourceSyncRun(rec: SourceSyncRun): void {
+    this.sourceSyncRuns.push(rec)
+  }
+  listSourceSyncRuns(orgId: OrgId, filter?: {
+    sourceId?: SourceId; sourceKind?: SourceKind; limit?: number
+  }): readonly SourceSyncRun[] {
+    let arr = this.sourceSyncRuns.filter((r) => r.orgId === orgId)
+    if (filter?.sourceId) arr = arr.filter((r) => r.sourceId === filter.sourceId)
+    if (filter?.sourceKind) arr = arr.filter((r) => r.sourceKind === filter.sourceKind)
+    arr.sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  getSourceWatermark(orgId: OrgId, sourceId: SourceId): SourceWatermark | null {
+    return this.sourceWatermarks.get(`${orgId}::${sourceId}`) ?? null
+  }
+  upsertSourceWatermark(rec: SourceWatermark): void {
+    this.sourceWatermarks.set(`${rec.orgId}::${rec.sourceId}`, rec)
+  }
+  upsertBackfillJob(rec: BackfillJob): void { this.backfillJobs.set(rec.id as string, rec) }
+  getBackfillJob(orgId: OrgId, id: BackfillJobId): BackfillJob | null {
+    const j = this.backfillJobs.get(id as string)
+    return j && j.orgId === orgId ? j : null
+  }
+  listBackfillJobs(orgId: OrgId, filter?: {
+    sourceId?: SourceId; state?: BackfillJobState; limit?: number
+  }): readonly BackfillJob[] {
+    let arr = [...this.backfillJobs.values()].filter((j) => j.orgId === orgId)
+    if (filter?.sourceId) arr = arr.filter((j) => j.sourceId === filter.sourceId)
+    if (filter?.state)    arr = arr.filter((j) => j.state === filter.state)
+    arr.sort((a, b) => b.requestedAt.localeCompare(a.requestedAt))
+    if (filter?.limit) arr = arr.slice(0, filter.limit)
+    return arr
+  }
+  loadSourcesForOrg(orgId: OrgId): {
+    syncRuns: readonly SourceSyncRun[]
+    watermarks: readonly SourceWatermark[]
+    backfills: readonly BackfillJob[]
+  } {
+    return {
+      syncRuns: this.listSourceSyncRuns(orgId),
+      watermarks: [...this.sourceWatermarks.values()].filter((w) => w.orgId === orgId),
+      backfills: this.listBackfillJobs(orgId),
     }
   }
 
