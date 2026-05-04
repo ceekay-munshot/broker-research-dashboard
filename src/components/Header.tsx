@@ -1,9 +1,13 @@
 import FeedStatusChip from './FeedStatusChip'
 import ThemeToggle from './ThemeToggle'
+import AdminMenu from './AdminMenu'
+import type { TabId } from '../app/tabs'
 
 interface HeaderProps {
   readonly lastUpdated: string | null
   readonly orgShortName: string | null
+  readonly activeTab: TabId
+  readonly setActiveTab: (id: TabId) => void
 }
 
 function formatStamp(iso: string | null): string {
@@ -11,7 +15,7 @@ function formatStamp(iso: string | null): string {
   return new Date(iso).toUTCString().replace('GMT', 'UTC')
 }
 
-export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
+export default function Header({ lastUpdated, orgShortName, activeTab, setActiveTab }: HeaderProps) {
   return (
     <header className="border-b border-line/5 bg-ink-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 h-14">
@@ -24,8 +28,6 @@ export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
             <span className="text-slate-200 text-sm font-semibold tracking-wide">Broker Research OS</span>
             <span className="text-slate-500 text-[11px] uppercase tracking-[0.18em]">Research Desk</span>
           </div>
-          <span className="mx-2 text-slate-700">/</span>
-          <span className="text-slate-300 text-sm">Email Intelligence Dashboard</span>
           {orgShortName && (
             <span className="chip ml-3 border border-line/10 text-slate-400 bg-line/[0.02]">
               Org · <span className="text-slate-200 ml-1">{orgShortName}</span>
@@ -39,10 +41,7 @@ export default function Header({ lastUpdated, orgShortName }: HeaderProps) {
             <span className="section-title">Last updated</span>
             <span className="num text-slate-200 text-[12px]">{formatStamp(lastUpdated)}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <span className="kbd">⌘</span><span className="kbd">K</span>
-            <span className="text-[11px] text-slate-500 ml-1">search</span>
-          </div>
+          <AdminMenu active={activeTab} setActive={setActiveTab}/>
           <ThemeToggle />
         </div>
       </div>

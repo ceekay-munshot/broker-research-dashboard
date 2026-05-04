@@ -1,17 +1,28 @@
+// Customer-facing tabs. Six clean workflows, each answering one question.
+// No long uppercase hints, no internal jargon — keep this as the surface
+// the investor actually sees.
 export const TABS = [
-  { id: 'mybook',     label: 'My Book',            hint: 'Fund-aware morning view' },
-  { id: 'briefing',   label: 'Alerts & Briefing',  hint: 'Daily digest + alert feed' },
-  { id: 'worklog',    label: 'Daily Worklog',      hint: 'Triage what landed today' },
-  { id: 'dashboard',  label: 'Dashboard',          hint: 'KPIs + rolling feed' },
-  { id: 'broker',     label: 'By Broker',          hint: 'What each house is saying' },
-  { id: 'stock',      label: 'By Stock',           hint: 'What the Street is saying' },
-  { id: 'divergence', label: 'Divergence / ARB',   hint: 'Where the Street disagrees' },
-  { id: 'sector',     label: 'Sector Feed',        hint: 'Rolling sector intelligence' },
-  { id: 'calibration', label: 'Calibration',       hint: 'Broker + alert effectiveness' },
-  { id: 'catalysts',   label: 'Catalysts',         hint: 'Calendar + pre-event briefs' },
-  { id: 'inbox',       label: 'Inbox',             hint: 'Delivered briefs, alerts, incidents' },
-  { id: 'usage',       label: 'Pilot Analytics',   hint: 'Adoption + delivery engagement + ROI' },
-  { id: 'controlPlane', label: 'Control Plane',    hint: 'Org settings + flags + rollout' },
+  { id: 'today',         label: 'Today' },
+  { id: 'portfolio',     label: 'My Portfolio' },
+  { id: 'stocks',        label: 'Stocks' },
+  { id: 'brokers',       label: 'Brokers' },
+  { id: 'disagreements', label: 'Disagreements' },
+  { id: 'catalysts',     label: 'Catalysts' },
 ] as const
 
-export type TabId = typeof TABS[number]['id']
+// Hidden tabs — only reachable via the admin menu in the header.
+// Operators / dev-mode users use these; ordinary customers never see them.
+// Kept as separate routes (not removed) so the underlying functionality
+// stays accessible without polluting the main nav.
+export const ADMIN_TABS = [
+  { id: 'inbox',        label: 'Inbox' },
+  { id: 'sector',       label: 'Sector Feed' },
+  { id: 'calibration',  label: 'Calibration' },
+  { id: 'dashboard',    label: 'Raw Dashboard' },
+  { id: 'usage',        label: 'Pilot Analytics' },
+  { id: 'controlPlane', label: 'Control Plane' },
+] as const
+
+export type CustomerTabId = typeof TABS[number]['id']
+export type AdminTabId    = typeof ADMIN_TABS[number]['id']
+export type TabId         = CustomerTabId | AdminTabId

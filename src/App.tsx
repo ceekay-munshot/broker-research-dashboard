@@ -13,17 +13,17 @@ import ReportDrawer from './components/ReportDrawer'
 import StockDrawer from './components/StockDrawer'
 import DevDiagnosticsChip from './app/DevDiagnosticsChip'
 
-import Dashboard from './components/views/Dashboard'
+import Today from './components/views/Today'
+import MyBook from './components/views/MyBook'
 import ByBroker from './components/views/ByBroker'
 import ByStock from './components/views/ByStock'
-import Divergence from './components/views/Divergence'
-import SectorFeed from './components/views/SectorFeed'
-import DailyWorklog from './components/views/DailyWorklog'
-import MyBook from './components/views/MyBook'
-import Briefing from './components/views/Briefing'
-import Calibration from './components/views/Calibration'
+import Disagreements from './components/views/Disagreements'
 import Catalysts from './components/views/Catalysts'
+// Hidden tabs (admin menu only):
 import Inbox from './components/views/Inbox'
+import SectorFeed from './components/views/SectorFeed'
+import Calibration from './components/views/Calibration'
+import Dashboard from './components/views/Dashboard'
 import Usage from './components/views/Usage'
 import ControlPlane from './components/views/ControlPlane'
 import { UsageBoot } from './usage/UsageContext'
@@ -31,7 +31,7 @@ import { emitUsage } from './usage/UsageClient'
 import type { UsageSurface } from './domain'
 
 export default function App() {
-  const [activeTab, setActiveTabRaw] = useState<TabId>('mybook')
+  const [activeTab, setActiveTabRaw] = useState<TabId>('today')
   // Wrap setActiveTab so every tab change emits a usage event.
   const setActiveTab = (t: TabId) => {
     setActiveTabRaw((prev) => {
@@ -99,6 +99,8 @@ export default function App() {
       <Header
         lastUpdated={kpi.data?.asOf ?? null}
         orgShortName={org.data?.shortName ?? null}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -152,19 +154,21 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
   setActiveTab: (t: TabId) => void;
 }) {
   switch (tab) {
-    case 'mybook':     return <MyBook       onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')} onOpenBriefing={() => setActiveTab('briefing')}/>
-    case 'briefing':   return <Briefing     onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
-    case 'worklog':    return <DailyWorklog onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('divergence')}/>
-    case 'dashboard':  return <Dashboard  filters={filters} onSelectReport={onSelectReport}/>
-    case 'broker':     return <ByBroker   filters={filters} onSelectReport={onSelectReport}/>
-    case 'stock':      return <ByStock    filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
-    case 'divergence': return <Divergence filters={filters} onSelectTicker={onSelectTicker}/>
-    case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
-    case 'calibration': return <Calibration onSelectTicker={onSelectTicker}/>
-    case 'catalysts':  return <Catalysts onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('briefing')}/>
-    case 'inbox':      return <Inbox setActiveTab={setActiveTab}/>
-    case 'usage':      return <Usage/>
-    case 'controlPlane': return <ControlPlane/>
+    // Customer-facing tabs (visible in main nav)
+    case 'today':         return <Today         filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDisagreements={() => setActiveTab('disagreements')}/>
+    case 'portfolio':     return <MyBook        onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('disagreements')} onOpenBriefing={() => setActiveTab('today')}/>
+    case 'stocks':        return <ByStock       filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
+    case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport}/>
+    case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker}/>
+    case 'catalysts':     return <Catalysts     onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('today')}/>
+
+    // Admin/operator tabs (reachable only via the AdminMenu in the header)
+    case 'inbox':         return <Inbox setActiveTab={setActiveTab}/>
+    case 'sector':        return <SectorFeed   filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
+    case 'calibration':   return <Calibration  onSelectTicker={onSelectTicker}/>
+    case 'dashboard':     return <Dashboard    filters={filters} onSelectReport={onSelectReport}/>
+    case 'usage':         return <Usage/>
+    case 'controlPlane':  return <ControlPlane/>
   }
 }
 

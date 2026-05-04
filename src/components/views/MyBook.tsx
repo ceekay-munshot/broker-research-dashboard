@@ -27,7 +27,7 @@ export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergenc
     return (
       <div className="flex flex-col gap-4">
         <header className="flex flex-col gap-1">
-          <h2 className="text-slate-100 font-semibold text-base">My Book</h2>
+          <h2 className="text-slate-100 font-semibold text-base">My Portfolio</h2>
           <p className="text-slate-400 text-[12px]">Portfolio-aware morning view: today's activity on positions, broker changes on held names, and coverage gaps.</p>
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
@@ -44,7 +44,7 @@ export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergenc
     <div className="flex flex-col gap-4">
       <header className="flex items-end justify-between flex-wrap gap-3">
         <div>
-          <h2 className="text-slate-100 font-semibold text-base">My Book</h2>
+          <h2 className="text-slate-100 font-semibold text-base">My Portfolio</h2>
           <p className="text-slate-400 text-[12px]">
             Portfolio-aware morning view. Snapshot as of {data.snapshotAsOf?.slice(0, 10) ?? '—'}.
           </p>
