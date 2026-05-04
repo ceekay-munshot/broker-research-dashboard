@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { ReportId, StockTicker, Organization } from './domain'
 import { useAdapterQuery } from './hooks/useAdapterQuery'
 import { useScope } from './app/ScopeContext'
-import { getActiveAdapterMode } from './adapters'
 import type { FiltersState } from './app/filters'
 import { DEFAULT_FILTERS } from './app/filters'
 import type { TabId } from './app/tabs'
@@ -24,7 +23,6 @@ import MyBook from './components/views/MyBook'
 import Briefing from './components/views/Briefing'
 import Calibration from './components/views/Calibration'
 import Catalysts from './components/views/Catalysts'
-import SourceHealth from './components/views/SourceHealth'
 import Inbox from './components/views/Inbox'
 import Usage from './components/views/Usage'
 import ControlPlane from './components/views/ControlPlane'
@@ -101,7 +99,6 @@ export default function App() {
       <Header
         lastUpdated={kpi.data?.asOf ?? null}
         orgShortName={org.data?.shortName ?? null}
-        onOpenSources={() => setActiveTab('sources')}
       />
 
       <div className="flex-1 flex min-h-0">
@@ -165,7 +162,6 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'sector':     return <SectorFeed filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'calibration': return <Calibration onSelectTicker={onSelectTicker}/>
     case 'catalysts':  return <Catalysts onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('briefing')}/>
-    case 'sources':    return <SourceHealth/>
     case 'inbox':      return <Inbox setActiveTab={setActiveTab}/>
     case 'usage':      return <Usage/>
     case 'controlPlane': return <ControlPlane/>
@@ -174,13 +170,9 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
 
 function Footer({ org }: { org: Organization | null }) {
   const scope = useScope()
-  const mode = getActiveAdapterMode()
   return (
     <footer className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-line/5">
-      <span>
-        Broker Research OS · Read-only analytics client ·{' '}
-        <span className="kbd" title="Runtime adapter mode (see docs/modes.md)">{mode}</span>
-      </span>
+      <span>Broker Research OS · Read-only analytics client</span>
       <span>
         Scope <span className="kbd">{scope.orgId}</span> / <span className="kbd">{scope.actingUserId}</span>
         {org && <span className="ml-2 text-slate-600">({org.forwardingAddress})</span>}

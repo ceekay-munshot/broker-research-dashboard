@@ -29,12 +29,8 @@ export default function Usage() {
       <div className="flex flex-col gap-4">
         <Header generatedAt={null} windowDays={0}/>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
-          <div className="text-slate-200 font-medium text-[14px] mb-1">No usage events yet</div>
-          <p className="max-w-md mx-auto">
-            The system hasn't recorded any usage events yet. Browse the dashboard to generate
-            events, or run <code className="kbd">npm run ops -- usage:summary</code> to inspect
-            from the CLI.
-          </p>
+          <div className="text-slate-200 font-medium text-[14px] mb-1">No usage data yet</div>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )
@@ -171,7 +167,6 @@ export default function Usage() {
               <h3 className="text-slate-100 text-[13px] font-semibold">Pilot ROI · last {roi.windowDays}d</h3>
               <p className="text-slate-500 text-[11px]">{roi.headlines[0] ?? ''}</p>
             </div>
-            <span className="text-[10.5px] text-slate-500">CLI: <code className="kbd">npm run ops -- usage:roi</code></span>
           </div>
           <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
             <Stat label="Morning brief"   value={formatPercent(roi.metrics.morningBriefOpenRate)}      tone="emerald"/>

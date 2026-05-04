@@ -21,12 +21,7 @@ export default function Inbox({ setActiveTab }: InboxProps) {
         <Header counts={data.counts}/>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
           <div className="text-slate-200 font-medium text-[14px] mb-1">Nothing delivered yet</div>
-          <p className="max-w-md mx-auto">
-            The system hasn't sent any briefs, alerts, or incidents yet.
-            Run <code className="kbd">npm run ops -- delivery:run-due</code> to fire any due
-            schedules, or <code className="kbd">delivery:preview --kind=morning_book_brief</code> to
-            inspect what would be sent.
-          </p>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )

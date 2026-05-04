@@ -9,7 +9,6 @@ export const TABS = [
   { id: 'sector',     label: 'Sector Feed',        hint: 'Rolling sector intelligence' },
   { id: 'calibration', label: 'Calibration',       hint: 'Broker + alert effectiveness' },
   { id: 'catalysts',   label: 'Catalysts',         hint: 'Calendar + pre-event briefs' },
-  { id: 'sources',     label: 'Sources',           hint: 'Source integrations + health' },
   { id: 'inbox',       label: 'Inbox',             hint: 'Delivered briefs, alerts, incidents' },
   { id: 'usage',       label: 'Pilot Analytics',   hint: 'Adoption + delivery engagement + ROI' },
   { id: 'controlPlane', label: 'Control Plane',    hint: 'Org settings + flags + rollout' },

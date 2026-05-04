@@ -218,7 +218,7 @@ function PriorityTab({ item }: { item: WorklogItem }) {
           ))}
         </tbody>
       </table>
-      <p className="text-slate-500 text-[10.5px]">Priority is deterministic — every point is justified by a rule. See <code className="text-slate-400">docs/daily-worklog.md</code>.</p>
+      <p className="text-slate-500 text-[10.5px]">Priority is deterministic — every point is justified by a rule.</p>
     </div>
   )
 }

@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import type {
-  OrgSettings, FeatureFlagAssignment, OrgModuleAccess, OrgIntegrationConfig,
+  OrgSettings, FeatureFlagAssignment, OrgModuleAccess,
   DeliveryRoutingConfig, ConfigAuditEntry, RolloutState, FeatureFlagSource,
   PermissionGrant, UserRole,
 } from '../domain'
@@ -18,13 +18,11 @@ export interface ControlPlaneViewModel {
   readonly featureFlags: readonly FeatureFlagAssignment[]
   readonly modules: readonly OrgModuleAccess[]
   readonly permissions: readonly PermissionGrant[]
-  readonly integrations: readonly OrgIntegrationConfig[]
   readonly deliveryRouting: readonly DeliveryRoutingConfig[]
   readonly recentAudit: readonly ConfigAuditEntry[]
   readonly counts: {
     readonly flagsOverridden: number
     readonly modulesOverridden: number
-    readonly integrationsOverridden: number
   }
 }
 
@@ -38,15 +36,14 @@ export function buildControlPlaneViewModel(snap: OrgSettings | null): ControlPla
       rolloutState: 'pilot',
       rolloutNote: null,
       featureFlags: [], modules: [], permissions: [],
-      integrations: [], deliveryRouting: [], recentAudit: [],
-      counts: { flagsOverridden: 0, modulesOverridden: 0, integrationsOverridden: 0 },
+      deliveryRouting: [], recentAudit: [],
+      counts: { flagsOverridden: 0, modulesOverridden: 0 },
     }
   }
   const role = snap.currentUserRole
   const canWrite = role === 'admin' || role === 'operator'
   const flagsOverridden = snap.featureFlags.filter((f) => f.source === 'org_override').length
   const modulesOverridden = snap.modules.filter((m) => m.source === 'org_override').length
-  const integrationsOverridden = snap.integrations.filter((i) => i.source === 'org_override').length
   return {
     hasData: true,
     orgId: snap.orgId as unknown as string,
@@ -57,10 +54,9 @@ export function buildControlPlaneViewModel(snap: OrgSettings | null): ControlPla
     featureFlags: snap.featureFlags,
     modules: snap.modules,
     permissions: snap.permissions,
-    integrations: snap.integrations,
     deliveryRouting: snap.deliveryRouting,
     recentAudit: snap.recentAudit,
-    counts: { flagsOverridden, modulesOverridden, integrationsOverridden },
+    counts: { flagsOverridden, modulesOverridden },
   }
 }
 

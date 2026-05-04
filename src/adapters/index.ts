@@ -7,6 +7,7 @@ import { readScopeBootstrap } from '../app/scopeBootstrap'
 import { FixtureUpstreamAdapter } from './upstream'
 import { withDiagnostics } from './upstream/withDiagnostics'
 import { setDiagnosticsMode } from './upstream/diagnostics'
+import { ServerOutputAdapter } from './serverOutput/ServerOutputAdapter'
 import {
   identityProfile, exampleDivergentProfile,
   type UpstreamNormalizationProfile,
@@ -35,15 +36,29 @@ import {
 // so `activeMode` must exist before `createAdapterFromEnv()` (which calls
 // `readActiveMode()` internally) runs.
 let activeMode: AdapterMode = normalizeAdapterMode(undefined)
-let adapterInstance: ResearchAdapter = withDiagnostics(createAdapterFromEnv())
+let adapterInstance: ResearchAdapter = wrapForDiagnostics(createAdapterFromEnv())
 setDiagnosticsMode(activeMode)
+
+/** Diagnostics is meant for HTTP/upstream paths. The server-payload adapter
+ *  has no remote calls to instrument and the wrapper would mask its
+ *  type from the FeedStatusChip. Skip wrapping for `server` mode. */
+function wrapForDiagnostics(a: ResearchAdapter): ResearchAdapter {
+  return a instanceof ServerOutputAdapter ? a : withDiagnostics(a)
+}
 
 export function getResearchAdapter(): ResearchAdapter {
   return adapterInstance
 }
 
+/** When the active adapter is the server-output adapter, this returns it
+ *  directly. The header chip uses this to render the waiting / live /
+ *  delayed / error pill faithfully. Returns null in any other mode. */
+export function getServerOutputAdapter(): ServerOutputAdapter | null {
+  return adapterInstance instanceof ServerOutputAdapter ? adapterInstance : null
+}
+
 export function setResearchAdapter(next: ResearchAdapter): void {
-  adapterInstance = withDiagnostics(next)
+  adapterInstance = wrapForDiagnostics(next)
 }
 
 /** Which mode the active adapter is running in. Read-only after bootstrap. */
@@ -63,6 +78,15 @@ export function getActiveAdapterMode(): AdapterMode {
  */
 export function createAdapterFromEnv(): ResearchAdapter {
   const mode = readActiveMode()
+
+  if (mode === 'server') {
+    // Default. The cofounder's server produces a single
+    // DashboardServerOutput payload; this adapter exposes it through the
+    // many-method ResearchAdapter interface. Until a payload arrives, all
+    // queries return empty/placeholder values and the dashboard renders
+    // its shell with "Awaiting server output" placeholders.
+    return new ServerOutputAdapter()
+  }
 
   if (mode === 'upstream' || mode === 'local') {
     const baseUrl = import.meta.env.VITE_API_BASE_URL
@@ -131,9 +155,9 @@ function readActiveMode(): AdapterMode {
     // but don't fail loudly — back-compat is the point.
     // eslint-disable-next-line no-console
     console.info(`[adapter] VITE_RESEARCH_ADAPTER="${raw}" normalized to "${mode}"`)
-  } else if (raw && !['upstream', 'local', 'mock', 'mock-http', 'upstream-fixture'].includes(raw)) {
+  } else if (raw && !['server', 'upstream', 'local', 'mock', 'mock-http', 'upstream-fixture'].includes(raw)) {
     // eslint-disable-next-line no-console
-    console.warn(`[adapter] Unknown VITE_RESEARCH_ADAPTER="${raw}"; falling back to "mock".`)
+    console.warn(`[adapter] Unknown VITE_RESEARCH_ADAPTER="${raw}"; falling back to "server".`)
   }
   activeMode = mode
   return mode
@@ -142,6 +166,11 @@ function readActiveMode(): AdapterMode {
 export type { ResearchAdapter } from './ResearchAdapter'
 export { MockResearchAdapter } from './MockResearchAdapter'
 export { HttpResearchAdapter } from './HttpResearchAdapter'
+export { ServerOutputAdapter } from './serverOutput/ServerOutputAdapter'
+export type {
+  DashboardServerOutput, FeedStatusPayload,
+} from './serverOutput/types'
+export { WAITING_FEED_STATUS } from './serverOutput/types'
 export type { AdapterMode } from './AdapterMode'
 export { ADAPTER_MODES, isProductionMode, isHttpMode } from './AdapterMode'
 export type {

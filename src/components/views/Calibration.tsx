@@ -31,12 +31,8 @@ export default function Calibration({ onSelectTicker }: CalibrationProps) {
           <p className="text-slate-400 text-[12px]">Broker calibration · alert-kind effectiveness · per-ticker coverage signal.</p>
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
-          <div className="text-slate-200 font-medium text-[14px] mb-1">No calibration snapshot yet</div>
-          <p className="max-w-md mx-auto">
-            Connect a market-data provider and run <code className="kbd">npm run ops -- calibration:recompute</code>
-            {' '}to seed the first snapshot. The rest of the dashboard works without it.
-          </p>
-          <p className="text-slate-500 text-[11px] mt-3">See <code className="kbd">docs/calibration.md</code> for methodology.</p>
+          <div className="text-slate-200 font-medium text-[14px] mb-1">No calibration data yet</div>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )

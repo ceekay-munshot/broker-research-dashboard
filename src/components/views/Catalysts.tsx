@@ -73,11 +73,8 @@ export default function Catalysts({ onSelectReport, onSelectTicker, onOpenBriefi
           </p>
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
-          <div className="text-slate-200 font-medium text-[14px] mb-1">No catalysts ingested yet</div>
-          <p className="max-w-md mx-auto">
-            Connect a catalyst source or seed fixtures, then run <code className="kbd">npm run ops -- catalysts:replay</code>.
-          </p>
-          <p className="text-slate-500 text-[11px] mt-3">See <code className="kbd">docs/catalysts.md</code> for the input seam.</p>
+          <div className="text-slate-200 font-medium text-[14px] mb-1">No catalysts yet</div>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )

@@ -7,28 +7,32 @@
 // matrix.
 
 export type AdapterMode =
-  // Production path. The UI talks to the external upstream API that is the
-  // source of truth for ingested broker research, authentication, and
-  // org-scoped isolation. Nothing in this repo ingests mail or authenticates
-  // users in this mode — the dashboard is a read-only analytics client.
+  // Default runtime path. The dashboard reads from a single
+  // `DashboardServerOutput` payload produced by the cofounder's server
+  // (server-side email fetch + LLM extraction). No mocks, no fake data —
+  // when no payload exists yet the dashboard renders its full shell with
+  // placeholders ("Awaiting server output", "—", skeleton rows).
+  | 'server'
+
+  // Production path that talks to a fully-implemented external upstream API
+  // (legacy contract). Kept for backward compatibility with deployments
+  // that still wire the per-resource HTTP endpoints. New deployments
+  // should prefer `server` and have the cofounder's server emit the
+  // `DashboardServerOutput` envelope.
   | 'upstream'
 
-  // Local dev harness. The UI talks to the same HTTP contract as `upstream`
-  // but pointed at the local server/ process, which parses .eml fixtures and
-  // serves them from an InMemoryStore. Intended for iterating on the adapter,
-  // parsers, and UI without a live upstream. Not suitable for any
-  // customer-facing deployment.
+  // Local dev harness. Same HTTP contract as `upstream` but pointed at the
+  // local server/ process. Dev-only.
   | 'local'
 
-  // In-memory mock. No network, no server. Fixtures + deterministic engine
-  // are wired directly into `MockResearchAdapter`. Fast, offline-friendly,
-  // and the right mode for Storybook, component tests, and quick UI work.
+  // In-memory mock — DEV ONLY. Fixtures + deterministic engine wired into
+  // `MockResearchAdapter`. Useful for Storybook, component tests, and
+  // offline UI work. Never runs in production. Opt in with
+  // VITE_RESEARCH_ADAPTER=mock.
   | 'mock'
 
-  // HttpResearchAdapter routed through a stub fetch that is backed by
-  // `MockResearchAdapter`. Exercises the full HTTP code path — parsers,
-  // error mapping, query encoding — without a live server. Intended for
-  // regression tests of the adapter layer itself.
+  // HTTP code path against a stub fetch backed by MockResearchAdapter.
+  // Adapter-layer regression tests only.
   | 'mock-http'
 
   // FixtureUpstreamAdapter — serves `src/adapters/upstream/fixtures/*.json`
@@ -38,12 +42,13 @@ export type AdapterMode =
   | 'upstream-fixture'
 
 export const ADAPTER_MODES: readonly AdapterMode[] = [
-  'upstream', 'local', 'mock', 'mock-http', 'upstream-fixture',
+  'server', 'upstream', 'local', 'mock', 'mock-http', 'upstream-fixture',
 ] as const
 
-/** True iff the given mode indicates production (hits the real upstream API). */
+/** True iff the given mode indicates a production runtime (server payload
+ *  or HTTP upstream). Mock modes return false. */
 export function isProductionMode(mode: AdapterMode): boolean {
-  return mode === 'upstream'
+  return mode === 'server' || mode === 'upstream'
 }
 
 /** True iff the given mode routes requests over HTTP (upstream *or* local). */
@@ -58,6 +63,7 @@ export function isHttpMode(mode: AdapterMode): boolean {
  */
 export function normalizeAdapterMode(raw: string | undefined): AdapterMode {
   switch (raw) {
+    case 'server':           return 'server'
     case 'upstream':         return 'upstream'
     case 'local':            return 'local'
     case 'mock':             return 'mock'
@@ -66,9 +72,9 @@ export function normalizeAdapterMode(raw: string | undefined): AdapterMode {
     // Legacy aliases
     case 'http':             return 'upstream'
     case 'http-stub':        return 'mock-http'
-    case undefined:          return 'mock'
+    case undefined:          return 'server'
     default:
       // Caller logs a warning; we still return something sane.
-      return 'mock'
+      return 'server'
   }
 }

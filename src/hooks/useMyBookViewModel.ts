@@ -4,12 +4,11 @@
 
 import type {
   BrokerStockOpinion, ReportSummary, PortfolioSnapshot,
-  CalibrationSnapshot, PostEventReview, SourcesHealthSnapshot,
+  CalibrationSnapshot, PostEventReview,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from './useAdapterQuery'
 import { buildMyBookViewModel, type MyBookViewModel } from '../viewModels/portfolio'
-import { stalenessDegradationsForKinds } from '../viewModels/sources'
 
 export function useMyBookViewModel(): QueryResult<MyBookViewModel> {
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
@@ -71,12 +70,6 @@ export function useMyBookViewModel(): QueryResult<MyBookViewModel> {
     },
     [],
   )
-  // Module 24 — sources health for degraded-mode banners.
-  const sourcesQ = useAdapterQuery<SourcesHealthSnapshot | null>(
-    async (a, s) => { try { return await a.getSourcesHealth(s) } catch { return null } },
-    [],
-  )
-
   const requiredLoading = brokers.loading || sectors.loading || stocks.loading || reports.loading || snapshot.loading
   const requiredError = brokers.error ?? sectors.error ?? stocks.error ?? reports.error
   if (requiredLoading) return { data: null, loading: true, error: null }
@@ -87,14 +80,10 @@ export function useMyBookViewModel(): QueryResult<MyBookViewModel> {
   const closuresArr  = closuresQ.data ?? []
 
   const degradations: string[] = []
-  if (snapshot.data === null) degradations.push('No portfolio configured for this org. Connect a portfolio source to enable book-level analytics.')
+  if (snapshot.data === null) degradations.push('No portfolio data yet — awaiting server output.')
   if (summariesArr.length === 0) degradations.push('No report summaries — relevance reasoning falls back to report-level signals only.')
   if (opinionsArr.length === 0)  degradations.push('No broker opinions — coverage breadth and outlier detection are unavailable.')
   if (closuresArr.length === 0)  degradations.push('No conflict closures — divergence flags inferred from opinions only.')
-  // Module 24 — surface stale/failing source notes ahead of any data-shape notes.
-  for (const note of stalenessDegradationsForKinds(sourcesQ.data ?? null, ['portfolio', 'raw_upstream'])) {
-    degradations.unshift(note)
-  }
 
   const { vm } = buildMyBookViewModel({
     snapshot: snapshot.data ?? null,

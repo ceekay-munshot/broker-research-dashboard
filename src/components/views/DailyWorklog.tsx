@@ -104,7 +104,7 @@ export default function DailyWorklog({ onSelectReport, onSelectTicker, onOpenDiv
           ) : (
             <aside className="panel p-5 text-slate-500 text-[12px] sticky top-4">
               <p className="mb-2">Select a worklog item to preview its summary, evidence, priority rationale, and lineage.</p>
-              <p className="text-slate-600 text-[11px]">High-priority items are surfaced first. See <code>docs/daily-worklog.md</code> for the scoring rules.</p>
+              <p className="text-slate-600 text-[11px]">High-priority items are surfaced first.</p>
             </aside>
           )}
         </div>

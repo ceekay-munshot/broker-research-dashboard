@@ -31,14 +31,8 @@ export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergenc
           <p className="text-slate-400 text-[12px]">Portfolio-aware morning view: today's activity on positions, broker changes on held names, and coverage gaps.</p>
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
-          <div className="text-slate-200 font-medium text-[14px] mb-1">No portfolio configured</div>
-          <p className="max-w-md mx-auto">
-            Connect a portfolio source to enable book-level relevance ranking,
-            coverage analytics, and the My Book morning view. The rest of the
-            dashboard works without a portfolio — switch to the Daily Worklog or
-            By Stock to continue.
-          </p>
-          <p className="text-slate-500 text-[11px] mt-3">See <code className="kbd">docs/portfolio.md</code> for setup.</p>
+          <div className="text-slate-200 font-medium text-[14px] mb-1">No portfolio data yet</div>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )

@@ -6,7 +6,7 @@ interface TabsProps {
   readonly setActive: (id: TabId) => void
 }
 
-const OPERATOR_TABS = new Set<TabId>(['sources', 'usage', 'controlPlane'])
+const OPERATOR_TABS = new Set<TabId>(['usage', 'controlPlane'])
 
 export default function Tabs({ active, setActive }: TabsProps) {
   const role = useCurrentUserRole()

@@ -41,7 +41,7 @@ export function useBriefingViewModel(kind: DigestKind = 'morning_brief'): QueryR
   if (digest.loading || alerts.loading) return { data: null, loading: true, error: null }
 
   const degradations: string[] = []
-  if (!digest.data) degradations.push('No briefing has been generated yet for this org. Run `npm run ops -- alerts:morning` to seed one.')
+  if (!digest.data) degradations.push('No briefing yet — awaiting server output.')
   if ((alerts.data ?? []).length === 0) degradations.push('No alerts in the feed.')
 
   const vm = buildBriefingViewModel({

@@ -8,8 +8,7 @@
 
 import { useState } from 'react'
 import type {
-  FeatureFlagKey, AccessibleModule, SourceKind, SourceProviderMode,
-  RolloutState,
+  FeatureFlagKey, AccessibleModule, RolloutState,
 } from '../../domain'
 import { useOrgSettings } from '../../hooks/useOrgSettings'
 import {
@@ -38,9 +37,7 @@ export default function ControlPlane() {
         <Header role="analyst" rolloutState="pilot" rolloutNote={null} orgId="—"/>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
           <div className="text-slate-200 font-medium text-[14px] mb-1">No org settings yet</div>
-          <p className="max-w-md mx-auto">
-            The active adapter doesn't expose Module-27. Run <code className="kbd">npm run server:dev</code> + <code className="kbd">VITE_RESEARCH_ADAPTER=http</code> to see live control-plane state.
-          </p>
+          <p className="max-w-md mx-auto">Awaiting server output.</p>
         </div>
       </div>
     )
@@ -57,13 +54,6 @@ export default function ControlPlane() {
     setBusyKey(`module:${module}`)
     try {
       await getResearchAdapter().setModuleAccess(scope, { module, enabled, reason: 'toggled from control plane' })
-      refresh()
-    } finally { setBusyKey(null) }
-  }
-  const onSetSourceMode = async (sourceKind: SourceKind, mode: SourceProviderMode) => {
-    setBusyKey(`source:${sourceKind}`)
-    try {
-      await getResearchAdapter().setSourceMode(scope, { sourceKind, mode, reason: 'switched from control plane' })
       refresh()
     } finally { setBusyKey(null) }
   }
@@ -125,36 +115,6 @@ export default function ControlPlane() {
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
-      </section>
-
-      <section className="panel p-3 flex flex-col gap-2">
-        <h3 className="text-slate-100 text-[13px] font-semibold">Source integrations ({vm.integrations.length})</h3>
-        <p className="text-slate-500 text-[11px]">{vm.counts.integrationsOverridden} org-overridden.</p>
-        <table className="w-full text-[11.5px]">
-          <thead className="text-slate-500 text-[10.5px] uppercase tracking-wider">
-            <tr><th className="text-left py-1">Source</th><th>Mode</th><th>Source</th><th>Staleness</th><th className="text-right">Switch</th></tr>
-          </thead>
-          <tbody>
-            {vm.integrations.map((i) => {
-              const next = i.mode === 'http' ? 'fixture' : 'http'
-              return (
-                <tr key={i.sourceKind} className="border-t border-line/5">
-                  <td className="py-1">{i.sourceKind}</td>
-                  <td>{i.mode}</td>
-                  <td><span className={`chip text-[9.5px] uppercase tracking-wider border ${SOURCE_BADGE_TONE[i.source]}`}>{i.source.replace('_', ' ')}</span></td>
-                  <td className="num">{Math.round(i.stalenessThresholdSeconds / 60)}m</td>
-                  <td className="text-right">
-                    <button
-                      disabled={!vm.canWrite || busyKey === `source:${i.sourceKind}`}
-                      onClick={() => onSetSourceMode(i.sourceKind, next as SourceProviderMode)}
-                      className={`chip text-[10px] border ${vm.canWrite ? 'border-line/20 text-slate-300 hover:text-accent cursor-pointer' : 'border-line/10 text-slate-500 cursor-not-allowed'}`}
-                    >→ {next}</button>
-                  </td>
-                </tr>
-              )
-            })}
           </tbody>
         </table>
       </section>
@@ -266,7 +226,7 @@ function Header({
       <div>
         <h2 className="text-slate-100 font-semibold text-base">Control Plane</h2>
         <p className="text-slate-400 text-[12px]">
-          Module 27 — org settings, flags, integrations, delivery routing, rollout state, audit.
+          Org settings, flags, modules, delivery routing, rollout state, audit.
         </p>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-300">
