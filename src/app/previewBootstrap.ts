@@ -47,8 +47,12 @@ export async function applyPreviewFixture(): Promise<void> {
         baseUrl: backendUrl,
         token: await resolveAuthToken(),
       })
-      payload = emailApiPagesToServerOutput(pages, { anchorToNow: true })
+      // Live data: keep backend timestamps exactly as received — never
+      // anchor, or customer-facing report dates and Today become wrong.
+      payload = emailApiPagesToServerOutput(pages)
     } else {
+      // Bundled sample only: anchor to now so the static fixture's
+      // date-filtered surfaces (e.g. Today) are not empty in QA.
       const mod = await import('../adapters/serverOutput/previewFixture/emailApiResponse.sample.json')
       payload = emailApiResponseToServerOutput(mod.default, { anchorToNow: true })
     }
