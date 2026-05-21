@@ -86,10 +86,7 @@ export function composeDisagreementInsight(c: DivergenceCardViewModel): string {
     const who = others > 0
       ? `${o.brokerName} and ${others} other${others === 1 ? '' : 's'}`
       : o.brokerName
-    const z = o.targetZScore !== null
-      ? ` (${o.targetZScore > 0 ? '+' : ''}${o.targetZScore.toFixed(1)}σ from the mean target)`
-      : ''
-    return `Strip out ${who}${z} and the Street largely agrees — that single ${o.direction} outlier is what stretches the target spread to ${roundPct(spread)}.`
+    return `Strip out ${who} and the Street largely agrees — that single ${o.direction} outlier is what stretches the target spread to ${roundPct(spread)}.`
   }
 
   // 2 — A wide valuation gap is the headline.

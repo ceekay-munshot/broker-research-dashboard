@@ -148,11 +148,6 @@ export function OutlierRow({ outlier, tier }: { outlier: OutlierVM; tier: Broker
         <BrokerTierDot tier={tier}/>
         <span className="text-slate-100 font-semibold">{outlier.brokerName}</span>
         <span className={`${tone} uppercase text-[9.5px] tracking-widest`}>{outlier.direction}</span>
-        {outlier.targetZScore !== null && (
-          <span className="num text-[10.5px] text-slate-400 ml-auto">
-            {outlier.targetZScore > 0 ? '+' : ''}{outlier.targetZScore.toFixed(2)}σ from mean
-          </span>
-        )}
       </div>
       {outlier.notes && <div className="text-[11.5px] text-slate-400 leading-snug">{outlier.notes}</div>}
     </li>

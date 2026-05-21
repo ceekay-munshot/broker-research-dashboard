@@ -77,7 +77,7 @@ interface Inputs {
 }
 
 const REASON_LABELS: Readonly<Record<OutlierClassification['reasons'][number], string>> = {
-  target_price_z:  'Target outside ±1.25σ',
+  target_price_z:  'Target far from the consensus',
   rating_contrary: 'Rating contradicts majority',
   stance_contrary: 'Stance contradicts majority',
 }
