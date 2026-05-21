@@ -2,12 +2,11 @@ import { useState } from 'react'
 import type { ReportId, BrokerId, StockTicker } from '../../domain'
 import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { FiltersState } from '../../app/filters'
-import type { OpinionCell, ByStockRowViewModel } from '../../viewModels/byStock'
+import type { OpinionCell, ByStockRowViewModel, StockView } from '../../viewModels/byStock'
 import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
-import BookBadge from '../portfolio/BookBadge'
 
 interface ByStockProps {
   readonly filters: FiltersState
@@ -16,7 +15,8 @@ interface ByStockProps {
 }
 
 export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByStockProps) {
-  const { data, loading, error } = useByStockViewModel(filters)
+  const [view, setView] = useState<StockView>('most-covered')
+  const { data, loading, error } = useByStockViewModel(filters, view)
   const [focusTicker, setFocusTicker] = useState<StockTicker | null>(null)
 
   // Shared catalogs for the change-rail builder.
@@ -36,10 +36,11 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <div>
           <h2 className="text-slate-100 font-semibold text-base">By Stock</h2>
           <p className="text-slate-400 text-[12px]">
-            Opinions matrix with per-ticker resultant state and outlier detection (&gt;1.25σ).
-            Click a ticker for the full conflict closure, or a target cell to open the source report.
+            What every broker thinks about each stock — rating and price target, side by side.
+            Click a stock for the full breakdown, or a cell to open the broker's report.
           </p>
         </div>
+        <ViewSelector view={view} setView={setView} showPortfolio={data.hasPortfolio}/>
       </div>
 
       <div className="panel overflow-x-auto">
@@ -47,10 +48,8 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
           <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 bg-ink-900/70 z-10">Ticker</th>
-              <th className="px-3 py-2 font-medium">Book</th>
               <th className="px-3 py-2 font-medium">Sector</th>
               <th className="px-3 py-2 font-medium">Street state</th>
-              <th className="px-3 py-2 font-medium text-right">Spot</th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
               <th className="px-3 py-2 font-medium text-right">Spread</th>
               {data.brokers.map((b) => (
@@ -113,6 +112,40 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
   )
 }
 
+// ─── View selector ────────────────────────────────────────────────────
+// Re-sorts the matrix only — no row is ever hidden. "My portfolio" appears
+// solely when a portfolio is loaded.
+
+const STOCK_VIEWS: readonly { readonly id: StockView; readonly label: string; readonly portfolioOnly?: boolean }[] = [
+  { id: 'most-covered', label: 'Most covered' },
+  { id: 'consensus',    label: 'Consensus' },
+  { id: 'contested',    label: 'Contested' },
+  { id: 'portfolio',    label: 'My portfolio', portfolioOnly: true },
+  { id: 'upside',       label: 'Upside' },
+]
+
+function ViewSelector({ view, setView, showPortfolio }: {
+  view: StockView;
+  setView: (v: StockView) => void;
+  showPortfolio: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 flex-wrap">
+      <span className="section-title mr-0.5">View</span>
+      {STOCK_VIEWS.filter((v) => showPortfolio || !v.portfolioOnly).map((v) => (
+        <button
+          key={v.id}
+          onClick={() => setView(v.id)}
+          className={`px-2.5 py-1 text-[11px] rounded border transition-colors
+            ${view === v.id
+              ? 'bg-accent/15 border-accent/40 text-accent'
+              : 'bg-line/[0.02] border-line/5 text-slate-300 hover:bg-line/[0.05] hover:border-line/10'}`}
+        >{v.label}</button>
+      ))}
+    </div>
+  )
+}
+
 function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker }: {
   row: ByStockRowViewModel;
   zebra: boolean;
@@ -132,28 +165,6 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
         </button>
       </td>
-      <td className="px-3 py-2">
-        {row.book ? (
-          <div className="flex flex-col gap-0.5">
-            <BookBadge
-              membership={row.book.membership}
-              direction={row.book.direction}
-              weightPct={row.book.weightPct}
-              conviction={row.book.conviction}
-              compact
-            />
-            {row.book.membership !== 'none' && (
-              <span className="text-[10px] text-slate-500 num">
-                {row.book.distinctBrokersLast7d}br · {row.book.daysSinceLastReport === null ? '—' : `${row.book.daysSinceLastReport}d`}
-                {row.book.riskFlags.includes('stale_coverage') && <span className="text-amber-400"> · stale</span>}
-                {row.book.riskFlags.includes('single_broker_coverage') && <span className="text-amber-400"> · 1br</span>}
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="text-[11px] text-slate-600">—</span>
-        )}
-      </td>
       <td className="px-3 py-2 text-slate-300 text-[11.5px]">{row.sectorName}</td>
       <td className="px-3 py-2">
         <div className="flex flex-col gap-1">
@@ -165,9 +176,6 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
             )}
           </span>
         </div>
-      </td>
-      <td className="px-3 py-2 num text-right text-slate-200">
-        {formatPrice(row.spotPrice, row.currency, 2)}
       </td>
       <td className="px-3 py-2 num text-right">
         <div className="flex flex-col items-end">

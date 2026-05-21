@@ -11,6 +11,9 @@ import type { FiltersState } from '../app/filters'
 import { filtersFingerprint } from '../app/filters'
 import { buildPortfolioOverlay } from './portfolio'
 
+/** Ordering lens for the By Stock matrix. Re-sorts only — never filters rows. */
+export type StockView = 'most-covered' | 'consensus' | 'contested' | 'portfolio' | 'upside'
+
 export interface OpinionCell {
   readonly brokerId: BrokerId
   readonly rating: Rating | null
@@ -57,6 +60,8 @@ export interface ByStockBookContext {
 export interface ByStockViewModel {
   readonly rows: readonly ByStockRowViewModel[]
   readonly brokers: readonly Broker[]
+  /** True when a portfolio is loaded — gates the "My portfolio" view. */
+  readonly hasPortfolio: boolean
 }
 
 interface Inputs {
@@ -66,6 +71,7 @@ interface Inputs {
   readonly closures: readonly ConflictClosure[]
   readonly sectorNameById: ReadonlyMap<string, string>
   readonly filters: FiltersState
+  readonly view: StockView
   /** Per-ticker portfolio coverage. Empty map when no portfolio. */
   readonly coverageByTicker?: ReadonlyMap<string, PortfolioCoverageSummary>
 }
@@ -145,18 +151,9 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
     }
   })
 
-  // If a portfolio is loaded, sort book rows first.
-  if (inputs.coverageByTicker && inputs.coverageByTicker.size > 0) {
-    rows.sort((a, b) => {
-      const am = membershipRank(a.book?.membership)
-      const bm = membershipRank(b.book?.membership)
-      if (am !== bm) return am - bm
-      if (a.book?.membership === 'held' && b.book?.membership === 'held') {
-        return (b.book.weightPct ?? 0) - (a.book.weightPct ?? 0)
-      }
-      return (a.ticker as string).localeCompare(b.ticker as string)
-    })
-  }
+  // The view selector only re-orders rows; every row stays on screen.
+  const hasPortfolio = !!(inputs.coverageByTicker && inputs.coverageByTicker.size > 0)
+  rows.sort((a, b) => compareRows(a, b, inputs.view))
 
   // Column set: brokers with at least one opinion on screen.
   const shownBrokerIds = new Set<string>()
@@ -165,7 +162,7 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
   }
   const shownBrokers = inputs.brokers.filter((b) => shownBrokerIds.has(b.id as string))
 
-  return { rows, brokers: shownBrokers }
+  return { rows, brokers: shownBrokers, hasPortfolio }
 }
 
 function membershipRank(m: PortfolioMembership | undefined): number {
@@ -175,7 +172,72 @@ function membershipRank(m: PortfolioMembership | undefined): number {
   return 3
 }
 
-export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockViewModel> {
+const STRENGTH_RANK: Readonly<Record<StrengthBand, number>> = {
+  strong: 0, moderate: 1, weak: 2,
+}
+
+// How consensus-aligned a resultant state is — lower sorts first in Consensus view.
+const CONSENSUS_RANK: Readonly<Record<ResultantState, number>> = {
+  consensus_bullish: 0,
+  consensus_bearish: 0,
+  mixed_constructive: 1,
+  mixed_cautious: 1,
+  outlier_driven: 2,
+  unresolved: 3,
+}
+
+// How contested a resultant state is — lower sorts first in Contested view.
+const CONTESTED_RANK: Readonly<Record<ResultantState, number>> = {
+  outlier_driven: 0,
+  mixed_constructive: 1,
+  mixed_cautious: 1,
+  unresolved: 2,
+  consensus_bullish: 3,
+  consensus_bearish: 3,
+}
+
+function tickerCmp(a: ByStockRowViewModel, b: ByStockRowViewModel): number {
+  return (a.ticker as string).localeCompare(b.ticker as string)
+}
+
+/**
+ * Row comparator for a given view. Every branch ends with a ticker tiebreak so
+ * ordering is stable and deterministic; null spread/upside sort last.
+ */
+function compareRows(a: ByStockRowViewModel, b: ByStockRowViewModel, view: StockView): number {
+  switch (view) {
+    case 'most-covered':
+      return (b.brokerCount - a.brokerCount) || tickerCmp(a, b)
+    case 'consensus':
+      return (CONSENSUS_RANK[a.resultantState] - CONSENSUS_RANK[b.resultantState])
+        || (STRENGTH_RANK[a.resultantStrength] - STRENGTH_RANK[b.resultantStrength])
+        || (b.brokerCount - a.brokerCount)
+        || tickerCmp(a, b)
+    // Contested prioritizes disagreement intensity before generic coverage.
+    case 'contested':
+      return (CONTESTED_RANK[a.resultantState] - CONTESTED_RANK[b.resultantState])
+        || (b.outlierBrokerIds.length - a.outlierBrokerIds.length)
+        || ((b.spreadPct ?? -Infinity) - (a.spreadPct ?? -Infinity))
+        || tickerCmp(a, b)
+    case 'upside':
+      return ((b.consensusUpsidePct ?? -Infinity) - (a.consensusUpsidePct ?? -Infinity))
+        || tickerCmp(a, b)
+    case 'portfolio': {
+      const am = membershipRank(a.book?.membership)
+      const bm = membershipRank(b.book?.membership)
+      if (am !== bm) return am - bm
+      if (a.book?.membership === 'held' && b.book?.membership === 'held') {
+        return (b.book.weightPct ?? 0) - (a.book.weightPct ?? 0)
+      }
+      return tickerCmp(a, b)
+    }
+  }
+}
+
+export function useByStockViewModel(
+  filters: FiltersState,
+  view: StockView = 'most-covered',
+): QueryResult<ByStockViewModel> {
   const fp = filtersFingerprint(filters)
 
   const stocks = useAdapterQuery((a, s) => a.listStocks(s), [])
@@ -229,6 +291,7 @@ export function useByStockViewModel(filters: FiltersState): QueryResult<ByStockV
     closures: closures.data,
     sectorNameById,
     filters,
+    view,
     coverageByTicker: overlay?.coverageByTicker,
   })
   return { data: vm, loading: false, error: null }
