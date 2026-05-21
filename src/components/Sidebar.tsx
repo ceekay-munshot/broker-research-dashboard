@@ -151,18 +151,6 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
             ))}
           </div>
         </FilterSection>
-
-        <div className="pt-2 mt-auto border-t border-line/5 text-[11px] text-slate-500">
-          <div className="flex items-center justify-between">
-            <span>Saved views</span>
-            <button className="text-accent hover:text-accent-soft transition-colors">＋</button>
-          </div>
-          <ul className="mt-2 space-y-1">
-            <li className="truncate text-slate-400">AI supply chain — bull/bear</li>
-            <li className="truncate text-slate-400">Energy commodity deck shifts</li>
-            <li className="truncate text-slate-400">Earnings week — target changes</li>
-          </ul>
-        </div>
       </div>
     </aside>
   )
