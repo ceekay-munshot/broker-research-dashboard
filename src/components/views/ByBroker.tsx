@@ -72,7 +72,8 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
           <div className="flex flex-col">
             <span className="text-slate-100 text-[13px] font-semibold">{b.name}</span>
             <span className="text-[10.5px] uppercase tracking-widest text-slate-500">
-              {b.reportCount} {b.reportCount === 1 ? 'note' : 'notes'} · {b.topThemes.length} themes
+              {b.reportCount} {b.reportCount === 1 ? 'note' : 'notes'} · {b.tickersCovered} {b.tickersCovered === 1 ? 'stock' : 'stocks'}
+              {b.latestReportAt && <> · latest {formatShortDate(b.latestReportAt)}</>}
             </span>
           </div>
         </div>

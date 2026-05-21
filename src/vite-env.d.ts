@@ -39,6 +39,18 @@ interface ImportMetaEnv {
    * `docs/upstream-normalization-bridge.md`.
    */
   readonly VITE_UPSTREAM_PROFILE?: 'identity' | 'example' | 'example-divergent'
+  /**
+   * Base URL of the forwarded-email backend (GET /email/forwarded). When
+   * set, the dashboard fetches the feed live at boot — paginated, deduped,
+   * newest-first — and renders against it. See `src/app/previewBootstrap.ts`.
+   */
+  readonly VITE_BACKEND_API_URL?: string
+  /**
+   * Local-preview only. When set (and VITE_BACKEND_API_URL is not), the
+   * dashboard loads the bundled sample /email/forwarded response at boot
+   * and renders against it. Leave unset in production.
+   */
+  readonly VITE_PREVIEW_FIXTURE?: string
 }
 
 interface ImportMeta {

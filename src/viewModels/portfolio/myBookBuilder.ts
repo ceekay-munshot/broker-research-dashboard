@@ -70,7 +70,7 @@ export function buildMyBookViewModel(inputs: MyBookInputs): MyBookBuildOutput {
         hasPortfolio: false,
         snapshotAsOf: inputs.snapshot?.asOf ?? null,
         headline: emptyHeadline(),
-        todayOnBook:          emptySection('Today on the book',           'Reports landed today on held or watchlist names.', 'Awaiting server output.'),
+        todayOnBook:          emptySection('Today on the book',           'Reports landed today on held or watchlist names.', ''),
         significantChanges:   emptySection('Significant broker changes',   'Material rating or target moves on positions in the past 7 days.', ''),
         unresolvedDivergence: emptySection('Unresolved divergence on book', 'Held / watchlist names where the Street disagrees.', ''),
         watchlistFresh:       emptySection('Watchlist with fresh research', 'Recent broker activity on names you are tracking.', ''),

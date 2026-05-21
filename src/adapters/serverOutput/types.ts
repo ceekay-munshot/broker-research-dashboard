@@ -143,5 +143,5 @@ export const WAITING_FEED_STATUS: FeedStatusPayload = {
   itemsToday: null,
   lastExtractionReceivedAt: null,
   lastSuccessfulSyncAt: null,
-  message: 'Waiting for the backend to send extracted output.',
+  message: 'Waiting for the research feed.',
 }

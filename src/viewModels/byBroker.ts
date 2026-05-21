@@ -22,6 +22,10 @@ export interface BrokerCardViewModel {
   readonly shortName: string
   readonly color: string | null
   readonly reportCount: number
+  /** Distinct tickers across this broker's reports. */
+  readonly tickersCovered: number
+  /** publishedAt of this broker's most recent report; null if none. */
+  readonly latestReportAt: string | null
   readonly stanceCounts: Readonly<Record<Stance, number>>
   readonly topThemes: readonly { readonly theme: string; readonly count: number }[]
   readonly latestReports: readonly FeedItemViewModel[]
@@ -107,6 +111,11 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
     const theirs = inputs.reports
       .filter((r) => r.brokerId === broker.id)
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
+
+    const tickersCovered = new Set(
+      theirs.flatMap((r) => r.tickers.map((t) => t as unknown as string)),
+    ).size
+    const latestReportAt = theirs[0]?.publishedAt ?? null
 
     const stanceCounts: Record<Stance, number> = { bullish: 0, neutral: 0, bearish: 0 }
     const themeTally = new Map<string, number>()
@@ -226,6 +235,8 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       shortName: broker.shortName,
       color: broker.brandColor,
       reportCount: theirs.length,
+      tickersCovered,
+      latestReportAt,
       stanceCounts,
       topThemes,
       latestReports,

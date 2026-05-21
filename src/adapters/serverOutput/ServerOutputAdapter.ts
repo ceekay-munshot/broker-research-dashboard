@@ -67,7 +67,7 @@ const PLACEHOLDER_SCOPE: OrgScope = {
 
 const PLACEHOLDER_ORG: Organization = {
   id: PLACEHOLDER_ORG_ID,
-  name: 'Awaiting server output',
+  name: 'Research desk',
   shortName: '—',
   forwardingAddress: '',
   createdAt: '',

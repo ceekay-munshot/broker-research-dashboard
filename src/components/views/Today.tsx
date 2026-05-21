@@ -17,6 +17,7 @@ import { useMyBookViewModel } from '../../hooks/useMyBookViewModel'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
+import { formatPrice } from '../../viewModels/shared'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -176,7 +177,7 @@ function PriorityFeed({
       {loading && items.length === 0 ? (
         <PlaceholderCard text="Loading…"/>
       ) : items.length === 0 ? (
-        <PlaceholderCard text="Your morning brief will appear here once server extraction is live."/>
+        <PlaceholderCard text="No priority items yet — new broker research appears here as it comes in."/>
       ) : (
         <ul className="flex flex-col">
           {items.map((it) => (
@@ -195,13 +196,16 @@ function PriorityFeed({
                 <div className="flex items-center gap-2 text-[11px] text-slate-500">
                   <span>{it.brokerShortName}</span>
                   {it.rating && <><span>·</span><span>{it.rating}</span></>}
-                  {it.targetChangePct != null && (
+                  {it.targetPrice != null && (
                     <>
                       <span>·</span>
-                      <span className={it.targetChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                        {it.targetChangePct >= 0 ? '+' : ''}{it.targetChangePct.toFixed(1)}% TP
-                      </span>
+                      <span className="text-slate-300">TP {formatPrice(it.targetPrice, it.targetCurrency, 0)}</span>
                     </>
+                  )}
+                  {it.targetChangePct != null && (
+                    <span className={it.targetChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      {it.targetChangePct >= 0 ? '+' : ''}{it.targetChangePct.toFixed(1)}%
+                    </span>
                   )}
                 </div>
               </button>

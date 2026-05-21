@@ -50,6 +50,10 @@ export interface Attachment {
   readonly sizeBytes: number
   readonly checksumSha256: string
   readonly storageRef: string
+  // Time-limited signed URL to the original document, when the source feed
+  // provides one. Optional: only the forwarded-email adapter populates it;
+  // other adapters leave it undefined.
+  readonly sourceUrl?: string | null
   readonly pageCount: number | null
   readonly language: string | null
   readonly parseStatus: EmailProcessingStatus

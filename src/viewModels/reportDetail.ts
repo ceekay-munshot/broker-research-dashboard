@@ -1,6 +1,6 @@
 import type {
   Broker, ResearchReport, ReportSummary, EvidenceSnippet,
-  Sector, Stock, BrokerEmail,
+  Sector, Stock, BrokerEmail, Attachment,
   ReportId, EmailProcessingStatus, Rating, Stance, ReportCatalyst,
   EvidenceSupportingField, StockTicker,
 } from '../domain'
@@ -56,6 +56,13 @@ export interface ReportDetailViewModel {
     readonly receivedAt: string
     readonly status: EmailProcessingStatus
   } | null
+
+  /** The original research document, when the source feed provided a
+   *  downloadable link. Null for body-only reports or when no URL exists. */
+  readonly sourceDocument: {
+    readonly url: string
+    readonly filename: string
+  } | null
 }
 
 interface Inputs {
@@ -66,6 +73,7 @@ interface Inputs {
   readonly stocks: readonly Stock[]
   readonly sectors: readonly Sector[]
   readonly sourceEmail: BrokerEmail | null
+  readonly sourceAttachment: Attachment | null
 }
 
 function groupEvidenceByField(
@@ -83,7 +91,7 @@ function groupEvidenceByField(
 }
 
 export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewModel {
-  const { report, summary, evidence, broker, stocks, sectors, sourceEmail } = inputs
+  const { report, summary, evidence, broker, stocks, sectors, sourceEmail, sourceAttachment } = inputs
 
   const targetChanged = summary?.targetPrice != null && summary.priorTargetPrice != null
     && summary.targetPrice !== summary.priorTargetPrice
@@ -144,6 +152,10 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
       receivedAt: sourceEmail.receivedAt,
       status: sourceEmail.status,
     } : null,
+
+    sourceDocument: sourceAttachment?.sourceUrl
+      ? { url: sourceAttachment.sourceUrl, filename: sourceAttachment.filename }
+      : null,
   }
 }
 
@@ -167,13 +179,24 @@ export function useReportDetailViewModel(reportId: ReportId | null): QueryResult
     async (a, s) => report.data ? a.getBrokerEmail(s, report.data.sourceEmailId) : null,
     [report.data?.sourceEmailId ?? ''],
   )
+  const sourceAttachment = useAdapterQuery(
+    async (a, s) => {
+      const r = report.data
+      if (!r || !r.sourceAttachmentId) return null
+      const atts = await a.listAttachments(s, r.sourceEmailId)
+      return atts.find((x) => x.id === r.sourceAttachmentId) ?? null
+    },
+    [report.data?.sourceAttachmentId ?? '', report.data?.sourceEmailId ?? ''],
+  )
 
   if (!reportId) return { data: null, loading: false, error: null }
 
   const loading = report.loading || summary.loading || evidence.loading
-    || brokers.loading || allStocks.loading || allSectors.loading || sourceEmail.loading
+    || brokers.loading || allStocks.loading || allSectors.loading
+    || sourceEmail.loading || sourceAttachment.loading
   const error = report.error ?? summary.error ?? evidence.error
-    ?? brokers.error ?? allStocks.error ?? allSectors.error ?? sourceEmail.error
+    ?? brokers.error ?? allStocks.error ?? allSectors.error
+    ?? sourceEmail.error ?? sourceAttachment.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
@@ -195,6 +218,7 @@ export function useReportDetailViewModel(reportId: ReportId | null): QueryResult
     stocks,
     sectors,
     sourceEmail: sourceEmail.data ?? null,
+    sourceAttachment: sourceAttachment.data ?? null,
   })
   return { data: vm, loading: false, error: null }
 }

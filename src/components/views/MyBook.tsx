@@ -32,7 +32,7 @@ export default function MyBook({ onSelectReport, onSelectTicker, onOpenDivergenc
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
           <div className="text-slate-200 font-medium text-[14px] mb-1">No portfolio data yet</div>
-          <p className="max-w-md mx-auto">Awaiting server output.</p>
+          <p className="max-w-md mx-auto">Your held and watchlist names will appear here once a portfolio is linked.</p>
         </div>
       </div>
     )

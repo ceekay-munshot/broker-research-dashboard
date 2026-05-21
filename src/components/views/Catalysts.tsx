@@ -74,7 +74,7 @@ export default function Catalysts({ onSelectReport, onSelectTicker, onOpenBriefi
         </header>
         <div className="panel p-6 text-center text-[12px] text-slate-400">
           <div className="text-slate-200 font-medium text-[14px] mb-1">No catalysts yet</div>
-          <p className="max-w-md mx-auto">Awaiting server output.</p>
+          <p className="max-w-md mx-auto">Upcoming earnings, guidance and event dates will appear here as research comes in.</p>
         </div>
       </div>
     )

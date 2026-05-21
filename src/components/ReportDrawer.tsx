@@ -188,6 +188,21 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
 
           {/* Provenance */}
           <Section title="Provenance">
+            {vm.sourceDocument && (
+              <a
+                href={vm.sourceDocument.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 rounded border border-accent/30 bg-accent/[0.06] px-3 py-2 text-[12px] text-accent hover:bg-accent/[0.1] transition-colors"
+              >
+                <span aria-hidden>↗</span>
+                <span className="font-medium">Open original PDF</span>
+                <span
+                  className="ml-auto text-[10.5px] text-slate-400 truncate max-w-[260px]"
+                  title={vm.sourceDocument.filename}
+                >{vm.sourceDocument.filename}</span>
+              </a>
+            )}
             <div className="flex flex-col gap-1.5 text-[11.5px]">
               <ProvenanceRow label="Sectors" value={vm.sectors.map((s) => s.name).join(' · ') || '—'}/>
               <ProvenanceRow label="Tickers" value={vm.stocks.map((s) => s.ticker).join(' · ') || '—'}/>
