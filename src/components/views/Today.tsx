@@ -57,6 +57,25 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     .slice(0, 6)
   const upcomingCatalysts = (catalysts.data?.upcoming7d ?? []).slice(0, 4)
 
+  // The forwarded-email feed carries no catalyst data today, so this panel
+  // would otherwise be permanent dead space. Render it only when the feed
+  // actually has upcoming events; Broker pulse goes full-width otherwise.
+  const hasCatalysts = upcomingCatalysts.length > 0
+
+  const brokerPulse = (
+    <Section title="Broker pulse" subtitle="Which research houses are active.">
+      {byBroker.loading && !byBroker.data ? (
+        <Loading/>
+      ) : pulseBrokers.length === 0 ? (
+        <Empty text="No broker activity yet."/>
+      ) : (
+        <ul className="flex flex-col">
+          {pulseBrokers.map((b) => <BrokerPulseRow key={b.brokerId} broker={b}/>)}
+        </ul>
+      )}
+    </Section>
+  )
+
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
@@ -112,28 +131,11 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
         )}
       </Section>
 
-      {/* 3 + 4 — Broker pulse + Upcoming catalysts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Section title="Broker pulse" subtitle="Which research houses are active.">
-            {byBroker.loading && !byBroker.data ? (
-              <Loading/>
-            ) : pulseBrokers.length === 0 ? (
-              <Empty text="No broker activity yet."/>
-            ) : (
-              <ul className="flex flex-col">
-                {pulseBrokers.map((b) => <BrokerPulseRow key={b.brokerId} broker={b}/>)}
-              </ul>
-            )}
-          </Section>
-        </div>
-
-        <Section title="Upcoming catalysts">
-          {catalysts.loading && !catalysts.data ? (
-            <Loading/>
-          ) : upcomingCatalysts.length === 0 ? (
-            <Empty text="No catalysts in the next week."/>
-          ) : (
+      {/* 3 — Broker pulse · 4 — Upcoming catalysts (only when the feed has any) */}
+      {hasCatalysts ? (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">{brokerPulse}</div>
+          <Section title="Upcoming catalysts">
             <ul className="flex flex-col">
               {upcomingCatalysts.map((c) => (
                 <li key={c.catalystId as unknown as string} className="border-b border-line/5 last:border-0">
@@ -152,9 +154,11 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
                 </li>
               ))}
             </ul>
-          )}
-        </Section>
-      </div>
+          </Section>
+        </div>
+      ) : (
+        brokerPulse
+      )}
     </div>
   )
 }
