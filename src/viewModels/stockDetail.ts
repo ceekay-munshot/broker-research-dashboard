@@ -8,8 +8,12 @@ import type {
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type {
-  DisagreementPointVM, ConsensusPointVM, OutlierVM,
+  DisagreementPointVM, ConsensusPointVM, OutlierVM, BrokerRef,
 } from './divergence'
+import {
+  deriveArbVerdict, deriveConsensusRating, targetExtremesFromMap,
+  type ArbVerdict, type ConsensusRating,
+} from './arb'
 
 export interface LinkedReportVM {
   readonly reportId: ReportId
@@ -30,6 +34,18 @@ export interface StockDetailViewModel {
   readonly currency: string
   readonly spotPrice: number | null
   readonly closure: ConflictClosure
+  /** The per-stock ARB (broker-disagreement) verdict — band + subtext. */
+  readonly arb: ArbVerdict
+  /** The Street's consensus rating, or a tie / no-rating result. */
+  readonly consensusRating: ConsensusRating
+  /** Broker on the highest / lowest published target, with the count of any
+   *  others tied at the same value. Null when no broker published a target. */
+  readonly highTargetBroker: BrokerRef | null
+  readonly highTargetTieCount: number
+  readonly lowTargetBroker: BrokerRef | null
+  readonly lowTargetTieCount: number
+  /** True when there is real ARB evidence but no extracted prose reason yet. */
+  readonly whyMissing: boolean
   readonly consensus: readonly ConsensusPointVM[]
   readonly disagreements: readonly DisagreementPointVM[]
   readonly outliers: readonly OutlierVM[]
@@ -71,8 +87,8 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
   const disagreements: DisagreementPointVM[] = closure.disagreements.map((d) => ({
     dimension: d.dimension,
     topic: d.topic,
-    bullClaims: d.bullClaims,
-    bearClaims: d.bearClaims,
+    bullClaims: d.bullClaims.filter((c) => c.trim().length > 0),
+    bearClaims: d.bearClaims.filter((c) => c.trim().length > 0),
     bullBrokers: d.bullBrokerIds.map((b) => ref(b)),
     bearBrokers: d.bearBrokerIds.map((b) => ref(b)),
     bullCitationCount: d.bullEvidenceIds.length,
@@ -107,6 +123,31 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
       }
     })
 
+  // ── ARB verdict + consensus + high/low target broker ──────────────────
+  const arb = deriveArbVerdict(closure, closure.brokerCount)
+  const consensusRating = deriveConsensusRating(closure)
+
+  const targetByBroker = new Map<string, number>()
+  for (const r of inputs.reports) {
+    const sum = summaryByReport.get(r.id as string)
+    if (sum?.targetPrice != null) targetByBroker.set(r.brokerId as string, sum.targetPrice)
+  }
+  const extremes = targetExtremesFromMap(targetByBroker)
+  const highId = extremes.highIds[0]
+  const lowId = extremes.lowIds[0]
+
+  // The "why" is missing when there is real ARB evidence but no extracted
+  // prose reason — never invent one; surface the source reports instead.
+  const hasArbEvidence =
+    arb.band === 'high' || arb.band === 'moderate'
+    || closure.outliers.length > 0 || closure.disagreements.length > 0
+  const hasProseReason =
+    closure.disagreements.some((d) =>
+      d.dimension !== 'rating' && d.dimension !== 'target_price'
+      && [...d.bullClaims, ...d.bearClaims].some((c) => c.trim().length > 0))
+    || inputs.summaries.some((s) => s.thesis.trim().length > 0 || s.keyPoints.length > 0)
+  const whyMissing = hasArbEvidence && !hasProseReason
+
   return {
     ticker: stock.ticker,
     stockName: stock.name,
@@ -114,6 +155,13 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     currency: stock.currency,
     spotPrice: stock.lastPrice,
     closure,
+    arb,
+    consensusRating,
+    highTargetBroker: highId ? ref(highId) : null,
+    highTargetTieCount: Math.max(0, extremes.highIds.length - 1),
+    lowTargetBroker: lowId ? ref(lowId) : null,
+    lowTargetTieCount: Math.max(0, extremes.lowIds.length - 1),
+    whyMissing,
     consensus,
     disagreements,
     outliers,

@@ -10,6 +10,10 @@ import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint } from '../app/filters'
 import { buildPortfolioOverlay } from './portfolio'
+import {
+  deriveArbVerdict, deriveConsensusRating, targetExtremesFromMap, ARB_RANK,
+  type ArbVerdict, type ConsensusRating,
+} from './arb'
 
 /** Ordering lens for the By Stock matrix. Re-sorts only — never filters rows. */
 export type StockView = 'most-covered' | 'consensus' | 'contested' | 'portfolio' | 'upside'
@@ -37,6 +41,13 @@ export interface ByStockRowViewModel {
   readonly avgTarget: number | null
   readonly medianTarget: number | null
   readonly spreadPct: number | null
+  /** The per-stock ARB (broker-disagreement) verdict — band + subtext. */
+  readonly arbVerdict: ArbVerdict
+  /** The Street's consensus rating, or a tie / no-rating result. */
+  readonly consensusRating: ConsensusRating
+  /** Broker(s) holding the highest / lowest published target (ties → many). */
+  readonly highTargetBrokerIds: readonly BrokerId[]
+  readonly lowTargetBrokerIds: readonly BrokerId[]
   readonly consensusUpsidePct: number | null
   readonly brokerCount: number
   readonly resultantState: ResultantState
@@ -119,6 +130,18 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       ? ((avgTarget / stock.lastPrice) - 1) * 100
       : null
 
+    // ARB closure verdict — band, consensus rating, high/low target broker.
+    const brokerCount = closure?.brokerCount ?? tickerOpinions.length
+    const arbVerdict = deriveArbVerdict(closure ?? null, brokerCount)
+    const consensusRating: ConsensusRating = closure
+      ? deriveConsensusRating(closure)
+      : { kind: 'none' }
+    const targetByBroker = new Map<string, number>()
+    for (const o of tickerOpinions) {
+      if (o.targetPrice !== null) targetByBroker.set(o.brokerId as string, o.targetPrice)
+    }
+    const targetExtremes = targetExtremesFromMap(targetByBroker)
+
     const cov = inputs.coverageByTicker?.get(stock.ticker as string) ?? null
     const book: ByStockBookContext | null = cov
       ? {
@@ -141,8 +164,12 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       avgTarget,
       medianTarget,
       spreadPct,
+      arbVerdict,
+      consensusRating,
+      highTargetBrokerIds: targetExtremes.highIds,
+      lowTargetBrokerIds: targetExtremes.lowIds,
       consensusUpsidePct,
-      brokerCount: closure?.brokerCount ?? tickerOpinions.length,
+      brokerCount,
       resultantState: closure?.resultant.state ?? 'unresolved',
       resultantStrength: closure?.resultant.strength ?? 'weak',
       outlierBrokerIds: closure?.outliers.map((o) => o.brokerId) ?? [],
@@ -186,16 +213,6 @@ const CONSENSUS_RANK: Readonly<Record<ResultantState, number>> = {
   unresolved: 3,
 }
 
-// How contested a resultant state is — lower sorts first in Contested view.
-const CONTESTED_RANK: Readonly<Record<ResultantState, number>> = {
-  outlier_driven: 0,
-  mixed_constructive: 1,
-  mixed_cautious: 1,
-  unresolved: 2,
-  consensus_bullish: 3,
-  consensus_bearish: 3,
-}
-
 function tickerCmp(a: ByStockRowViewModel, b: ByStockRowViewModel): number {
   return (a.ticker as string).localeCompare(b.ticker as string)
 }
@@ -213,11 +230,11 @@ function compareRows(a: ByStockRowViewModel, b: ByStockRowViewModel, view: Stock
         || (STRENGTH_RANK[a.resultantStrength] - STRENGTH_RANK[b.resultantStrength])
         || (b.brokerCount - a.brokerCount)
         || tickerCmp(a, b)
-    // Contested prioritizes disagreement intensity before generic coverage.
+    // ARB severity: High > Moderate > Low > No-comparison, then target spread.
     case 'contested':
-      return (CONTESTED_RANK[a.resultantState] - CONTESTED_RANK[b.resultantState])
-        || (b.outlierBrokerIds.length - a.outlierBrokerIds.length)
+      return (ARB_RANK[a.arbVerdict.band] - ARB_RANK[b.arbVerdict.band])
         || ((b.spreadPct ?? -Infinity) - (a.spreadPct ?? -Infinity))
+        || (b.outlierBrokerIds.length - a.outlierBrokerIds.length)
         || tickerCmp(a, b)
     case 'upside':
       return ((b.consensusUpsidePct ?? -Infinity) - (a.consensusUpsidePct ?? -Infinity))

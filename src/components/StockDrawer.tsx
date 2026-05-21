@@ -9,6 +9,7 @@ import type {
   ConsensusPointVM, DisagreementPointVM, OutlierVM,
 } from '../viewModels/divergence'
 import { RATING_TEXT_COLOR, STANCE_TEXT_COLOR, formatPrice, formatShortDate } from '../viewModels/shared'
+import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -84,7 +85,7 @@ function Content({ vm, onClose, onSelectReport }: {
   const { closure } = vm
   return (
     <>
-      <Header title={`${vm.ticker} · Conflict closure`} onClose={onClose}/>
+      <Header title={`${vm.ticker} · Street view`} onClose={onClose}/>
       <div className="flex-1 overflow-y-auto">
         <div className="p-5 flex flex-col gap-5">
           {/* Title row */}
@@ -103,12 +104,24 @@ function Content({ vm, onClose, onSelectReport }: {
             {closure.resultant.narrative}
           </div>
 
+          {/* ARB verdict + consensus rating */}
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className={`chip border ${ARB_COLOR[vm.arb.band]} text-[11px] ${vm.arb.band === 'none' ? '' : 'cursor-help'}`}
+              title={vm.arb.band === 'none' ? undefined : ARB_TOOLTIP}
+            >{ARB_LABEL[vm.arb.band]}</span>
+            <span className="text-[11px] text-slate-500">{vm.arb.subtext}</span>
+            <span className="ml-auto"><ConsensusLine cr={vm.consensusRating}/></span>
+          </div>
+
           {/* Target stats grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
             <Stat label="Mean" value={formatPrice(closure.targetStats.mean, vm.currency, 0)}/>
             <Stat label="Median" value={formatPrice(closure.targetStats.median, vm.currency, 0)}/>
-            <Stat label="High" value={formatPrice(closure.targetStats.high, vm.currency, 0)} valueClass="text-emerald-400"/>
-            <Stat label="Low" value={formatPrice(closure.targetStats.low, vm.currency, 0)} valueClass="text-rose-400"/>
+            <Stat label="High" value={formatPrice(closure.targetStats.high, vm.currency, 0)} valueClass="text-emerald-400"
+              sub={vm.highTargetBroker ? vm.highTargetBroker.name + (vm.highTargetTieCount > 0 ? ` +${vm.highTargetTieCount}` : '') : undefined}/>
+            <Stat label="Low" value={formatPrice(closure.targetStats.low, vm.currency, 0)} valueClass="text-rose-400"
+              sub={vm.lowTargetBroker ? vm.lowTargetBroker.name + (vm.lowTargetTieCount > 0 ? ` +${vm.lowTargetTieCount}` : '') : undefined}/>
           </div>
 
           <div className="flex items-center gap-2 text-[11px]">
@@ -151,6 +164,15 @@ function Content({ vm, onClose, onSelectReport }: {
               <ul className="flex flex-col gap-2">
                 {vm.disagreements.map((d, idx) => <DisagreementRow key={idx} point={d}/>)}
               </ul>
+            </Section>
+          )}
+
+          {/* Why missing — honest when ARB exists but no reason was extracted */}
+          {vm.whyMissing && (
+            <Section title="Why they disagree">
+              <div className="rounded border border-amber-500/20 bg-amber-500/[0.04] p-3 text-[12px] text-slate-300 leading-snug">
+                Reason not extracted yet — source reports available.
+              </div>
             </Section>
           )}
 
@@ -216,12 +238,35 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Stat({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
+function Stat({ label, value, valueClass, sub }: { label: string; value: string; valueClass?: string; sub?: string }) {
   return (
     <div className="panel p-3 flex flex-col gap-1">
       <div className="section-title">{label}</div>
       <div className={`text-[14px] font-semibold num ${valueClass ?? 'text-slate-100'}`}>{value}</div>
+      {sub && <div className="text-[10px] text-slate-500 truncate" title={sub}>{sub}</div>}
     </div>
+  )
+}
+
+function ConsensusLine({ cr }: { cr: ConsensusRating }) {
+  if (cr.kind === 'none') {
+    return <span className="text-[11.5px] text-slate-500">No rating issued</span>
+  }
+  if (cr.kind === 'tie') {
+    const breakdown = cr.leaders.map((l) => `${l.count} ${l.rating}`).join(' / ')
+    return (
+      <span className="text-[11.5px] text-amber-300">
+        Mixed ratings <span className="text-slate-500">· {breakdown}</span>
+      </span>
+    )
+  }
+  const unanimous = cr.agree === cr.total && cr.total > 1
+  return (
+    <span className="text-[11.5px] text-slate-300">
+      {unanimous ? 'Unanimous ' : 'Consensus rating: '}
+      <span className={RATING_TEXT_COLOR[cr.rating]}>{cr.rating}</span>
+      <span className="text-slate-500 num"> · {cr.agree}/{cr.total}</span>
+    </span>
   )
 }
 

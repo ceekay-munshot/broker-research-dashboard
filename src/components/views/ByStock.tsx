@@ -8,6 +8,7 @@ import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
 import BookBadge from '../portfolio/BookBadge'
+import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
 
 interface ByStockProps {
   readonly filters: FiltersState
@@ -16,7 +17,7 @@ interface ByStockProps {
 }
 
 export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByStockProps) {
-  const [view, setView] = useState<StockView>('most-covered')
+  const [view, setView] = useState<StockView>('contested')
   const { data, loading, error } = useByStockViewModel(filters, view)
   const [focusTicker, setFocusTicker] = useState<StockTicker | null>(null)
 
@@ -37,8 +38,8 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <div>
           <h2 className="text-slate-100 font-semibold text-base">By Stock</h2>
           <p className="text-slate-400 text-[12px]">
-            What every broker thinks about each stock — rating and price target, side by side.
-            Click a stock for the full breakdown, or a cell to open the broker's report.
+            What every broker says on each stock — rating, price target, and an ARB verdict
+            for how much the Street disagrees. Click a stock for the full breakdown.
           </p>
         </div>
         <ViewSelector view={view} setView={setView} showPortfolio={data.hasPortfolio}/>
@@ -54,7 +55,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
               <th className="px-3 py-2 font-medium">Street state</th>
               <th className="px-3 py-2 font-medium text-right">Spot</th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
-              <th className="px-3 py-2 font-medium text-right">Spread</th>
+              <th className="px-3 py-2 font-medium">ARB verdict</th>
               {data.brokers.map((b) => (
                 <th key={b.id} className="px-2 py-2 font-medium">
                   <div className="flex items-center gap-1.5">
@@ -87,6 +88,10 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <div className="flex items-center gap-1.5"><StateBadge state="outlier_driven" strength="moderate" compact/> outlier-driven</div>
         <div className="flex items-center gap-1.5"><StateBadge state="unresolved" strength="weak" compact/> unresolved</div>
         <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500/40"/> outlier target (&gt;1.25σ)</div>
+        <span className="text-slate-700">·</span>
+        {(['high', 'moderate', 'low'] as const).map((b) => (
+          <span key={b} className={`chip border ${ARB_COLOR[b]} text-[9px]`}>{ARB_LABEL[b]}</span>
+        ))}
       </div>
 
       {activeTicker && brokers.data && stocks.data && (
@@ -122,7 +127,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
 const STOCK_VIEWS: readonly { readonly id: StockView; readonly label: string; readonly portfolioOnly?: boolean }[] = [
   { id: 'most-covered', label: 'Most covered' },
   { id: 'consensus',    label: 'Consensus' },
-  { id: 'contested',    label: 'Contested' },
+  { id: 'contested',    label: 'ARB severity' },
   { id: 'portfolio',    label: 'My portfolio', portfolioOnly: true },
   { id: 'upside',       label: 'Upside' },
 ]
@@ -217,8 +222,8 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           )}
         </div>
       </td>
-      <td className="px-3 py-2 num text-right text-slate-300">
-        {row.spreadPct !== null ? `${row.spreadPct.toFixed(0)}%` : '—'}
+      <td className="px-3 py-2">
+        <ArbVerdictCell verdict={row.arbVerdict} consensusRating={row.consensusRating}/>
       </td>
       {brokerColumnIds.map((bid) => (
         <TargetCell
@@ -263,6 +268,42 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
         <span className="num text-[9.5px] text-slate-500">{cell.lastUpdatedAt.slice(5, 10)}</span>
       </button>
     </td>
+  )
+}
+
+// ─── ARB verdict cell ─────────────────────────────────────────────────
+
+function ArbVerdictCell({ verdict, consensusRating }: {
+  verdict: ArbVerdict;
+  consensusRating: ConsensusRating;
+}) {
+  const isNone = verdict.band === 'none'
+  return (
+    <div className="flex flex-col gap-1">
+      <span
+        className={`chip border ${ARB_COLOR[verdict.band]} text-[10px] w-fit ${isNone ? '' : 'cursor-help'}`}
+        title={isNone ? undefined : ARB_TOOLTIP}
+      >{ARB_LABEL[verdict.band]}</span>
+      <ConsensusRatingLine cr={consensusRating}/>
+      <span className="text-[10px] text-slate-500 num">{verdict.subtext}</span>
+    </div>
+  )
+}
+
+function ConsensusRatingLine({ cr }: { cr: ConsensusRating }) {
+  if (cr.kind === 'none') {
+    return <span className="text-[10.5px] text-slate-500">No rating issued</span>
+  }
+  if (cr.kind === 'tie') {
+    return <span className="text-[10.5px] text-amber-300">Mixed ratings</span>
+  }
+  const unanimous = cr.agree === cr.total && cr.total > 1
+  return (
+    <span className="text-[10.5px] text-slate-300">
+      {unanimous ? 'Unanimous ' : 'Consensus '}
+      <span className={RATING_TEXT_COLOR[cr.rating]}>{cr.rating}</span>
+      <span className="text-slate-500 num"> · {cr.agree}/{cr.total}</span>
+    </span>
   )
 }
 
