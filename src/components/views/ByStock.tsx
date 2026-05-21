@@ -47,7 +47,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <table className="w-full min-w-[1180px] text-[12px]">
           <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
-              <th className="px-3 py-2 font-medium sticky left-0 bg-ink-900/70 z-10">Ticker</th>
+              <th className="px-3 py-2 font-medium sticky left-0 z-10 bg-ink-900 border-r border-line/10">Ticker</th>
               <th className="px-3 py-2 font-medium">Sector</th>
               <th className="px-3 py-2 font-medium">Street state</th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
@@ -156,7 +156,7 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
   const heldTint = row.book?.membership === 'held' ? 'bg-emerald-500/[0.04]' : ''
   return (
     <tr className={`border-b border-line/5 ${heldTint || (zebra ? 'bg-line/[0.01]' : '')}`}>
-      <td className={`px-3 py-2 sticky left-0 z-10 ${heldTint ? 'bg-ink-900/80' : 'bg-ink-900/70'}`}>
+      <td className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10">
         <button
           onClick={() => onSelectTicker(row.ticker)}
           className="flex flex-col text-left hover:text-accent transition-colors"
