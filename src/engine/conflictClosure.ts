@@ -234,18 +234,22 @@ function analyzeDimensions(
         evidenceIds: [],
       })
     } else if (targetStats.spreadPct >= TARGET_DISAGREEMENT_PCT) {
-      const bulls = opinions.filter((o) => o.stance === 'bullish')
-      const bears = opinions.filter((o) => o.stance === 'bearish')
-      disagreements.push({
-        dimension: 'target_price',
-        topic: topicForDimension('target_price'),
-        bullClaims: bulls.map((o) => `Target ${o.targetPrice?.toLocaleString()}`),
-        bearClaims: bears.map((o) => `Target ${o.targetPrice?.toLocaleString()}`),
-        bullBrokerIds: bulls.map((o) => o.brokerId),
-        bearBrokerIds: bears.map((o) => o.brokerId),
-        bullEvidenceIds: [],
-        bearEvidenceIds: [],
-      })
+      // A target-price disagreement only concerns brokers that actually
+      // published a target — a broker can rate a name without one.
+      const bulls = opinions.filter((o) => o.stance === 'bullish' && o.targetPrice !== null)
+      const bears = opinions.filter((o) => o.stance === 'bearish' && o.targetPrice !== null)
+      if (bulls.length > 0 || bears.length > 0) {
+        disagreements.push({
+          dimension: 'target_price',
+          topic: topicForDimension('target_price'),
+          bullClaims: bulls.map((o) => `Target ${o.targetPrice!.toLocaleString()}`),
+          bearClaims: bears.map((o) => `Target ${o.targetPrice!.toLocaleString()}`),
+          bullBrokerIds: bulls.map((o) => o.brokerId),
+          bearBrokerIds: bears.map((o) => o.brokerId),
+          bullEvidenceIds: [],
+          bearEvidenceIds: [],
+        })
+      }
     }
   }
 
