@@ -1,26 +1,25 @@
 // Overview — the investor's broker-research command center.
 //
-// Not an email feed: a consolidated read on where the Street disagrees,
-// what changed today, and which research houses are active. Every number
-// is real or honestly blank; no invented reasons, no operator language.
+// Not an email feed: a consolidated read on where the Street disagrees and
+// what changed today. Every number is real or honestly blank; no invented
+// reasons, no operator language.
 //
 //   1. Header
 //   2. Four cards — High ARB stocks, Outlier calls, New notes, Stocks touched
 //   3. Where brokers disagree   → opens Street view
 //   4. What changed today       → opens the report
-//   5. Broker pulse + Upcoming catalysts
+//   5. Upcoming catalysts       → only when the feed has events
 
 import type { ReactNode } from 'react'
 import type { ReportId, StockTicker } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import type { TabId } from '../../app/tabs'
 import { useByStockViewModel, type ByStockRowViewModel } from '../../viewModels/byStock'
-import { useByBrokerViewModel, type BrokerCardViewModel } from '../../viewModels/byBroker'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../viewModels/arb'
-import { formatPrice, formatShortDate } from '../../viewModels/shared'
+import { formatPrice } from '../../viewModels/shared'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -31,7 +30,6 @@ interface TodayProps {
 
 export default function Today({ filters, onSelectReport, onSelectTicker }: TodayProps) {
   const byStock = useByStockViewModel(filters, 'contested')
-  const byBroker = useByBrokerViewModel(filters)
   const worklog = useDailyWorklogViewModel(DEFAULT_WORKLOG_FILTERS)
   const catalysts = useCatalystsViewModel()
 
@@ -52,29 +50,12 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     .filter((r) => r.arbVerdict.band === 'high' || r.arbVerdict.band === 'moderate')
     .slice(0, 6)
   const changedItems = (worklog.data?.items ?? []).slice(0, 6)
-  const pulseBrokers = [...(byBroker.data?.brokers ?? [])]
-    .sort((a, b) => b.reportCount - a.reportCount)
-    .slice(0, 6)
   const upcomingCatalysts = (catalysts.data?.upcoming7d ?? []).slice(0, 4)
 
-  // The forwarded-email feed carries no catalyst data today, so this panel
-  // would otherwise be permanent dead space. Render it only when the feed
-  // actually has upcoming events; Broker pulse goes full-width otherwise.
+  // The forwarded-email feed carries no catalyst data today, so the catalysts
+  // panel would otherwise be permanent dead space — render it only when the
+  // feed actually has upcoming events.
   const hasCatalysts = upcomingCatalysts.length > 0
-
-  const brokerPulse = (
-    <Section title="Broker pulse" subtitle="Which research houses are active.">
-      {byBroker.loading && !byBroker.data ? (
-        <Loading/>
-      ) : pulseBrokers.length === 0 ? (
-        <Empty text="No broker activity yet."/>
-      ) : (
-        <ul className="flex flex-col">
-          {pulseBrokers.map((b) => <BrokerPulseRow key={b.brokerId} broker={b}/>)}
-        </ul>
-      )}
-    </Section>
-  )
 
   return (
     <div className="flex flex-col gap-8">
@@ -131,33 +112,28 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
         )}
       </Section>
 
-      {/* 3 — Broker pulse · 4 — Upcoming catalysts (only when the feed has any) */}
-      {hasCatalysts ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2">{brokerPulse}</div>
-          <Section title="Upcoming catalysts">
-            <ul className="flex flex-col">
-              {upcomingCatalysts.map((c) => (
-                <li key={c.catalystId as unknown as string} className="border-b border-line/5 last:border-0">
-                  <button
-                    onClick={() => onSelectTicker(c.ticker as StockTicker)}
-                    className="w-full text-left px-4 py-2 hover:bg-line/[0.03] transition-colors flex flex-col gap-0.5"
-                  >
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className="text-slate-200 text-[12px] font-medium truncate">{c.ticker}</span>
-                      <span className="text-slate-500 text-[10.5px] num shrink-0">
-                        {c.daysUntil > 0 ? `in ${c.daysUntil}d` : 'today'}
-                      </span>
-                    </div>
-                    <span className="text-slate-400 text-[11px] truncate">{c.headline}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </Section>
-        </div>
-      ) : (
-        brokerPulse
+      {/* 3 — Upcoming catalysts — only when the feed has any */}
+      {hasCatalysts && (
+        <Section title="Upcoming catalysts">
+          <ul className="flex flex-col">
+            {upcomingCatalysts.map((c) => (
+              <li key={c.catalystId as unknown as string} className="border-b border-line/5 last:border-0">
+                <button
+                  onClick={() => onSelectTicker(c.ticker as StockTicker)}
+                  className="w-full text-left px-4 py-2 hover:bg-line/[0.03] transition-colors flex flex-col gap-0.5"
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <span className="text-slate-200 text-[12px] font-medium truncate">{c.ticker}</span>
+                    <span className="text-slate-500 text-[10.5px] num shrink-0">
+                      {c.daysUntil > 0 ? `in ${c.daysUntil}d` : 'today'}
+                    </span>
+                  </div>
+                  <span className="text-slate-400 text-[11px] truncate">{c.headline}</span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </Section>
       )}
     </div>
   )
@@ -280,26 +256,6 @@ function ChangedRow({ item, onSelect }: { item: WorklogItem; onSelect: () => voi
           {relativeTime(item.receivedAt)}
         </span>
       </button>
-    </li>
-  )
-}
-
-// ── Broker pulse ────────────────────────────────────────────────────────────
-
-function BrokerPulseRow({ broker }: { broker: BrokerCardViewModel }) {
-  return (
-    <li className="border-b border-line/5 last:border-0 px-4 py-2.5 flex items-center gap-3">
-      <span className="w-2 h-2 rounded-full shrink-0" style={{ background: broker.color ?? '#94a3b8' }}/>
-      <span className="text-[12.5px] text-slate-100 font-medium truncate flex-1 min-w-0">{broker.name}</span>
-      <span className="text-[11px] text-slate-400 num shrink-0">
-        {broker.reportCount} {broker.reportCount === 1 ? 'note' : 'notes'}
-      </span>
-      <span className="text-[11px] text-slate-400 num shrink-0">
-        {broker.tickersCovered} {broker.tickersCovered === 1 ? 'stock' : 'stocks'}
-      </span>
-      <span className="text-[10.5px] text-slate-500 num shrink-0 w-14 text-right">
-        {broker.latestReportAt ? formatShortDate(broker.latestReportAt) : '—'}
-      </span>
     </li>
   )
 }
