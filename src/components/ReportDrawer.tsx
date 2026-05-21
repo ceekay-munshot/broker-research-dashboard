@@ -1,15 +1,30 @@
 import React, { useEffect } from 'react'
-import type { ReportId, EvidenceSnippet } from '../domain'
+import type { ReportId, EvidenceSnippet, ReportType, StockTicker } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
-import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
-import type { ReportDetailViewModel } from '../viewModels/reportDetail'
+import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
+import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
+import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
   readonly onClose: () => void
+  readonly onSelectTicker: (t: StockTicker) => void
 }
 
-export default function ReportDrawer({ reportId, onClose }: ReportDrawerProps) {
+// Plain, customer-facing labels for the report-type enum.
+const REPORT_TYPE_LABEL: Record<ReportType, string> = {
+  initiation:       'Initiation',
+  update:           'Update',
+  flash:            'Flash note',
+  earnings_preview: 'Earnings preview',
+  earnings_review:  'Earnings review',
+  morning_note:     'Morning note',
+  sector_note:      'Sector note',
+  deep_dive:        'Deep dive',
+  other:            'Research note',
+}
+
+export default function ReportDrawer({ reportId, onClose, onSelectTicker }: ReportDrawerProps) {
   // Close on Escape.
   useEffect(() => {
     if (!reportId) return
@@ -28,20 +43,24 @@ export default function ReportDrawer({ reportId, onClose }: ReportDrawerProps) {
         aria-label="Close"
       />
       <aside className="absolute top-0 right-0 h-full w-full md:w-[540px] lg:w-[640px] bg-ink-950 border-l border-line/5 shadow-2xl flex flex-col">
-        <DrawerBody reportId={reportId} onClose={onClose}/>
+        <DrawerBody reportId={reportId} onClose={onClose} onSelectTicker={onSelectTicker}/>
       </aside>
     </div>
   )
 }
 
-function DrawerBody({ reportId, onClose }: { reportId: ReportId; onClose: () => void }) {
+function DrawerBody({ reportId, onClose, onSelectTicker }: {
+  reportId: ReportId
+  onClose: () => void
+  onSelectTicker: (t: StockTicker) => void
+}) {
   const { data, loading, error } = useReportDetailViewModel(reportId)
 
   if (loading) return <DrawerMessage onClose={onClose} tone="loading" text="Loading report…"/>
   if (error)   return <DrawerMessage onClose={onClose} tone="error" text={`Error: ${error.message}`}/>
   if (!data)   return <DrawerMessage onClose={onClose} tone="loading" text="Loading report…"/>
 
-  return <DrawerContent vm={data} onClose={onClose}/>
+  return <DrawerContent vm={data} onClose={onClose} onSelectTicker={onSelectTicker}/>
 }
 
 function DrawerMessage({ onClose, tone, text }: { onClose: () => void; tone: 'loading' | 'error'; text: string }) {
@@ -70,12 +89,17 @@ function DrawerHeader({ title, onClose }: { title: string; onClose: () => void }
   )
 }
 
-function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: () => void }) {
+function DrawerContent({ vm, onClose, onSelectTicker }: {
+  vm: ReportDetailViewModel
+  onClose: () => void
+  onSelectTicker: (t: StockTicker) => void
+}) {
   const targetChangeFormat = formatTargetDelta(vm.targetPrice, vm.priorTargetPrice)
+  const primaryTicker = vm.stocks[0]?.ticker ?? null
 
   return (
     <>
-      <DrawerHeader title={`${vm.broker.shortName} · ${vm.stocks[0]?.ticker ?? 'Report'}`} onClose={onClose}/>
+      <DrawerHeader title={`${vm.broker.shortName} · ${primaryTicker ?? 'Report'}`} onClose={onClose}/>
       <div className="flex-1 overflow-y-auto">
         <div className="p-5 flex flex-col gap-5">
           {/* Title + metadata */}
@@ -86,7 +110,9 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
                 style={{ background: vm.broker.color ?? '#94a3b8' }}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
-              <span className="chip border border-line/10 text-slate-400 ml-auto">{vm.reportType}</span>
+              <span className="chip border border-line/10 text-slate-400 ml-auto">
+                {REPORT_TYPE_LABEL[vm.reportType]}
+              </span>
             </div>
             <h2 className="text-slate-100 text-[16px] font-semibold leading-snug">{vm.title}</h2>
             <div className="flex items-center gap-3 text-[11px] text-slate-500 num">
@@ -94,15 +120,11 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
               <span>·</span>
               <span>Received {formatShortDate(vm.receivedAt)}</span>
               {vm.pageCount !== null && (<><span>·</span><span>{vm.pageCount} pages</span></>)}
-              {vm.language && (<><span>·</span><span className="uppercase">{vm.language}</span></>)}
             </div>
           </div>
 
-          {/* Rating / target band */}
-          <div className="grid grid-cols-3 gap-2">
-            <CalloutCell label="Stance"
-              value={vm.stance ?? '—'}
-              valueClass={vm.stance ? STANCE_TEXT_COLOR[vm.stance] : 'text-slate-500'}/>
+          {/* This broker's call */}
+          <div className="grid grid-cols-2 gap-2">
             <CalloutCell label="Rating"
               value={vm.rating ?? 'Not rated'}
               valueClass={vm.rating ? RATING_TEXT_COLOR[vm.rating] : 'text-slate-500'}/>
@@ -119,6 +141,15 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
                 : 'text-slate-500'
               }/>
           </div>
+
+          {/* How this call sits with the Street */}
+          {vm.streetContext ? (
+            <StreetContext ctx={vm.streetContext} currency={vm.targetCurrency} onOpenStreet={onSelectTicker}/>
+          ) : primaryTicker ? (
+            <div className="rounded border border-line/10 bg-line/[0.02] p-3 text-[12px] text-slate-400">
+              No other broker covers {primaryTicker} in this feed yet — no Street comparison.
+            </div>
+          ) : null}
 
           {/* Thesis */}
           {vm.thesis && (
@@ -186,9 +217,9 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
             </Section>
           )}
 
-          {/* Provenance */}
-          <Section title="Provenance">
-            {vm.sourceDocument && (
+          {/* Source document */}
+          {vm.sourceDocument && (
+            <Section title="Source document">
               <a
                 href={vm.sourceDocument.url}
                 target="_blank"
@@ -202,34 +233,90 @@ function DrawerContent({ vm, onClose }: { vm: ReportDetailViewModel; onClose: ()
                   title={vm.sourceDocument.filename}
                 >{vm.sourceDocument.filename}</span>
               </a>
-            )}
-            <div className="flex flex-col gap-1.5 text-[11.5px]">
-              <ProvenanceRow label="Sectors" value={vm.sectors.map((s) => s.name).join(' · ') || '—'}/>
-              <ProvenanceRow label="Tickers" value={vm.stocks.map((s) => s.ticker).join(' · ') || '—'}/>
-              {vm.sourceEmail && (
-                <>
-                  <ProvenanceRow label="Source email" value={vm.sourceEmail.subject}/>
-                  <ProvenanceRow label="Sender" value={vm.sourceEmail.senderName}/>
-                </>
-              )}
-              <ProvenanceRow
-                label="Processing"
-                value={vm.processingStatus}
-                valueClass={vm.processingStatus === 'ready' ? 'text-emerald-400' : 'text-amber-400'}
-              />
-              <ProvenanceRow
-                label="Confidence"
-                value={vm.confidence !== null ? `${(vm.confidence * 100).toFixed(0)}%` : '—'}
-                valueClass="num"
-              />
-              <ProvenanceRow label="Evidence snippets" value={String(vm.evidenceCount)} valueClass="num"/>
-            </div>
-          </Section>
+            </Section>
+          )}
         </div>
       </div>
     </>
   )
 }
+
+// ── The Street context ──────────────────────────────────────────────────────
+
+function StreetContext({ ctx, currency, onOpenStreet }: {
+  ctx: ReportStreetContext
+  currency: string | null
+  onOpenStreet: (t: StockTicker) => void
+}) {
+  return (
+    <section className="rounded border border-line/10 bg-line/[0.02] p-3 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="section-title">The Street on {ctx.ticker}</h3>
+        <span
+          className={`chip border ${ARB_COLOR[ctx.arb.band]} text-[10px] cursor-help`}
+          title={ARB_TOOLTIP}
+        >{ARB_LABEL[ctx.arb.band]}</span>
+      </div>
+
+      <div className="text-[12.5px] text-slate-200">
+        {consensusText(ctx.consensusRating)}
+        {ctx.consensusTarget !== null && (
+          <span className="text-slate-400"> · median target {formatPrice(ctx.consensusTarget, currency, 0)}</span>
+        )}
+      </div>
+
+      {ctx.targetLow !== null && ctx.targetHigh !== null && (
+        <div className="text-[11.5px] text-slate-500 num">
+          Range {formatPrice(ctx.targetLow, currency, 0)} – {formatPrice(ctx.targetHigh, currency, 0)}
+          {' '}across {ctx.brokerCount} broker{ctx.brokerCount === 1 ? '' : 's'}
+        </div>
+      )}
+
+      <StandingLine ctx={ctx}/>
+
+      <button
+        onClick={() => onOpenStreet(ctx.ticker)}
+        className="self-start text-[11px] text-accent hover:text-accent-soft transition-colors"
+      >Open Street view →</button>
+    </section>
+  )
+}
+
+function StandingLine({ ctx }: { ctx: ReportStreetContext }) {
+  if (ctx.isOutlier) {
+    const extremity =
+      ctx.targetStanding === 'highest' ? ' It holds the highest target on the Street.'
+      : ctx.targetStanding === 'lowest' ? ' It holds the lowest target on the Street.'
+      : ''
+    return (
+      <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
+        Outlier call — this broker breaks from the Street
+        {ctx.outlierDirection ? ` (${ctx.outlierDirection})` : ''}.{extremity}
+      </div>
+    )
+  }
+  if (ctx.targetStanding === 'highest' || ctx.targetStanding === 'lowest') {
+    return (
+      <div className="text-[11.5px] text-slate-400">
+        This is the {ctx.targetStanding} target on the Street.
+      </div>
+    )
+  }
+  if (ctx.targetStanding === 'mid') {
+    return <div className="text-[11.5px] text-slate-500">This call sits within the Street's range.</div>
+  }
+  return null
+}
+
+/** Plain-text consensus rating for the Street block. A tie is never a winner. */
+function consensusText(cr: ConsensusRating): string {
+  if (cr.kind === 'none') return 'No Street rating yet'
+  if (cr.kind === 'tie')  return 'Mixed ratings — no clear consensus'
+  const lead = cr.agree === cr.total && cr.total > 1 ? 'Unanimous' : 'Consensus'
+  return `${lead} ${cr.rating} (${cr.agree} of ${cr.total})`
+}
+
+// ── Shared bits ─────────────────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -250,15 +337,6 @@ function CalloutCell({
       <div className="section-title">{label}</div>
       <div className={`text-[14px] font-semibold ${valueClass ?? 'text-slate-100'}`}>{value}</div>
       {sub && <div className={`text-[10.5px] num ${subClass ?? 'text-slate-500'}`}>{sub}</div>}
-    </div>
-  )
-}
-
-function ProvenanceRow({ label, value, valueClass }: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="flex items-center justify-between">
-      <span className="text-slate-500">{label}</span>
-      <span className={`text-slate-200 truncate max-w-[380px] text-right ${valueClass ?? ''}`}>{value}</span>
     </div>
   )
 }

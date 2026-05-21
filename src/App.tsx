@@ -131,6 +131,7 @@ export default function App() {
       <ReportDrawer
         reportId={selectedReportId}
         onClose={() => setSelectedReportId(null)}
+        onSelectTicker={onSelectTicker}
       />
       <StockDrawer
         ticker={selectedTicker}

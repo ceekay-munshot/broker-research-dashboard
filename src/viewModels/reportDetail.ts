@@ -4,8 +4,13 @@ import type {
   ReportId, EmailProcessingStatus, Rating, Stance, ReportCatalyst,
   EvidenceSupportingField, StockTicker,
 } from '../domain'
+import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { groupBy } from './shared'
+import {
+  deriveArbVerdict, deriveConsensusRating,
+  type ArbVerdict, type ConsensusRating,
+} from './arb'
 
 export interface EvidenceBySection {
   readonly thesis: readonly EvidenceSnippet[]
@@ -15,6 +20,24 @@ export interface EvidenceBySection {
   readonly riskByIndex: ReadonlyMap<number, readonly EvidenceSnippet[]>
   readonly themeByIndex: ReadonlyMap<number, readonly EvidenceSnippet[]>
   readonly catalystByIndex: ReadonlyMap<number, readonly EvidenceSnippet[]>
+}
+
+/** How this report's call sits against the rest of the Street — derived from
+ *  the ticker's conflict closure. Null when no other broker covers it. */
+export interface ReportStreetContext {
+  readonly ticker: StockTicker
+  readonly arb: ArbVerdict
+  readonly consensusRating: ConsensusRating
+  /** Street median target — robust to a single extreme call. */
+  readonly consensusTarget: number | null
+  readonly targetLow: number | null
+  readonly targetHigh: number | null
+  readonly brokerCount: number
+  /** This report's broker is flagged an outlier on this ticker. */
+  readonly isOutlier: boolean
+  readonly outlierDirection: 'bullish' | 'bearish' | null
+  /** Where this report's target sits within the Street range. */
+  readonly targetStanding: 'highest' | 'lowest' | 'mid' | 'unknown'
 }
 
 export interface ReportDetailViewModel {
@@ -63,6 +86,9 @@ export interface ReportDetailViewModel {
     readonly url: string
     readonly filename: string
   } | null
+
+  /** This call vs the Street — null when no multi-broker comparison exists. */
+  readonly streetContext: ReportStreetContext | null
 }
 
 interface Inputs {
@@ -74,6 +100,7 @@ interface Inputs {
   readonly sectors: readonly Sector[]
   readonly sourceEmail: BrokerEmail | null
   readonly sourceAttachment: Attachment | null
+  readonly closure: ConflictClosure | null
 }
 
 function groupEvidenceByField(
@@ -90,8 +117,38 @@ function groupEvidenceByField(
   return out
 }
 
+/** Derive the Street comparison for one report from its ticker's closure. */
+function buildStreetContext(
+  closure: ConflictClosure | null,
+  report: ResearchReport,
+  summary: ReportSummary | null,
+): ReportStreetContext | null {
+  if (!closure || closure.brokerCount < 2) return null
+  const ts = closure.targetStats
+  const myTarget = summary?.targetPrice ?? null
+  let targetStanding: ReportStreetContext['targetStanding'] = 'unknown'
+  if (myTarget !== null && ts.high !== null && ts.low !== null) {
+    targetStanding = myTarget >= ts.high ? 'highest'
+      : myTarget <= ts.low ? 'lowest'
+      : 'mid'
+  }
+  const outlier = closure.outliers.find((o) => o.brokerId === report.brokerId) ?? null
+  return {
+    ticker: closure.ticker,
+    arb: deriveArbVerdict(closure, closure.brokerCount),
+    consensusRating: deriveConsensusRating(closure),
+    consensusTarget: ts.median ?? ts.mean,
+    targetLow: ts.low,
+    targetHigh: ts.high,
+    brokerCount: closure.brokerCount,
+    isOutlier: outlier !== null,
+    outlierDirection: outlier ? outlier.direction : null,
+    targetStanding,
+  }
+}
+
 export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewModel {
-  const { report, summary, evidence, broker, stocks, sectors, sourceEmail, sourceAttachment } = inputs
+  const { report, summary, evidence, broker, stocks, sectors, sourceEmail, sourceAttachment, closure } = inputs
 
   const targetChanged = summary?.targetPrice != null && summary.priorTargetPrice != null
     && summary.targetPrice !== summary.priorTargetPrice
@@ -156,6 +213,8 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     sourceDocument: sourceAttachment?.sourceUrl
       ? { url: sourceAttachment.sourceUrl, filename: sourceAttachment.filename }
       : null,
+
+    streetContext: buildStreetContext(closure, report, summary),
   }
 }
 
@@ -189,14 +248,22 @@ export function useReportDetailViewModel(reportId: ReportId | null): QueryResult
     [report.data?.sourceAttachmentId ?? '', report.data?.sourceEmailId ?? ''],
   )
 
+  const closure = useAdapterQuery(
+    async (a, s) => {
+      const t = report.data?.tickers[0]
+      return t ? a.getConflictClosure(s, t) : null
+    },
+    [report.data?.tickers[0] ?? ''],
+  )
+
   if (!reportId) return { data: null, loading: false, error: null }
 
   const loading = report.loading || summary.loading || evidence.loading
     || brokers.loading || allStocks.loading || allSectors.loading
-    || sourceEmail.loading || sourceAttachment.loading
+    || sourceEmail.loading || sourceAttachment.loading || closure.loading
   const error = report.error ?? summary.error ?? evidence.error
     ?? brokers.error ?? allStocks.error ?? allSectors.error
-    ?? sourceEmail.error ?? sourceAttachment.error
+    ?? sourceEmail.error ?? sourceAttachment.error ?? closure.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
@@ -219,6 +286,7 @@ export function useReportDetailViewModel(reportId: ReportId | null): QueryResult
     sectors,
     sourceEmail: sourceEmail.data ?? null,
     sourceAttachment: sourceAttachment.data ?? null,
+    closure: closure.data ?? null,
   })
   return { data: vm, loading: false, error: null }
 }
