@@ -95,7 +95,7 @@ function Content({ vm, onClose, onSelectReport }: {
               <StateBadge state={closure.resultant.state} strength={closure.resultant.strength}/>
             </div>
             <div className="text-[11.5px] text-slate-400">
-              {vm.stockName} · {vm.sectorName} · Spot {formatPrice(vm.spotPrice, vm.currency, 2)} · {closure.brokerCount} broker{closure.brokerCount === 1 ? '' : 's'}
+              {vm.stockName} · Spot {formatPrice(vm.spotPrice, vm.currency, 2)} · {closure.brokerCount} broker{closure.brokerCount === 1 ? '' : 's'}
             </div>
           </div>
 

@@ -32,7 +32,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
     <div className="flex flex-col gap-5">
       <header className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-col gap-1 min-w-0">
-          <div className="section-title">{c.sectorName}</div>
           <button
             onClick={() => onSelectTicker(c.ticker)}
             className="text-left text-slate-100 text-[18px] font-semibold leading-tight hover:text-accent transition-colors"

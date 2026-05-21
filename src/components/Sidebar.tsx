@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Broker, Sector, Stock, BrokerId, SectorId, StockTicker, Rating } from '../domain'
+import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating } from '../domain'
 import type { FiltersState, DateRangeKey } from '../app/filters'
 import { DATE_RANGE_KEYS } from '../app/filters'
 
@@ -75,7 +75,7 @@ function toggle<K extends keyof FiltersState>(
   })
 }
 
-export default function Sidebar({ brokers, sectors, stocks, filters, setFilters }: SidebarProps) {
+export default function Sidebar({ brokers, stocks, filters, setFilters }: SidebarProps) {
   return (
     <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
@@ -122,19 +122,6 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
                 label={`${s.ticker} · ${s.name}`}
                 checked={filters.tickers.includes(s.ticker)}
                 onChange={() => toggle<'tickers'>(setFilters, 'tickers', s.ticker as StockTicker)}
-              />
-            ))}
-          </div>
-        </FilterSection>
-
-        <FilterSection title="Sector" onReset={() => setFilters((p) => ({ ...p, sectorIds: [] }))}>
-          <div className="flex flex-col gap-1.5">
-            {sectors.map((s) => (
-              <Checkbox
-                key={s.id}
-                label={s.name}
-                checked={filters.sectorIds.includes(s.id)}
-                onChange={() => toggle<'sectorIds'>(setFilters, 'sectorIds', s.id as SectorId)}
               />
             ))}
           </div>

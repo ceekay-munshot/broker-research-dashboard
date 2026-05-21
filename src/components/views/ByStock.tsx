@@ -51,7 +51,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 z-10 bg-ink-900 border-r border-line/10">Ticker</th>
               <th className="px-3 py-2 font-medium">Book</th>
-              <th className="px-3 py-2 font-medium">Sector</th>
               <th className="px-3 py-2 font-medium">Street state</th>
               <th className="px-3 py-2 font-medium text-right">Spot</th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
@@ -195,7 +194,6 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           <span className="text-[11px] text-slate-600">—</span>
         )}
       </td>
-      <td className="px-3 py-2 text-slate-300 text-[11.5px]">{row.sectorName}</td>
       <td className="px-3 py-2">
         <div className="flex flex-col gap-1">
           <StateBadge state={row.resultantState} strength={row.resultantStrength}/>

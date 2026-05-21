@@ -79,7 +79,7 @@ export default function BrokerDetail({ broker }: { broker: BrokerCalibrationSumm
         </div>
       )}
 
-      {(splits.length > 0 || broker.bySector.length > 0 || broker.reasons.length > 0) && (
+      {(splits.length > 0 || broker.reasons.length > 0) && (
         <MoreDetail>
           <div className="flex flex-col gap-2">
             <span className="section-title">Directional split</span>
@@ -91,30 +91,6 @@ export default function BrokerDetail({ broker }: { broker: BrokerCalibrationSumm
               <p className="text-[12px] text-slate-500">No directional breakdown available yet.</p>
             )}
           </div>
-
-          {broker.bySector.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="section-title">By sector</span>
-              <ul className="flex flex-col gap-1">
-                {broker.bySector.map((s) => (
-                  <li
-                    key={s.sectorId as unknown as string}
-                    className="flex items-center justify-between gap-2 text-[11.5px] rounded border border-line/5 bg-line/[0.02] px-2.5 py-1.5"
-                  >
-                    <span className="text-slate-300 truncate">{s.sectorName ?? '—'}</span>
-                    <span className="num text-slate-500 shrink-0">
-                      {s.hitRate !== null ? `${Math.round(s.hitRate * 100)}% hit` : 'hit —'}
-                      {' · '}
-                      <span className={s.meanReturnPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                        {s.meanReturnPct >= 0 ? '+' : ''}{s.meanReturnPct.toFixed(1)}%
-                      </span>
-                      {' · '}n={s.sampleSize}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
 
           {broker.reasons.length > 0 && (
             <div className="flex flex-col gap-1.5">
