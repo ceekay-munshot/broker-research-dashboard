@@ -26,12 +26,19 @@ export interface DivergenceCardViewModel {
   readonly outliers: readonly OutlierVM[]
 }
 
+/** A broker referenced by a divergence point — id is kept so the UI can
+ *  join calibration track-record onto the name. */
+export interface BrokerRef {
+  readonly id: string
+  readonly name: string
+}
+
 export interface ConsensusPointVM {
   readonly dimension: ConsensusPoint['dimension']
   readonly topic: string
   readonly claim: string
   readonly polarity: ConsensusPoint['polarity']
-  readonly brokerNames: readonly string[]
+  readonly brokers: readonly BrokerRef[]
   readonly supportingClaims: readonly string[]
   readonly evidenceCount: number
 }
@@ -41,13 +48,14 @@ export interface DisagreementPointVM {
   readonly topic: string
   readonly bullClaims: readonly string[]
   readonly bearClaims: readonly string[]
-  readonly bullBrokerNames: readonly string[]
-  readonly bearBrokerNames: readonly string[]
+  readonly bullBrokers: readonly BrokerRef[]
+  readonly bearBrokers: readonly BrokerRef[]
   readonly bullCitationCount: number
   readonly bearCitationCount: number
 }
 
 export interface OutlierVM {
+  readonly brokerId: string
   readonly brokerName: string
   readonly direction: OutlierClassification['direction']
   readonly reasons: readonly string[]
@@ -94,6 +102,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
   const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
   const name = (id: string | null | undefined) =>
     id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
+  const ref = (id: string): BrokerRef => ({ id, name: name(id) })
 
   const cases = inputs.closures
     .filter((c) => tickerFilter.size === 0 || tickerFilter.has(c.ticker as string))
@@ -127,7 +136,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
           topic: p.topic,
           claim: p.claim,
           polarity: p.polarity,
-          brokerNames: p.supportingBrokerIds.map((b) => name(b as unknown as string)),
+          brokers: p.supportingBrokerIds.map((b) => ref(b as unknown as string)),
           supportingClaims: p.supportingClaims,
           evidenceCount: p.evidenceIds.length,
         })),
@@ -136,12 +145,13 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
           topic: d.topic,
           bullClaims: d.bullClaims,
           bearClaims: d.bearClaims,
-          bullBrokerNames: d.bullBrokerIds.map((b) => name(b as unknown as string)),
-          bearBrokerNames: d.bearBrokerIds.map((b) => name(b as unknown as string)),
+          bullBrokers: d.bullBrokerIds.map((b) => ref(b as unknown as string)),
+          bearBrokers: d.bearBrokerIds.map((b) => ref(b as unknown as string)),
           bullCitationCount: d.bullEvidenceIds.length,
           bearCitationCount: d.bearEvidenceIds.length,
         })),
         outliers: c.outliers.map<OutlierVM>((o) => ({
+          brokerId: o.brokerId as unknown as string,
           brokerName: name(o.brokerId as unknown as string),
           direction: o.direction,
           reasons: o.reasons.map((r) => REASON_LABELS[r]),

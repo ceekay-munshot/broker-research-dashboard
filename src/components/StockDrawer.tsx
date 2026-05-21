@@ -243,7 +243,7 @@ function ConsensusRow({ point }: { point: ConsensusPointVM }) {
         </div>
       )}
       <div className="text-[10px] text-slate-500 mt-1">
-        {point.brokerNames.join(' · ')}
+        {point.brokers.map((b) => b.name).join(' · ')}
         {point.evidenceCount > 0 && <span className="num ml-2">· {point.evidenceCount} citation{point.evidenceCount === 1 ? '' : 's'}</span>}
       </div>
     </li>
@@ -261,7 +261,7 @@ function DisagreementRow({ point }: { point: DisagreementPointVM }) {
             <span key={idx} className="text-slate-200 leading-snug">{c}</span>
           ))}
           <span className="text-[10.5px] text-slate-500">
-            {point.bullBrokerNames.join(' · ') || '—'}
+            {point.bullBrokers.map((b) => b.name).join(' · ') || '—'}
             {point.bullCitationCount > 0 && <span className="ml-2 num">· {point.bullCitationCount} citations</span>}
           </span>
         </div>
@@ -273,7 +273,7 @@ function DisagreementRow({ point }: { point: DisagreementPointVM }) {
             <span key={idx} className="text-slate-200 leading-snug">{c}</span>
           ))}
           <span className="text-[10.5px] text-slate-500">
-            {point.bearBrokerNames.join(' · ') || '—'}
+            {point.bearBrokers.map((b) => b.name).join(' · ') || '—'}
             {point.bearCitationCount > 0 && <span className="ml-2 num">· {point.bearCitationCount} citations</span>}
           </span>
         </div>

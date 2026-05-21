@@ -56,13 +56,14 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
   const brokerById = indexBy(inputs.brokers, (b) => b.id as string)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
   const name = (id: BrokerId) => brokerById.get(id as unknown as string)?.shortName ?? (id as unknown as string).toUpperCase()
+  const ref = (id: BrokerId) => ({ id: id as unknown as string, name: name(id) })
 
   const consensus: ConsensusPointVM[] = closure.consensus.map((p) => ({
     dimension: p.dimension,
     topic: p.topic,
     claim: p.claim,
     polarity: p.polarity,
-    brokerNames: p.supportingBrokerIds.map((b) => name(b)),
+    brokers: p.supportingBrokerIds.map((b) => ref(b)),
     supportingClaims: p.supportingClaims,
     evidenceCount: p.evidenceIds.length,
   }))
@@ -72,13 +73,14 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     topic: d.topic,
     bullClaims: d.bullClaims,
     bearClaims: d.bearClaims,
-    bullBrokerNames: d.bullBrokerIds.map((b) => name(b)),
-    bearBrokerNames: d.bearBrokerIds.map((b) => name(b)),
+    bullBrokers: d.bullBrokerIds.map((b) => ref(b)),
+    bearBrokers: d.bearBrokerIds.map((b) => ref(b)),
     bullCitationCount: d.bullEvidenceIds.length,
     bearCitationCount: d.bearEvidenceIds.length,
   }))
 
   const outliers: OutlierVM[] = closure.outliers.map((o) => ({
+    brokerId: o.brokerId as unknown as string,
     brokerName: name(o.brokerId),
     direction: o.direction,
     reasons: o.reasons.map((r) => REASON_LABELS[r] ?? r),
