@@ -217,12 +217,6 @@ function Content({ vm, onClose, onSelectReport }: {
               ))}
             </ul>
           </Section>
-
-          {/* Confidence rationale */}
-          <div className="text-[10.5px] text-slate-500 flex flex-col gap-0.5 pt-3 border-t border-line/5">
-            <span className="section-title mb-0.5">Confidence rationale</span>
-            {closure.confidence.rationale.map((r, idx) => <span key={idx}>· {r}</span>)}
-          </div>
         </div>
       </div>
     </>
@@ -335,11 +329,6 @@ function OutlierRow({ out }: { out: OutlierVM }) {
         <span className="chip border border-amber-500/40 text-amber-300">Outlier</span>
         <span className="text-slate-100 font-semibold">{out.brokerName}</span>
         <span className={`${tone} uppercase text-[10px] tracking-widest`}>{out.direction}</span>
-        {out.targetZScore !== null && (
-          <span className="num text-[10.5px] text-slate-400 ml-auto">
-            z = {out.targetZScore > 0 ? '+' : ''}{out.targetZScore.toFixed(2)}σ
-          </span>
-        )}
       </div>
       <div className="flex flex-wrap gap-1">
         {out.reasons.map((r, idx) => (
