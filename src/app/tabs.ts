@@ -2,7 +2,7 @@
 // No long uppercase hints, no internal jargon — keep this as the surface
 // the investor actually sees.
 export const TABS = [
-  { id: 'today',         label: 'Today' },
+  { id: 'today',         label: 'Overview' },
   { id: 'portfolio',     label: 'My Portfolio' },
   { id: 'stocks',        label: 'Stocks' },
   { id: 'brokers',       label: 'Brokers' },
