@@ -149,7 +149,13 @@ export function OutlierRow({ outlier, tier }: { outlier: OutlierVM; tier: Broker
         <span className="text-slate-100 font-semibold">{outlier.brokerName}</span>
         <span className={`${tone} uppercase text-[9.5px] tracking-widest`}>{outlier.direction}</span>
       </div>
-      {outlier.notes && <div className="text-[11.5px] text-slate-400 leading-snug">{outlier.notes}</div>}
+      {outlier.reasons.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {outlier.reasons.map((r, idx) => (
+            <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-400 text-[10px]">{r}</span>
+          ))}
+        </div>
+      )}
     </li>
   )
 }

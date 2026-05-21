@@ -335,7 +335,6 @@ function OutlierRow({ out }: { out: OutlierVM }) {
           <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-300 text-[10px]">{r}</span>
         ))}
       </div>
-      <div className="text-[11px] text-slate-400 leading-snug">{out.notes}</div>
     </li>
   )
 }
