@@ -62,20 +62,20 @@ function StanceBar({ counts }: { counts: BrokerCardViewModel['stanceCounts'] }) 
 
 function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectReport: (id: ReportId) => void }) {
   const [expanded, setExpanded] = useState(false)
-  const expandable = b.notes.length > 3
   const shownNotes = expanded ? b.notes : b.notes.slice(0, 3)
-  const toggle = () => { if (expandable) setExpanded((v) => !v) }
+  const hasMore = b.notes.length > 3
+  const toggle = () => setExpanded((v) => !v)
 
   return (
     <div
-      className={`panel panel-hover p-4 flex flex-col gap-3 ${expandable ? 'cursor-pointer' : ''}`}
-      role={expandable ? 'button' : undefined}
-      tabIndex={expandable ? 0 : undefined}
-      aria-expanded={expandable ? expanded : undefined}
-      onClick={expandable ? toggle : undefined}
-      onKeyDown={expandable ? (e) => {
+      className="panel panel-hover p-4 flex flex-col gap-3 cursor-pointer"
+      role="button"
+      tabIndex={0}
+      aria-expanded={expanded}
+      onClick={toggle}
+      onKeyDown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
-      } : undefined}
+      }}
     >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
@@ -99,12 +99,10 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
               title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
             >QA {b.conflictCount}</span>
           )}
-          {expandable && (
-            <span
-              className={`text-slate-500 text-[16px] leading-none transition-transform ${expanded ? 'rotate-90' : ''}`}
-              aria-hidden="true"
-            >›</span>
-          )}
+          <span
+            className={`text-slate-500 text-[16px] leading-none transition-transform ${expanded ? 'rotate-90' : ''}`}
+            aria-hidden="true"
+          >›</span>
         </div>
       </div>
 
@@ -121,7 +119,7 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
       <div>
         <div className="section-title mb-1.5">
           Latest notes
-          {expandable && !expanded && (
+          {!expanded && hasMore && (
             <span className="text-slate-500"> · 3 of {b.notes.length}</span>
           )}
         </div>
