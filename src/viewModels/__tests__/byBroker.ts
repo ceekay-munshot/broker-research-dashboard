@@ -108,11 +108,30 @@ test('a By-Broker card collapses a re-forwarded note but keeps a distinct one', 
   const card = vm.brokers[0]
   assert(card, 'the Kotak card exists')
   assertEqual(card!.reportCount, 2, 'the re-forward is collapsed — 2 distinct notes, not 3')
-  assertEqual(card!.latestReports.length, 2, 'the latest-notes list shows each note once')
+  assertEqual(card!.notes.length, 2, 'the notes list shows each note once')
   assert(
-    card!.latestReports.some((r) => r.headline.includes('Krishna Institute')),
+    card!.notes.some((r) => r.headline.includes('Krishna Institute')),
     'the genuinely distinct same-day note still appears',
   )
+})
+
+test('a By-Broker card exposes every note, not just the first three', () => {
+  const vm = buildByBrokerViewModel({
+    brokers: [mkBroker('brk_kotak')],
+    reports: [
+      mkReport({ id: 'n1', title: 'KIMS — 4QFY26 result review' }),
+      mkReport({ id: 'n2', title: 'Apollo Hospitals — strong execution' }),
+      mkReport({ id: 'n3', title: 'Max Healthcare — capacity ramp on track' }),
+      mkReport({ id: 'n4', title: 'Fortis Healthcare — margin recovery in sight' }),
+      mkReport({ id: 'n5', title: 'Narayana Hrudayalaya — a steady quarter' }),
+    ],
+    summaries: [],
+    filters: DEFAULT_FILTERS,
+  })
+  const card = vm.brokers[0]
+  assert(card, 'the Kotak card exists')
+  assertEqual(card!.reportCount, 5, 'all five distinct notes are counted')
+  assertEqual(card!.notes.length, 5, 'the card exposes all notes uncapped — the expanded view needs them')
 })
 
 // ── Summary ───────────────────────────────────────────────────────────────

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { ReportId } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import type { BrokerCardViewModel, BrokerBookActivityItem } from '../../viewModels/byBroker'
@@ -60,8 +61,22 @@ function StanceBar({ counts }: { counts: BrokerCardViewModel['stanceCounts'] }) 
 }
 
 function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectReport: (id: ReportId) => void }) {
+  const [expanded, setExpanded] = useState(false)
+  const expandable = b.notes.length > 3
+  const shownNotes = expanded ? b.notes : b.notes.slice(0, 3)
+  const toggle = () => { if (expandable) setExpanded((v) => !v) }
+
   return (
-    <div className="panel panel-hover p-4 flex flex-col gap-3">
+    <div
+      className={`panel panel-hover p-4 flex flex-col gap-3 ${expandable ? 'cursor-pointer' : ''}`}
+      role={expandable ? 'button' : undefined}
+      tabIndex={expandable ? 0 : undefined}
+      aria-expanded={expandable ? expanded : undefined}
+      onClick={expandable ? toggle : undefined}
+      onKeyDown={expandable ? (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() }
+      } : undefined}
+    >
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <div
@@ -77,12 +92,20 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
             </span>
           </div>
         </div>
-        {b.conflictCount > 0 && (
-          <span
-            className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px] shrink-0"
-            title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
-          >QA {b.conflictCount}</span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {b.conflictCount > 0 && (
+            <span
+              className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px]"
+              title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
+            >QA {b.conflictCount}</span>
+          )}
+          {expandable && (
+            <span
+              className={`text-slate-500 text-[16px] leading-none transition-transform ${expanded ? 'rotate-90' : ''}`}
+              aria-hidden="true"
+            >›</span>
+          )}
+        </div>
       </div>
 
       <div className="flex items-center gap-3 text-[11px]">
@@ -96,15 +119,20 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
       </div>
 
       <div>
-        <div className="section-title mb-1.5">Latest notes</div>
-        <ul className="flex flex-col gap-1.5">
-          {b.latestReports.length === 0 && (
+        <div className="section-title mb-1.5">
+          Latest notes
+          {expandable && !expanded && (
+            <span className="text-slate-500"> · 3 of {b.notes.length}</span>
+          )}
+        </div>
+        <ul className={`flex flex-col gap-1.5 ${expanded ? 'max-h-80 overflow-y-auto pr-1' : ''}`}>
+          {b.notes.length === 0 && (
             <li className="text-[11.5px] text-slate-500">No recent notes in the selected range.</li>
           )}
-          {b.latestReports.map((r) => (
+          {shownNotes.map((r) => (
             <li key={r.reportId}>
               <button
-                onClick={() => onSelectReport(r.reportId)}
+                onClick={(e) => { e.stopPropagation(); onSelectReport(r.reportId) }}
                 className="w-full text-left flex items-start gap-2 text-[12px] leading-tight hover:text-slate-100 transition-colors"
               >
                 <span
@@ -180,7 +208,7 @@ function BookActivityRow({
 }) {
   return (
     <button
-      onClick={() => onSelectReport(item.reportId)}
+      onClick={(e) => { e.stopPropagation(); onSelectReport(item.reportId) }}
       className="w-full text-left flex items-center gap-2 text-[11.5px] hover:bg-line/[0.03] rounded px-1 py-0.5 transition-colors"
     >
       <span className="num text-[10.5px] text-slate-500 w-12">{formatShortDate(item.publishedAt)}</span>

@@ -28,7 +28,9 @@ export interface BrokerCardViewModel {
   readonly latestReportAt: string | null
   readonly stanceCounts: Readonly<Record<Stance, number>>
   readonly topThemes: readonly { readonly theme: string; readonly count: number }[]
-  readonly latestReports: readonly FeedItemViewModel[]
+  /** Every note this broker published in range, newest first — the card shows
+   *  the first three and expands to reveal the rest. */
+  readonly notes: readonly FeedItemViewModel[]
   /** Module 18: items this broker published on book / watchlist names. */
   readonly bookActivity: BrokerBookActivity
   /** How this broker was resolved — drives card ordering and labels. */
@@ -151,7 +153,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       .sort((a, b) => b.count - a.count)
       .slice(0, 4)
 
-    const latestReports = theirs.slice(0, 3).map((r) => buildFeedItem(
+    const notes = theirs.map((r) => buildFeedItem(
       r, summaryByReport.get(r.id as string) ?? null, broker,
     ))
 
@@ -261,7 +263,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       latestReportAt,
       stanceCounts,
       topThemes,
-      latestReports,
+      notes,
       bookActivity,
       resolutionClass,
       conflictCount,
