@@ -43,7 +43,7 @@ import { extractNoteInsight } from './noteInsight'
 import { parseTp, validateTargetPrices } from './targetPrice'
 import {
   buildEmailBrokerContext, resolveBrokerForNote, stripBrokerPrefixes,
-  brokerRecordForResolution, MIXED_SOURCES_BROKER_ID,
+  brokerRecordForResolution, MIXED_SOURCES_BROKER_ID, RESOLUTION_CLASS_ORDER,
 } from './brokerResolver'
 import { classifyNoteEntity, STOCK_DISPLAY_THRESHOLD } from './entityRole'
 
@@ -686,7 +686,13 @@ function buildServerOutputFromEmails(
     const key = src.brokerId as unknown as string
     if (!resolutionByBrokerId.has(key)) resolutionByBrokerId.set(key, src.brokerResolution)
   }
-  const brokerList: Broker[] = [...resolutionByBrokerId.values()].map(brokerRecordForResolution)
+  // Ordered for the broker filter: research houses first (A–Z), then
+  // Unmapped Research House, then Other Sources, then Unknown Broker.
+  const brokerList: Broker[] = [...resolutionByBrokerId.values()]
+    .sort((a, b) =>
+      RESOLUTION_CLASS_ORDER[a.resolutionClass] - RESOLUTION_CLASS_ORDER[b.resolutionClass]
+      || a.brokerCanonicalName.localeCompare(b.brokerCanonicalName))
+    .map(brokerRecordForResolution)
 
   // KPI "brokers tracked" counts only genuine research houses.
   const researchHouseCount = [...resolutionByBrokerId.values()].filter(

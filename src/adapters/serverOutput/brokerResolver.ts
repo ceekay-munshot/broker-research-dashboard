@@ -38,6 +38,15 @@ export const MIXED_SOURCES_BROKER_ID = asBrokerId('brk_mixed_sources')
 const NEUTRAL_COLOR = '#6b7280'
 const UNMAPPED_COLOR = '#94a3b8'
 
+/** Catalog display order — real research houses first, then unmapped houses,
+ *  then the non-broker / unresolved buckets last (Other Sources, Unknown). */
+export const RESOLUTION_CLASS_ORDER: Record<ResolutionClass, number> = {
+  mapped: 0,
+  unmapped_research_house: 1,
+  other_source: 2,
+  unknown: 3,
+}
+
 // ── Inputs ────────────────────────────────────────────────────────────────
 
 /** Email-level fields the resolver reads (built by the caller from RawEmail). */
