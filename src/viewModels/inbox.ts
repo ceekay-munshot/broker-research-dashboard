@@ -8,6 +8,7 @@
 import type {
   DeliveryAttempt, DeliveryStatus, DeliveryContentKind, DeliveryChannel,
 } from '../domain'
+import { TONE_CHIP_CLASS, getDeliveryStatusTone } from '../lib/semanticColor'
 
 export interface InboxRowViewModel {
   readonly attempt: DeliveryAttempt
@@ -111,14 +112,17 @@ function toTone(s: DeliveryStatus): InboxRowViewModel['statusTone'] {
   return 'other'
 }
 
+// Chip classes per delivery status, projected from the central semantic-tone
+// system. Sent is favourable (green), failed unfavourable (red); the in-flight
+// states (queued / retrying) are a caution (amber); the rest are neutral.
 export const STATUS_CLASS: Record<InboxRowViewModel['statusTone'], string> = {
-  sent:        'text-emerald-300 border-emerald-500/30 bg-emerald-500/[0.06]',
-  failed:      'text-rose-300 border-rose-500/30 bg-rose-500/10',
-  suppressed:  'text-slate-300 border-line/15',
-  queued:      'text-amber-300 border-amber-500/30',
-  retrying:    'text-amber-300 border-amber-500/30',
-  skipped:     'text-slate-500 border-line/10',
-  other:       'text-slate-400 border-line/10',
+  sent:       TONE_CHIP_CLASS[getDeliveryStatusTone('sent')],
+  failed:     TONE_CHIP_CLASS[getDeliveryStatusTone('failed')],
+  suppressed: TONE_CHIP_CLASS[getDeliveryStatusTone('suppressed')],
+  queued:     TONE_CHIP_CLASS[getDeliveryStatusTone('queued')],
+  retrying:   TONE_CHIP_CLASS[getDeliveryStatusTone('retrying')],
+  skipped:    TONE_CHIP_CLASS[getDeliveryStatusTone('skipped')],
+  other:      TONE_CHIP_CLASS[getDeliveryStatusTone('other')],
 }
 
 function formatRelative(now: Date, when: Date): string {

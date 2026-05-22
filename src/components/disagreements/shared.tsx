@@ -6,6 +6,7 @@ import type { Stance } from '../../domain'
 import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { OutlierVM } from '../../viewModels/divergence'
 import { TIER_LABEL, type BrokerTier } from '../../viewModels/disagreementInsight'
+import { RESULTANT_STATE_CHIP_CLASS } from '../../lib/semanticColor'
 
 // ── Verdict (resultant state) ─────────────────────────────────────────
 // Plain-language labels — the engine's internal state names are jargon.
@@ -19,21 +20,12 @@ export const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
   outlier_driven:     'Outlier-skewed',
 }
 
-export const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:  'border-emerald-500/50 text-emerald-300 bg-emerald-500/[0.06]',
-  consensus_bearish:  'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
-  mixed_constructive: 'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
-  mixed_cautious:     'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:         'border-slate-400/30 text-slate-300 bg-line/[0.02]',
-  outlier_driven:     'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
-}
-
 export function VerdictBadge({ state, strength }: {
   state: ResultantState
   strength: StrengthBand
 }) {
   return (
-    <span className={`chip border ${STATE_COLOR[state]} inline-flex items-center gap-1 text-[10px]`}>
+    <span className={`chip border ${RESULTANT_STATE_CHIP_CLASS[state]} inline-flex items-center gap-1 text-[10px]`}>
       {STATE_LABEL[state]}
       <span className="text-slate-500">·</span>
       <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>

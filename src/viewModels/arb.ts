@@ -12,6 +12,7 @@
 
 import type { Rating, BrokerId } from '../domain'
 import type { ConflictClosure, ResultantState } from '../engine/types'
+import { TONE_CHIP_CLASS, getArbTone } from '../lib/semanticColor'
 
 // ── ARB band ─────────────────────────────────────────────────────────────
 
@@ -33,11 +34,14 @@ export const ARB_LABEL: Readonly<Record<ArbBand, string>> = {
   high:     'High ARB',
 }
 
+// Chip classes per ARB band, projected from the central semantic-tone system.
+// Low disagreement is reassuring (green), high is a risk (red), a moderate gap
+// is a caution (amber), and a single-broker name has nothing to compare (grey).
 export const ARB_COLOR: Readonly<Record<ArbBand, string>> = {
-  none:     'border-line/15 text-slate-400 bg-line/[0.02]',
-  low:      'border-emerald-500/40 text-emerald-300 bg-emerald-500/[0.05]',
-  moderate: 'border-amber-500/40 text-amber-300 bg-amber-500/[0.05]',
-  high:     'border-rose-500/45 text-rose-300 bg-rose-500/[0.06]',
+  none:     TONE_CHIP_CLASS[getArbTone('none')],
+  low:      TONE_CHIP_CLASS[getArbTone('low')],
+  moderate: TONE_CHIP_CLASS[getArbTone('moderate')],
+  high:     TONE_CHIP_CLASS[getArbTone('high')],
 }
 
 /** Sort weight — High first; single-broker / no-comparison always last. */

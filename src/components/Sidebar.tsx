@@ -2,6 +2,7 @@ import React from 'react'
 import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating } from '../domain'
 import type { FiltersState, DateRangeKey } from '../app/filters'
 import { DATE_RANGE_KEYS } from '../app/filters'
+import { BROKER_DOT_CLASS } from '../lib/semanticColor'
 
 interface SidebarProps {
   readonly brokers: readonly Broker[]
@@ -44,8 +45,8 @@ function Pill({ active, onClick, children }: { active: boolean; onClick: () => v
   )
 }
 
-function Checkbox({ label, checked, onChange, swatch }: {
-  label: string; checked: boolean; onChange: () => void; swatch?: string | null;
+function Checkbox({ label, checked, onChange, dot }: {
+  label: string; checked: boolean; onChange: () => void; dot?: boolean;
 }) {
   return (
     <label className="flex items-center gap-2 group cursor-pointer select-none">
@@ -55,7 +56,9 @@ function Checkbox({ label, checked, onChange, swatch }: {
         onChange={onChange}
         className="h-3 w-3 rounded-sm accent-accent bg-transparent border border-line/20"
       />
-      {swatch && <span className="w-1.5 h-1.5 rounded-full" style={{ background: swatch }}/>}
+      {/* Neutral identity dot — broker brand colours are kept out of the
+          filter list so a dot never reads as a stock-sentiment signal. */}
+      {dot && <span className={`w-1.5 h-1.5 rounded-full ${BROKER_DOT_CLASS}`}/>}
       <span className="text-[12px] text-slate-300 group-hover:text-slate-100 flex-1 truncate">{label}</span>
     </label>
   )
@@ -113,7 +116,7 @@ export default function Sidebar({ brokers, stocks, filters, setFilters }: Sideba
               <Checkbox
                 key={b.id}
                 label={b.name}
-                swatch={b.brandColor}
+                dot
                 checked={filters.brokerIds.includes(b.id)}
                 onChange={() => toggle<'brokerIds'>(setFilters, 'brokerIds', b.id as BrokerId)}
               />

@@ -6,6 +6,7 @@ import type {
 } from '../../viewModels/sectorFeed'
 import { useSectorFeedViewModel } from '../../viewModels/sectorFeed'
 import { STANCE_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
+import { RESULTANT_STATE_CHIP_CLASS as STATE_COLOR } from '../../lib/semanticColor'
 
 interface SectorFeedProps {
   readonly filters: FiltersState
@@ -166,15 +167,6 @@ function SignalRow({ signal }: { signal: SectorSignalVM }) {
       </div>
     </li>
   )
-}
-
-const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:   'border-emerald-500/50 text-emerald-300 bg-emerald-500/[0.06]',
-  consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
-  mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
-  mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
-  outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 
 const STATE_SHORT_LABEL: Readonly<Record<ResultantState, string>> = {

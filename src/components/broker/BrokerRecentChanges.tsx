@@ -1,6 +1,7 @@
 import type { Broker, EvidenceSnippet, ReportId, ReportSummary, Stock } from '../../domain'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import { buildBrokerMemoryViewModel, type BrokerRecentChange } from '../../viewModels/brokerMemory'
+import { TONE_TEXT_CLASS, getChangeTone, type SemanticTone } from '../../lib/semanticColor'
 
 interface BrokerRecentChangesProps {
   readonly brokers: readonly Broker[]
@@ -90,19 +91,19 @@ export default function BrokerRecentChanges({ brokers, stocks, onSelectReport, w
             <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
               <Column
                 title="Biggest target raises"
-                tone="emerald"
+                tone="positive"
                 changes={s.biggestTargetRaises}
                 onSelectReport={onSelectReport}
               />
               <Column
                 title="Biggest target cuts"
-                tone="rose"
+                tone="negative"
                 changes={s.biggestTargetCuts}
                 onSelectReport={onSelectReport}
               />
               <Column
                 title="Rating changes"
-                tone="amber"
+                tone="info"
                 changes={s.ratingChanges}
                 onSelectReport={onSelectReport}
                 renderExtra={(c) => (
@@ -113,7 +114,7 @@ export default function BrokerRecentChanges({ brokers, stocks, onSelectReport, w
               />
               <Column
                 title="Repeated thesis"
-                tone="slate"
+                tone="neutral"
                 changes={s.repeatedThesis}
                 onSelectReport={onSelectReport}
                 emptyText="Every note added something new."
@@ -132,15 +133,11 @@ function Column({
   title: string
   changes: readonly BrokerRecentChange[]
   onSelectReport: (id: ReportId) => void
-  tone: 'emerald' | 'rose' | 'amber' | 'slate'
+  tone: SemanticTone
   emptyText?: string
   renderExtra?: (c: BrokerRecentChange) => React.ReactNode
 }) {
-  const tHead =
-    tone === 'emerald' ? 'text-emerald-400'
-    : tone === 'rose' ? 'text-rose-400'
-    : tone === 'amber' ? 'text-amber-400'
-    : 'text-slate-400'
+  const tHead = TONE_TEXT_CLASS[tone]
 
   return (
     <div>
@@ -158,7 +155,7 @@ function Column({
               <div className="flex items-center gap-2">
                 <span className="chip border border-line/10 text-slate-200 text-[10.5px]">{c.ticker as unknown as string}</span>
                 {c.change.targetChangePct !== null && (
-                  <span className={`num text-[10.5px] ${c.change.targetChangePct > 0 ? 'text-emerald-400' : c.change.targetChangePct < 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                  <span className={`num text-[10.5px] ${TONE_TEXT_CLASS[getChangeTone(c.change.targetChangePct)]}`}>
                     {c.change.targetChangePct > 0 ? '+' : ''}
                     {c.change.targetChangePct.toFixed(1)}%
                   </span>

@@ -3,6 +3,9 @@ import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import { buildBrokerMemoryViewModel } from '../../viewModels/brokerMemory'
 import type { StockBrokerLatestChange } from '../../viewModels/brokerMemory'
 import { RATING_TEXT_COLOR } from '../../viewModels/shared'
+import {
+  TONE_TEXT_CLASS, TONE_CHIP_CLASS, getSignificanceTone, getChangeTone, BROKER_GLYPH_CLASS,
+} from '../../lib/semanticColor'
 
 interface StockBrokerChangesProps {
   readonly ticker: StockTicker
@@ -85,11 +88,7 @@ export default function StockBrokerChanges({ ticker, brokers, stocks, onSelectRe
 
 function BrokerRow({ entry, onSelectReport }: { entry: StockBrokerLatestChange; onSelectReport: (id: ReportId) => void }) {
   const c = entry.change
-  const bucketCls =
-    c.significance.bucket === 'major'            ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
-    : c.significance.bucket === 'moderate'       ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
-    : c.significance.bucket === 'first_coverage' ? 'border-accent/30 bg-accent/10 text-accent'
-    :                                              'border-slate-500/20 bg-line/[0.02] text-slate-500'
+  const bucketCls = TONE_CHIP_CLASS[getSignificanceTone(c.significance.bucket)]
   const bucketLabel =
     c.significance.bucket === 'first_coverage' ? 'initiation'
     : c.significance.bucket === 'minor' ? 'unchanged'
@@ -101,8 +100,7 @@ function BrokerRow({ entry, onSelectReport }: { entry: StockBrokerLatestChange; 
       className="w-full text-left py-2.5 px-1 flex items-start gap-3 hover:bg-line/[0.02] rounded transition-colors"
     >
       <span
-        className="w-6 h-6 rounded-sm flex-shrink-0 flex items-center justify-center text-[9.5px] font-bold text-ink-950 mt-0.5"
-        style={{ background: entry.brokerColor ?? '#94a3b8' }}
+        className={`w-6 h-6 rounded-sm flex-shrink-0 flex items-center justify-center text-[9.5px] font-bold mt-0.5 ${BROKER_GLYPH_CLASS}`}
       >{entry.brokerShortName.slice(0, 3).toUpperCase()}</span>
 
       <div className="flex-1 min-w-0">
@@ -126,7 +124,7 @@ function BrokerRow({ entry, onSelectReport }: { entry: StockBrokerLatestChange; 
           </span>
         )}
         {c.targetChangePct !== null && (
-          <span className={`num ${c.targetChangePct > 0 ? 'text-emerald-400' : c.targetChangePct < 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+          <span className={`num ${TONE_TEXT_CLASS[getChangeTone(c.targetChangePct)]}`}>
             {c.targetChangePct > 0 ? '▲ +' : c.targetChangePct < 0 ? '▼ ' : ''}
             {c.targetChangePct !== 0 ? `${Math.abs(c.targetChangePct).toFixed(1)}%` : 'flat'}
           </span>

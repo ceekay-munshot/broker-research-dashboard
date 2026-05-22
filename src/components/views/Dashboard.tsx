@@ -3,6 +3,7 @@ import type { FiltersState } from '../../app/filters'
 import { useDashboardViewModel } from '../../viewModels/dashboard'
 import KpiCards from '../KpiCards'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
+import { BROKER_GLYPH_CLASS } from '../../lib/semanticColor'
 
 interface DashboardProps {
   readonly filters: FiltersState
@@ -37,8 +38,7 @@ export default function Dashboard({ filters, onSelectReport }: DashboardProps) {
                 >
                   <span className="num text-[10.5px] text-slate-500 w-12 pt-1">{formatShortDate(item.publishedAt)}</span>
                   <span
-                    className="w-5 h-5 rounded-sm flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-ink-950 mt-0.5"
-                    style={{ background: item.brokerColor ?? '#94a3b8' }}
+                    className={`w-5 h-5 rounded-sm flex-shrink-0 flex items-center justify-center text-[9px] font-bold mt-0.5 ${BROKER_GLYPH_CLASS}`}
                   >{item.brokerShortName.slice(0, 3).toUpperCase()}</span>
                   {item.ticker && (
                     <span className="chip border border-line/10 text-slate-200 shrink-0 mt-0.5">{item.ticker}</span>

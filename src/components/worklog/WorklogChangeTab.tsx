@@ -1,5 +1,6 @@
 import type { WorklogItem } from '../../viewModels/worklog'
 import type { ReportChangeSet } from '../../viewModels/brokerMemory'
+import { TONE_TEXT_CLASS, TONE_CHIP_CLASS, getSignificanceTone, getChangeTone } from '../../lib/semanticColor'
 
 interface WorklogChangeTabProps {
   readonly item: WorklogItem
@@ -72,7 +73,7 @@ export default function WorklogChangeTab({ item, onOpenPriorReport }: WorklogCha
           after={c.targetAfter !== null ? c.targetAfter.toLocaleString() : '—'}
           changed={c.targetChangeAbs !== null && c.targetChangeAbs !== 0}
           caption={c.targetChangePct !== null ? `${c.targetChangePct > 0 ? '+' : ''}${c.targetChangePct.toFixed(1)}%` : undefined}
-          captionTone={c.targetChangePct && c.targetChangePct > 0 ? 'text-emerald-400' : c.targetChangePct && c.targetChangePct < 0 ? 'text-rose-400' : 'text-slate-500'}
+          captionTone={TONE_TEXT_CLASS[getChangeTone(c.targetChangePct)]}
         />
       </div>
 
@@ -95,7 +96,7 @@ export default function WorklogChangeTab({ item, onOpenPriorReport }: WorklogCha
               <tr key={r.code} className="align-top">
                 <td className="py-1 pr-2 text-slate-500 font-mono">{r.code}</td>
                 <td className="py-1 pr-2 text-slate-200">{r.text}</td>
-                <td className={`py-1 text-right num ${r.points > 0 ? 'text-emerald-400' : r.points < 0 ? 'text-rose-400' : 'text-slate-500'}`}>
+                <td className={`py-1 text-right num ${TONE_TEXT_CLASS[getChangeTone(r.points)]}`}>
                   {r.points > 0 ? `+${r.points}` : r.points === 0 ? '0' : r.points}
                 </td>
               </tr>
@@ -179,11 +180,7 @@ function Pill({ label, items, color }: { label: string; items: readonly string[]
 }
 
 function BucketChip({ bucket }: { bucket: ReportChangeSet['significance']['bucket'] }) {
-  const cls =
-    bucket === 'major'            ? 'bg-rose-500/20 border-rose-500/40 text-rose-200'
-    : bucket === 'moderate'       ? 'bg-amber-500/15 border-amber-500/30 text-amber-200'
-    : bucket === 'first_coverage' ? 'bg-accent/15 border-accent/40 text-accent'
-    :                               'bg-slate-600/15 border-slate-600/30 text-slate-400'
+  const cls = TONE_CHIP_CLASS[getSignificanceTone(bucket)]
   const label =
     bucket === 'major' ? 'Major change'
     : bucket === 'moderate' ? 'Moderate change'

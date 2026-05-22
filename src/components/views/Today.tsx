@@ -20,6 +20,7 @@ import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../viewModels/arb'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
+import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -283,7 +284,7 @@ function ChangedRow({ item, onSelect }: { item: WorklogItem; onSelect: () => voi
         {hasSignals && (
           <div className="flex items-center gap-1.5 overflow-hidden">
             {item.actionLabel && (
-              <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-accent/25 bg-accent/[0.08] text-accent">
+              <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(item.actionLabel)]}`}>
                 {item.actionLabel}
               </span>
             )}

@@ -4,6 +4,7 @@ import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
+import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -117,12 +118,11 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span
-                className="w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold text-ink-950"
-                style={{ background: vm.broker.color ?? '#94a3b8' }}
+                className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
               {vm.actionLabel && (
-                <span className="ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-accent/25 bg-accent/[0.08] text-accent">
+                <span className={`ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(vm.actionLabel)]}`}>
                   {vm.actionLabel}
                 </span>
               )}

@@ -1,7 +1,17 @@
 import type { KpiCardViewModel } from '../viewModels/dashboard'
+import { TONE_HEX, TONE_TEXT_CLASS, getChangeTone, type SemanticTone } from '../lib/semanticColor'
 
 interface KpiCardsProps {
   readonly kpis: readonly KpiCardViewModel[]
+}
+
+// A KPI trend is a directional signal: rising counts are favourable (green),
+// falling unfavourable (red), flat neutral, and a mixed trend a caution.
+const TREND_TONE: Readonly<Record<KpiCardViewModel['trend'], SemanticTone>> = {
+  up:   'positive',
+  down: 'negative',
+  flat: 'neutral',
+  mix:  'caution',
 }
 
 function formatNumber(n: number): string {
@@ -13,7 +23,7 @@ function Delta({ value, windowDays }: { value: number; windowDays: number }) {
   const positive = value > 0
   const windowLabel = `${windowDays}d`
   return (
-    <span className={`flex items-center gap-1 text-[11px] num ${positive ? 'text-emerald-400' : 'text-rose-400'}`}>
+    <span className={`flex items-center gap-1 text-[11px] num ${TONE_TEXT_CLASS[getChangeTone(value)]}`}>
       <span>{positive ? '▲' : '▼'}</span>
       <span>{positive ? '+' : ''}{value}</span>
       <span className="text-slate-500 ml-1">{windowLabel}</span>
@@ -28,7 +38,7 @@ function Sparkline({ trend }: { trend: KpiCardViewModel['trend'] }) {
     down: 'M0 6 L10 10 L20 9 L30 14 L40 13 L50 17 L60 16 L70 20 L80 22',
     mix:  'M0 18 L10 14 L20 16 L30 11 L40 15 L50 9  L60 14 L70 7  L80 12',
   }
-  const color = trend === 'down' ? '#f87171' : trend === 'flat' ? '#94a3b8' : '#d4af37'
+  const color = TONE_HEX[TREND_TONE[trend]]
   return (
     <svg viewBox="0 0 80 28" className="w-20 h-7 opacity-80">
       <path d={paths[trend]} fill="none" stroke={color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
