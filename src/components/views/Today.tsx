@@ -20,6 +20,7 @@ import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../viewModels/arb'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
+import { stockIdentityKey } from '../../lib/reportSubject'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -49,7 +50,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
   const disagreeRows = rows
     .filter((r) => r.arbVerdict.band === 'high' || r.arbVerdict.band === 'moderate')
     .slice(0, 6)
-  const changedItems = [...(worklog.data?.items ?? [])].sort(compareForOverview).slice(0, 6)
+  const changedGroups = groupChangedItems(worklog.data?.items ?? []).slice(0, 6)
   const upcomingCatalysts = (catalysts.data?.upcoming7d ?? []).slice(0, 4)
 
   // The forwarded-email feed carries no catalyst data today, so the catalysts
@@ -97,16 +98,21 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
       {/* 2 — What changed today */}
       <Section
         title="What changed today"
-        subtitle="The latest broker notes — click a row to open the report."
+        subtitle="The latest broker notes, grouped by company — click a note to open the report."
       >
         {worklog.loading && !worklog.data ? (
           <Loading/>
-        ) : changedItems.length === 0 ? (
+        ) : changedGroups.length === 0 ? (
           <Empty text="No broker notes received yet."/>
         ) : (
           <ul className="flex flex-col">
-            {changedItems.map((it) => (
-              <ChangedRow key={it.id} item={it} onSelect={() => onSelectReport(it.reportId)}/>
+            {changedGroups.map((g) => (
+              <ChangedStockGroup
+                key={g.key}
+                group={g}
+                onSelectReport={onSelectReport}
+                onSelectTicker={onSelectTicker}
+              />
             ))}
           </ul>
         )}
@@ -234,24 +240,102 @@ function ConsensusText({ cr }: { cr: ConsensusRating }) {
 
 // ── What changed today ──────────────────────────────────────────────────────
 
-function ChangedRow({ item, onSelect }: { item: WorklogItem; onSelect: () => void }) {
-  const company = item.stockName ?? item.ticker ?? '—'
+interface ChangedGroup {
+  readonly key: string
+  readonly name: string
+  readonly ticker: StockTicker | null
+  readonly items: readonly WorklogItem[]
+}
+
+/** Group worklog items by stock identity (ticker, else company name) so the
+ *  Overview shows one card per company with its notes nested — not the same
+ *  stock split across separate rows. Groups, and notes within them, are
+ *  ordered by their strongest note via `compareForOverview`. */
+function groupChangedItems(items: readonly WorklogItem[]): ChangedGroup[] {
+  const byKey = new Map<string, WorklogItem[]>()
+  for (const it of items) {
+    const k = stockIdentityKey(
+      it.ticker as unknown as string | null, it.stockName, it.reportId as unknown as string,
+    )
+    const bucket = byKey.get(k) ?? []
+    bucket.push(it)
+    byKey.set(k, bucket)
+  }
+  const groups: ChangedGroup[] = [...byKey.entries()].map(([key, its]) => {
+    const sorted = [...its].sort(compareForOverview)
+    const top = sorted[0]!
+    return {
+      key,
+      name: top.stockName ?? (top.ticker as unknown as string | null) ?? top.title,
+      ticker: top.ticker,
+      items: sorted,
+    }
+  })
+  return groups.sort((a, b) => compareForOverview(a.items[0]!, b.items[0]!))
+}
+
+/** One company group: a header naming the stock, with its broker notes nested
+ *  beneath it. The header opens the stock's Street view; each note opens its
+ *  own report. */
+function ChangedStockGroup({ group, onSelectReport, onSelectTicker }: {
+  group: ChangedGroup
+  onSelectReport: (id: ReportId) => void
+  onSelectTicker: (t: StockTicker) => void
+}) {
+  const NOTE_CAP = 4
+  const shown = group.items.slice(0, NOTE_CAP)
+  const extra = group.items.length - shown.length
+  const ticker = group.ticker
+  const header = (
+    <>
+      <span className="text-slate-100 text-[13px] font-semibold truncate">{group.name}</span>
+      {group.items.length > 1 && (
+        <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
+      )}
+    </>
+  )
+  return (
+    <li className="border-b border-line/5 last:border-0 py-1">
+      {ticker ? (
+        <button
+          onClick={() => onSelectTicker(ticker)}
+          className="w-full text-left px-4 pt-1.5 pb-1 flex items-center gap-2 hover:bg-line/[0.03] transition-colors"
+        >
+          {header}
+        </button>
+      ) : (
+        <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">{header}</div>
+      )}
+      <ul className="flex flex-col">
+        {shown.map((it) => (
+          <ChangedNoteRow key={it.id} item={it} onSelect={() => onSelectReport(it.reportId)}/>
+        ))}
+        {extra > 0 && (
+          <li className="pl-6 pr-4 py-1 text-[10.5px] text-slate-500">
+            +{extra} more note{extra > 1 ? 's' : ''}
+          </li>
+        )}
+      </ul>
+    </li>
+  )
+}
+
+/** One broker note, nested under its company group. */
+function ChangedNoteRow({ item, onSelect }: { item: WorklogItem; onSelect: () => void }) {
   const thesis = item.thesis?.trim() || null
   const numbers = item.keyNumbers.slice(0, 3)
   const extraNumbers = item.keyNumbers.length - numbers.length
   const hasSignals = item.actionLabel !== null || item.keyNumbers.length > 0
 
   return (
-    <li className="border-b border-line/5 last:border-0">
+    <li>
       <button
         onClick={onSelect}
-        className="w-full text-left px-4 py-2.5 hover:bg-line/[0.03] transition-colors flex flex-col gap-1"
+        className="w-full text-left pl-6 pr-4 py-1.5 hover:bg-line/[0.03] transition-colors flex flex-col gap-1"
       >
-        {/* Identity — company · broker · rating · target · upside */}
+        {/* Broker · rating · target · upside · time */}
         <div className="flex items-center gap-2 min-w-0 text-[11.5px]">
-          <span className="text-slate-100 text-[13px] font-semibold truncate">{company}</span>
-          <Dot/>
-          <span className="text-slate-400 shrink-0">{item.brokerShortName}</span>
+          <span className="text-slate-300 shrink-0 font-medium">{item.brokerShortName}</span>
           {item.rating && (
             <><Dot/><span className={`shrink-0 ${RATING_TEXT_COLOR[item.rating]}`}>{item.rating}</span></>
           )}

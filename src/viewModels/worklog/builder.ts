@@ -23,6 +23,7 @@ import type {
 } from '../../domain'
 import type { ConflictClosure } from '../../engine/types'
 import { indexBy, groupBy } from '../shared'
+import { extractSubjectName, normalizeKey, stockIdentityKey } from '../../lib/reportSubject'
 import type { PortfolioOverlay } from '../portfolio/types'
 import type {
   DailyWorklogSummary, DailyWorklogViewModel, WorklogFiltersState, WorklogGroup,
@@ -186,7 +187,10 @@ export function buildDailyWorklogViewModel(inputs: WorklogBuilderInputs): DailyW
         brokerColor: broker?.brandColor ?? null,
         sectorId,
         sectorName: sector?.name ?? null,
-        stockName: stock?.name ?? null,
+        // A ticker'd report takes its name from the stock catalog; a
+        // tickerless one falls back to the company named in its title, so
+        // the worklog shows "Whirlpool of India" rather than a blank "—".
+        stockName: stock?.name ?? (ticker === null ? extractSubjectName(r.title) : null),
         receivedAt: r.receivedAt,
         publishedAt: r.publishedAt,
         utcDate,
@@ -347,9 +351,13 @@ function buildSummary(
   raw: readonly WorklogItem[],
 ): DailyWorklogSummary {
   const activeBrokers = new Set(canonical.map((i) => i.brokerId as unknown as string))
-  const mentionedStocks = new Set(
-    canonical.map((i) => (i.ticker as unknown as string) ?? '').filter(Boolean),
-  )
+  // Count distinct stock identities — a ticker, or a named tickerless stock —
+  // so title-resolved companies are honestly reflected in "Stocks touched".
+  const mentionedStocks = new Set<string>()
+  for (const i of canonical) {
+    if (i.ticker) mentionedStocks.add(`t:${i.ticker as unknown as string}`)
+    else if (i.stockName) mentionedStocks.add(`n:${normalizeKey(i.stockName)}`)
+  }
   const ratingChangeItems = canonical.filter((i) =>
     i.rating !== null && i.rating !== 'Not Rated' && i.targetChangeAbs !== null,
   ).length
@@ -461,15 +469,23 @@ function groupItems(items: readonly WorklogItem[], grouping: WorklogFiltersState
     })).sort((a, b) => a.label.localeCompare(b.label))
   }
   if (grouping === 'stock') {
+    // Key on stock identity (ticker, else normalized name) so tickerless
+    // notes group under their own company instead of one shared "—" bucket.
     const map = new Map<string, WorklogItem[]>()
+    const labelByKey = new Map<string, string>()
     for (const it of items) {
-      const k = (it.ticker as unknown as string) ?? '—'
+      const k = stockIdentityKey(
+        it.ticker as unknown as string | null, it.stockName, it.reportId as unknown as string,
+      )
+      if (!labelByKey.has(k)) {
+        labelByKey.set(k, it.stockName ?? (it.ticker as unknown as string | null) ?? '—')
+      }
       const bucket = map.get(k) ?? []
       bucket.push(it)
       map.set(k, bucket)
     }
     return [...map.entries()].map(([k, its]) => ({
-      key: k, label: k, items: its,
+      key: k, label: labelByKey.get(k) ?? k, items: its,
     })).sort((a, b) => a.label.localeCompare(b.label))
   }
   if (grouping === 'book') {
