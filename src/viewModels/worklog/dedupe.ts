@@ -8,8 +8,12 @@
 //
 // We never delete records — the canonical data and its lineage must stay
 // intact for audit. Instead we select a *canonical* worklog item per
-// (brokerId, ticker, utc-day) tuple and collapse the rest into it. The
-// collapsed items contribute their lineage (parent email ids) to the
+// (brokerId, ticker, utc-day, note-title) tuple and collapse the rest into
+// it. The note-title makes the key content-aware: a re-forwarded copy of the
+// same note collapses, but two genuinely distinct notes from one broker on
+// one stock the same day stay separate — so both survive to nest under a
+// single company group rather than one silently masking the other.
+// The collapsed items contribute their lineage (parent email ids) to the
 // canonical's `source.collapsedIds` / `duplicateCount`, so the UI can
 // show a "+2 duplicate" badge without hiding evidence of what came in.
 //
@@ -24,6 +28,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 
 import type { WorklogItem, WorklogOrigin } from './types'
+import { normalizeKey } from '../../lib/reportSubject'
 
 const ORIGIN_PREFERENCE: Readonly<Record<WorklogOrigin, number>> = {
   direct_attachment: 3,
@@ -41,21 +46,20 @@ export interface DedupeResult {
 }
 
 export function dedupeWorklogItems(items: readonly WorklogItem[]): DedupeResult {
-  // Group by (brokerId, ticker, utcDate). Items without a ticker stand on
-  // their own — we never collapse a generic sector/digest item with no
-  // stock anchor.
+  // Group by (brokerId, ticker, utcDate, normalized-title). Including the
+  // title means only true re-forwards collapse; distinct same-day notes on
+  // the same stock — and tickerless notes — keep their own row. A blank
+  // ticker contributes '' to the key, so tickerless re-forwards still merge.
   const buckets = new Map<string, WorklogItem[]>()
-  const standalone: WorklogItem[] = []
 
   for (const it of items) {
-    if (!it.ticker) { standalone.push(it); continue }
-    const key = `${it.brokerId}|${it.ticker}|${it.utcDate}`
+    const key = `${it.brokerId}|${it.ticker ?? ''}|${it.utcDate}|${normalizeKey(it.title)}`
     const bucket = buckets.get(key)
     if (bucket) bucket.push(it)
     else buckets.set(key, [it])
   }
 
-  const canonical: WorklogItem[] = [...standalone]
+  const canonical: WorklogItem[] = []
   let collapsedCount = 0
 
   for (const group of buckets.values()) {
