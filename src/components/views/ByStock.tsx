@@ -7,7 +7,6 @@ import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
-import BookBadge from '../portfolio/BookBadge'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
 
 interface ByStockProps {
@@ -50,9 +49,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
           <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 z-10 bg-ink-900 border-r border-line/10">Ticker</th>
-              <th className="px-3 py-2 font-medium">Book</th>
               <th className="px-3 py-2 font-medium">Street state</th>
-              <th className="px-3 py-2 font-medium text-right">Spot</th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
               <th className="px-3 py-2 font-medium">ARB verdict</th>
               {data.brokers.map((b) => (
@@ -128,7 +125,6 @@ const STOCK_VIEWS: readonly { readonly id: StockView; readonly label: string; re
   { id: 'consensus',    label: 'Consensus' },
   { id: 'contested',    label: 'ARB severity' },
   { id: 'portfolio',    label: 'My portfolio', portfolioOnly: true },
-  { id: 'upside',       label: 'Upside' },
 ]
 
 function ViewSelector({ view, setView, showPortfolio }: {
@@ -160,9 +156,8 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
 }) {
-  const heldTint = row.book?.membership === 'held' ? 'bg-emerald-500/[0.04]' : ''
   return (
-    <tr className={`border-b border-line/5 ${heldTint || (zebra ? 'bg-line/[0.01]' : '')}`}>
+    <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
       <td className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10">
         <button
           onClick={() => onSelectTicker(row.ticker)}
@@ -171,28 +166,6 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           <span className="text-slate-100 font-semibold hover:text-accent">{row.ticker}</span>
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
         </button>
-      </td>
-      <td className="px-3 py-2">
-        {row.book ? (
-          <div className="flex flex-col gap-0.5">
-            <BookBadge
-              membership={row.book.membership}
-              direction={row.book.direction}
-              weightPct={row.book.weightPct}
-              conviction={row.book.conviction}
-              compact
-            />
-            {row.book.membership !== 'none' && (
-              <span className="text-[10px] text-slate-500 num">
-                {row.book.distinctBrokersLast7d}br · {row.book.daysSinceLastReport === null ? '—' : `${row.book.daysSinceLastReport}d`}
-                {row.book.riskFlags.includes('stale_coverage') && <span className="text-amber-400"> · stale</span>}
-                {row.book.riskFlags.includes('single_broker_coverage') && <span className="text-amber-400"> · 1br</span>}
-              </span>
-            )}
-          </div>
-        ) : (
-          <span className="text-[11px] text-slate-600">—</span>
-        )}
       </td>
       <td className="px-3 py-2">
         <div className="flex flex-col gap-1">
@@ -205,20 +178,8 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           </span>
         </div>
       </td>
-      <td className="px-3 py-2 num text-right text-slate-200">
-        {formatPrice(row.spotPrice, row.currency, 2)}
-      </td>
-      <td className="px-3 py-2 num text-right">
-        <div className="flex flex-col items-end">
-          <span className="text-slate-100">
-            {formatPrice(row.avgTarget, row.currency, 0)}
-          </span>
-          {row.consensusUpsidePct !== null && (
-            <span className={`text-[10px] ${row.consensusUpsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {row.consensusUpsidePct >= 0 ? '+' : ''}{row.consensusUpsidePct.toFixed(1)}%
-            </span>
-          )}
-        </div>
+      <td className="px-3 py-2 num text-right text-slate-100">
+        {formatPrice(row.avgTarget, row.currency, 0)}
       </td>
       <td className="px-3 py-2">
         <ArbVerdictCell verdict={row.arbVerdict} consensusRating={row.consensusRating}/>
@@ -256,11 +217,6 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
         <div className="flex items-center gap-1.5">
           {cell.rating && (
             <span className={`text-[10.5px] ${RATING_TEXT_COLOR[cell.rating]}`}>{cell.rating}</span>
-          )}
-          {cell.impliedUpsidePct !== null && (
-            <span className={`num text-[10px] ${cell.impliedUpsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {cell.impliedUpsidePct >= 0 ? '+' : ''}{cell.impliedUpsidePct.toFixed(1)}%
-            </span>
           )}
         </div>
         <span className="num text-[9.5px] text-slate-500">{cell.lastUpdatedAt.slice(5, 10)}</span>

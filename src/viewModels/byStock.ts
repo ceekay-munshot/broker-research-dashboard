@@ -16,7 +16,7 @@ import {
 } from './arb'
 
 /** Ordering lens for the By Stock matrix. Re-sorts only — never filters rows. */
-export type StockView = 'most-covered' | 'consensus' | 'contested' | 'portfolio' | 'upside'
+export type StockView = 'most-covered' | 'consensus' | 'contested' | 'portfolio'
 
 export interface OpinionCell {
   readonly brokerId: BrokerId
@@ -26,7 +26,6 @@ export interface OpinionCell {
   readonly priorTargetPrice: number | null
   readonly targetDelta: number | null
   readonly targetCurrency: string | null
-  readonly impliedUpsidePct: number | null
   readonly lastUpdatedAt: string
   readonly lastReportId: ReportId
   readonly outlier: boolean
@@ -37,7 +36,6 @@ export interface ByStockRowViewModel {
   readonly stockName: string
   readonly sectorName: string
   readonly currency: string
-  readonly spotPrice: number | null
   readonly avgTarget: number | null
   readonly medianTarget: number | null
   readonly spreadPct: number | null
@@ -48,7 +46,6 @@ export interface ByStockRowViewModel {
   /** Broker(s) holding the highest / lowest published target (ties → many). */
   readonly highTargetBrokerIds: readonly BrokerId[]
   readonly lowTargetBrokerIds: readonly BrokerId[]
-  readonly consensusUpsidePct: number | null
   readonly brokerCount: number
   readonly resultantState: ResultantState
   readonly resultantStrength: StrengthBand
@@ -116,7 +113,6 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
           ? o.targetPrice - o.priorTargetPrice
           : null,
         targetCurrency: o.targetCurrency,
-        impliedUpsidePct: o.impliedUpsidePct,
         lastUpdatedAt: o.lastUpdatedAt,
         lastReportId: o.lastReportId,
         outlier: outlierIds.has(o.brokerId as string),
@@ -126,9 +122,6 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
     const avgTarget = closure?.targetStats.mean ?? null
     const medianTarget = closure?.targetStats.median ?? null
     const spreadPct = closure?.targetStats.spreadPct ?? null
-    const consensusUpsidePct = avgTarget !== null && stock.lastPrice !== null
-      ? ((avgTarget / stock.lastPrice) - 1) * 100
-      : null
 
     // ARB closure verdict — band, consensus rating, high/low target broker.
     const brokerCount = closure?.brokerCount ?? tickerOpinions.length
@@ -160,7 +153,6 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       stockName: stock.name,
       sectorName: inputs.sectorNameById.get(stock.sectorId as string) ?? '—',
       currency: stock.currency,
-      spotPrice: stock.lastPrice,
       avgTarget,
       medianTarget,
       spreadPct,
@@ -168,7 +160,6 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       consensusRating,
       highTargetBrokerIds: targetExtremes.highIds,
       lowTargetBrokerIds: targetExtremes.lowIds,
-      consensusUpsidePct,
       brokerCount,
       resultantState: closure?.resultant.state ?? 'unresolved',
       resultantStrength: closure?.resultant.strength ?? 'weak',
@@ -235,9 +226,6 @@ function compareRows(a: ByStockRowViewModel, b: ByStockRowViewModel, view: Stock
       return (ARB_RANK[a.arbVerdict.band] - ARB_RANK[b.arbVerdict.band])
         || ((b.spreadPct ?? -Infinity) - (a.spreadPct ?? -Infinity))
         || (b.outlierBrokerIds.length - a.outlierBrokerIds.length)
-        || tickerCmp(a, b)
-    case 'upside':
-      return ((b.consensusUpsidePct ?? -Infinity) - (a.consensusUpsidePct ?? -Infinity))
         || tickerCmp(a, b)
     case 'portfolio': {
       const am = membershipRank(a.book?.membership)
