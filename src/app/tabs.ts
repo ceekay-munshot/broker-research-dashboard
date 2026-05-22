@@ -1,4 +1,4 @@
-// Customer-facing tabs. Five clean workflows, each answering one question.
+// Customer-facing tabs. Four clean workflows, each answering one question.
 // No long uppercase hints, no internal jargon — keep this as the surface
 // the investor actually sees.
 export const TABS = [
@@ -6,7 +6,6 @@ export const TABS = [
   { id: 'stocks',        label: 'Stocks' },
   { id: 'brokers',       label: 'Brokers' },
   { id: 'disagreements', label: 'Disagreements' },
-  { id: 'catalysts',     label: 'Catalysts' },
 ] as const
 
 // Hidden tabs — only reachable via the admin menu in the header.
