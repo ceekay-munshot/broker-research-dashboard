@@ -76,6 +76,11 @@ function toggle<K extends keyof FiltersState>(
 }
 
 export default function Sidebar({ brokers, stocks, filters, setFilters }: SidebarProps) {
+  const [brokerQuery, setBrokerQuery] = React.useState('')
+  const brokerSearch = brokerQuery.trim().toLowerCase()
+  const visibleBrokers = brokerSearch
+    ? brokers.filter((b) => b.name.toLowerCase().includes(brokerSearch))
+    : brokers
   return (
     <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
@@ -97,8 +102,14 @@ export default function Sidebar({ brokers, stocks, filters, setFilters }: Sideba
         </FilterSection>
 
         <FilterSection title="Broker" onReset={() => setFilters((p) => ({ ...p, brokerIds: [] }))}>
+          <input
+            value={brokerQuery}
+            onChange={(e) => setBrokerQuery(e.target.value)}
+            placeholder="Broker name…"
+            className="w-full bg-line/[0.03] border border-line/5 rounded px-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-accent/40"
+          />
           <div className="flex flex-col gap-1.5 max-h-52 overflow-y-auto pr-1">
-            {brokers.map((b) => (
+            {visibleBrokers.map((b) => (
               <Checkbox
                 key={b.id}
                 label={b.name}
