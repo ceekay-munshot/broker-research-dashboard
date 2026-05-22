@@ -12,7 +12,6 @@ import ReportDrawer from './components/ReportDrawer'
 import StockDrawer from './components/StockDrawer'
 
 import Today from './components/views/Today'
-import MyBook from './components/views/MyBook'
 import ByBroker from './components/views/ByBroker'
 import ByStock from './components/views/ByStock'
 import Disagreements from './components/views/Disagreements'
@@ -152,7 +151,6 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
   switch (tab) {
     // Customer-facing tabs (visible in main nav)
     case 'today':         return <Today         filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} setActiveTab={setActiveTab}/>
-    case 'portfolio':     return <MyBook        onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenDivergence={() => setActiveTab('disagreements')} onOpenBriefing={() => setActiveTab('today')}/>
     case 'stocks':        return <ByStock       filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport}/>
     case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker}/>
