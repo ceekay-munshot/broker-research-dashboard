@@ -42,6 +42,7 @@ import type { ConflictClosure } from '../../engine/types'
 import { buildConflictClosure } from '../../engine/conflictClosure'
 import type { DashboardServerOutput, FeedStatusPayload } from './types'
 import { extractNoteInsight } from './noteInsight'
+import { parseTp, validateTargetPrices } from './targetPrice'
 
 // ── Raw wire shape ───────────────────────────────────────────────────────
 
@@ -119,15 +120,6 @@ function stanceFromRating(r: Rating | null): Stance {
   if (r === 'Buy' || r === 'Overweight') return 'bullish'
   if (r === 'Sell' || r === 'Underweight') return 'bearish'
   return 'neutral'
-}
-
-/** Parse a target-price string: strips ₹, commas and spaces, then takes the
- *  first numeric run. `","`, `""`, `"N/A"`, non-positive values → null. */
-function parseTp(raw: string): number | null {
-  const m = raw.replace(/[,\s₹]/g, '').match(/\d+(?:\.\d+)?/)
-  if (!m) return null
-  const n = Number(m[0])
-  return Number.isFinite(n) && n > 0 ? n : null
 }
 
 /** Filename → human-readable report title. */
@@ -305,31 +297,70 @@ interface Candidate {
   readonly tp: number | null
 }
 
-/** Collapse a report's NER map into at most one Candidate per ticker. */
-function candidatesFor(ner: Record<string, RawNer>): Candidate[] {
-  const byTicker = new Map<string, Candidate>()
+/** A candidate before target-price validation — carries the raw NER tp. */
+interface RawCandidate {
+  readonly ticker: string
+  readonly entityName: string
+  readonly rating: Rating | null
+  readonly rawNerTp: string
+  readonly parsedNerTp: number | null
+}
+
+/** Collapse a report's NER map into at most one Candidate per ticker.
+ *  Two passes: collect raw candidates first so the candidate count is known,
+ *  then validate each target price — explicit-TP recovery is scoped per
+ *  candidate when the upload covers more than one stock. */
+function candidatesFor(
+  ner: Record<string, RawNer>,
+  textBody: string,
+  subject: string,
+): Candidate[] {
+  // Pass 1 — raw candidates (NER tp parsed, not yet validated), deduped by ticker.
+  const byTicker = new Map<string, RawCandidate>()
   for (const [entityName, row] of Object.entries(ner)) {
     if (ENTITY_STOPLIST.has(entityName)) continue
     const ticker = str(row.ticker).trim()
     const tl = ticker.toLowerCase()
     if (!ticker || tl === 'no match' || tl === 'n/a' || BAD_TICKERS.has(ticker.toUpperCase())) continue
     const rating = mapRating(str(row.rating))
-    const tp = parseTp(str(row.tp))
-    if (rating === null && tp === null) continue
+    const rawNerTp = str(row.tp)
+    const parsedNerTp = parseTp(rawNerTp)
+    if (rating === null && parsedNerTp === null) continue
 
     const prev = byTicker.get(ticker)
     if (!prev) {
-      byTicker.set(ticker, { ticker, entityName, rating, tp })
+      byTicker.set(ticker, { ticker, entityName, rating, rawNerTp, parsedNerTp })
     } else {
+      const keepPrevTp = prev.parsedNerTp !== null
       byTicker.set(ticker, {
         ticker,
         entityName: entityName.length > prev.entityName.length ? entityName : prev.entityName,
         rating: prev.rating ?? rating,
-        tp: prev.tp ?? tp,
+        rawNerTp: keepPrevTp ? prev.rawNerTp : rawNerTp,
+        parsedNerTp: prev.parsedNerTp ?? parsedNerTp,
       })
     }
   }
-  return [...byTicker.values()]
+
+  // Pass 2 — validate target prices. Explicit-TP recovery is scoped per
+  // candidate (run-ownership of the email text) so one stock's stated TP is
+  // never assigned to another in a multi-stock email.
+  const rawCandidates = [...byTicker.values()]
+  const tps = validateTargetPrices(
+    rawCandidates.map((rc) => ({
+      companyName: rc.entityName,
+      ticker: rc.ticker,
+      rawNerTp: rc.rawNerTp,
+    })),
+    textBody,
+    subject,
+  )
+  return rawCandidates.map((rc, i) => ({
+    ticker: rc.ticker,
+    entityName: rc.entityName,
+    rating: rc.rating,
+    tp: tps[i],
+  }))
 }
 
 function inferReportType(title: string, isBody: boolean, isDigest: boolean): ReportType {
@@ -462,7 +493,7 @@ function buildServerOutputFromEmails(
         seenAttachmentFiles.add(fileKey)
       }
 
-      const candidates = candidatesFor(ner as Record<string, RawNer>)
+      const candidates = candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
       const isDigest = candidates.length >= 6
       const title = isBody ? (str(e.subject) || 'Email note') : cleanTitle(filename)
       const broker = brokers.resolve(filename, sender)
