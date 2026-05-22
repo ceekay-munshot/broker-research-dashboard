@@ -80,10 +80,19 @@ function toggle<K extends keyof FiltersState>(
 
 export default function Sidebar({ brokers, stocks, filters, setFilters }: SidebarProps) {
   const [brokerQuery, setBrokerQuery] = React.useState('')
+  const [stockQuery, setStockQuery] = React.useState('')
   const brokerSearch = brokerQuery.trim().toLowerCase()
   const visibleBrokers = brokerSearch
     ? brokers.filter((b) => b.name.toLowerCase().includes(brokerSearch))
     : brokers
+  const stockSearch = stockQuery.trim().toLowerCase()
+  const visibleStocks = stockSearch
+    ? stocks.filter(
+        (s) =>
+          s.ticker.toLowerCase().includes(stockSearch) ||
+          s.name.toLowerCase().includes(stockSearch),
+      )
+    : stocks.slice(0, 10)
   return (
     <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
@@ -126,11 +135,13 @@ export default function Sidebar({ brokers, stocks, filters, setFilters }: Sideba
 
         <FilterSection title="Stock" onReset={() => setFilters((p) => ({ ...p, tickers: [] }))}>
           <input
+            value={stockQuery}
+            onChange={(e) => setStockQuery(e.target.value)}
             placeholder="Ticker or name…"
             className="w-full bg-line/[0.03] border border-line/5 rounded px-2 py-1.5 text-[12px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-accent/40"
           />
           <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
-            {stocks.slice(0, 10).map((s) => (
+            {visibleStocks.map((s) => (
               <Checkbox
                 key={s.ticker}
                 label={`${s.ticker} · ${s.name}`}
