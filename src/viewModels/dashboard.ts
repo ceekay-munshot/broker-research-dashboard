@@ -2,7 +2,7 @@ import type {
   Broker, KpiSnapshot, ResearchReport, ReportSummary, IngestionStatus,
 } from '../domain'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
-import { buildFeedItem, indexBy, type FeedItemViewModel } from './shared'
+import { buildFeedItem, dedupeReports, indexBy, type FeedItemViewModel } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint, resolveSince } from '../app/filters'
 
@@ -50,7 +50,8 @@ export function buildDashboardViewModel(inputs: Inputs): DashboardViewModel {
   const brokerById = indexBy(inputs.brokers, (b) => b.id as string)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
 
-  const rollingFeed = [...inputs.reports]
+  // Dedupe re-forwarded copies so each note appears once in the rolling feed.
+  const rollingFeed = [...dedupeReports(inputs.reports)]
     .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
     .slice(0, 10)
     .map((r) => buildFeedItem(

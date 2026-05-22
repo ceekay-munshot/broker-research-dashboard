@@ -148,7 +148,11 @@ function isProfile(v: unknown): v is UpstreamNormalizationProfile {
 }
 
 function readActiveMode(): AdapterMode {
-  const raw = import.meta.env.VITE_RESEARCH_ADAPTER as string | undefined
+  // `import.meta.env` is statically replaced by Vite in the app build; the
+  // guarded read keeps this module importable from non-Vite contexts (tsx
+  // tests) where `import.meta` has no `env` property.
+  const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {}
+  const raw = env.VITE_RESEARCH_ADAPTER
   const mode = normalizeAdapterMode(raw)
   if (raw && raw !== mode && mode !== normalizeAdapterMode(undefined)) {
     // A legacy alias was mapped (e.g. 'http' → 'upstream'). Note the remap

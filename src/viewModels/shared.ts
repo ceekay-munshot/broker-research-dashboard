@@ -3,6 +3,7 @@ import type {
   BrokerId, ReportId, StockTicker, Iso8601, BrokerSource,
 } from '../domain'
 import { TONE_TEXT_CLASS, getRecommendationTone, getStanceTone } from '../lib/semanticColor'
+import { normalizeKey } from '../lib/reportSubject'
 
 // Shared view-model pieces used by more than one screen. Keep everything in
 // this file a pure data transform — no React, no side effects.
@@ -67,6 +68,37 @@ export function buildFeedItem(
     brokerEvidence: report.brokerResolution?.brokerEvidence ?? null,
     brokerSource: report.brokerResolution?.brokerSource ?? null,
   }
+}
+
+/** Collapse re-forwarded / re-ingested copies of the same note. Broker
+ *  research is inherently duplicative — a flash note arrives twice via
+ *  different forwarding paths — and upstream keeps every copy as its own
+ *  ResearchReport so audit lineage stays intact, which leaves a display feed
+ *  to dedupe. Two reports are the same note when they share broker, primary
+ *  ticker, publish day and normalized title — the content-aware key the
+ *  Worklog dedupe uses. Canonical copy: the one with a summary, else earliest
+ *  received, else lowest id. Returns a fresh array; callers sort as needed. */
+export function dedupeReports(
+  reports: readonly ResearchReport[],
+): readonly ResearchReport[] {
+  const byKey = new Map<string, ResearchReport>()
+  for (const r of reports) {
+    const key = `${r.brokerId}|${r.tickers[0] ?? ''}`
+      + `|${r.publishedAt.slice(0, 10)}|${normalizeKey(r.title)}`
+    const prev = byKey.get(key)
+    if (!prev || preferReport(r, prev)) byKey.set(key, r)
+  }
+  return [...byKey.values()]
+}
+
+/** True when `a` is the better canonical copy of a duplicate pair than `b`. */
+function preferReport(a: ResearchReport, b: ResearchReport): boolean {
+  const aSum = a.summaryId !== null
+  const bSum = b.summaryId !== null
+  if (aSum !== bSum) return aSum
+  const recv = a.receivedAt.localeCompare(b.receivedAt)
+  if (recv !== 0) return recv < 0
+  return a.id < b.id
 }
 
 export function indexBy<T, K extends string>(items: readonly T[], keyFn: (t: T) => K): ReadonlyMap<K, T> {

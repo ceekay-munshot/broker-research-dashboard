@@ -9,7 +9,7 @@ import {
 } from '../engine'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import {
-  buildFeedItem, indexBy, type FeedItemViewModel,
+  buildFeedItem, dedupeReports, indexBy, type FeedItemViewModel,
 } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint, resolveSince } from '../app/filters'
@@ -99,6 +99,10 @@ const CLASS_RANK: Record<ResolutionClass, number> = {
 }
 
 export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
+  // Collapse re-forwarded duplicates once, up front, so every card-level
+  // number — note count, stance mix, themes, latest notes — counts each
+  // distinct note exactly once.
+  const reports = dedupeReports(inputs.reports)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
   const brokerFilter = new Set<string>(inputs.filters.brokerIds as readonly string[])
   const brokers = inputs.brokers.filter((b) => brokerFilter.size === 0 || brokerFilter.has(b.id as string))
@@ -107,7 +111,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   const overlay = inputs.portfolio?.snapshot
     ? buildPortfolioOverlay({
         snapshot: inputs.portfolio.snapshot,
-        reports: inputs.reports,
+        reports,
         summaries: inputs.summaries,
         opinions: inputs.portfolio.opinions,
         closures: inputs.portfolio.closures,
@@ -121,7 +125,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   const postEventReviews = inputs.postEventReviews ?? null
 
   const cards = brokers.map<BrokerCardViewModel>((broker) => {
-    const theirs = inputs.reports
+    const theirs = reports
       .filter((r) => r.brokerId === broker.id)
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
 
