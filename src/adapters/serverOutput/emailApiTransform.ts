@@ -43,7 +43,7 @@ import { extractNoteInsight } from './noteInsight'
 import { parseTp, validateTargetPrices } from './targetPrice'
 import {
   buildEmailBrokerContext, resolveBrokerForNote, stripBrokerPrefixes,
-  brokerRecordForResolution, mixedSourcesBroker, MIXED_SOURCES_BROKER_ID,
+  brokerRecordForResolution, MIXED_SOURCES_BROKER_ID,
 } from './brokerResolver'
 import { classifyNoteEntity, STOCK_DISPLAY_THRESHOLD } from './entityRole'
 
@@ -353,10 +353,6 @@ function buildServerOutputFromEmails(
     return new Date(ms + delta).toISOString()
   }
 
-  // Set true when an email's source documents resolve to more than one
-  // research house — that email's brokerId becomes brk_mixed_sources.
-  let anyMixedEmail = false
-
   const emails: BrokerEmail[] = []
   const attachments: Attachment[] = []
   const sources: ReportSource[] = []
@@ -483,7 +479,6 @@ function buildServerOutputFromEmails(
       distinctEmailBrokers.size === 0 ? null
       : distinctEmailBrokers.size === 1 ? emailBrokerIds[0]
       : MIXED_SOURCES_BROKER_ID
-    if (distinctEmailBrokers.size > 1) anyMixedEmail = true
 
     emails.push({
       id: emailId,
@@ -680,10 +675,11 @@ function buildServerOutputFromEmails(
   }]
 
   // ── Broker catalog ─────────────────────────────────────────────────────
-  // One entry per research house referenced by a report (the real catalog
+  // One entry per research house referenced by a report — the real catalog
   // entry for mapped houses, a synthetic neutral bucket for Unmapped Research
-  // House / Other Sources / Unknown Broker), plus a zero-report Mixed Sources
-  // entry when an email bundled several houses.
+  // House / Other Sources / Unknown Broker. brk_mixed_sources is deliberately
+  // NOT added here: it is an email-level label only, never a grouping bucket,
+  // so it never surfaces as a card or in the broker filter.
 
   const resolutionByBrokerId = new Map<string, BrokerResolution>()
   for (const src of sources) {
@@ -691,7 +687,6 @@ function buildServerOutputFromEmails(
     if (!resolutionByBrokerId.has(key)) resolutionByBrokerId.set(key, src.brokerResolution)
   }
   const brokerList: Broker[] = [...resolutionByBrokerId.values()].map(brokerRecordForResolution)
-  if (anyMixedEmail) brokerList.push(mixedSourcesBroker())
 
   // KPI "brokers tracked" counts only genuine research houses.
   const researchHouseCount = [...resolutionByBrokerId.values()].filter(

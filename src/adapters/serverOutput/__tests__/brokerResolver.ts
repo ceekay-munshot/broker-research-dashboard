@@ -126,7 +126,8 @@ test('an email bundling two houses gets emails[].brokerId = brk_mixed_sources', 
   const brokerIds = new Set(out.reports.map((r) => r.brokerId as unknown as string))
   assertEqual(out.reports.length, 2, 'two reports')
   assertEqual(brokerIds.size, 2, 'two distinct report brokers')
-  assert(out.brokers.some((b) => b.name === 'Mixed Sources'), 'Mixed Sources catalog entry exists')
+  assert(!out.brokers.some((b) => b.name === 'Mixed Sources'),
+    'Mixed Sources is an email-level label only — never in the broker catalog')
 })
 
 test('an unmapped research-house domain → unmapped_research_house', () => {

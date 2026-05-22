@@ -571,21 +571,6 @@ export function brokerRecordForResolution(res: BrokerResolution): Broker {
   }
 }
 
-/** The synthetic "Mixed Sources" broker — an email-level label only; no report
- *  ever carries this id, so it never surfaces as a Brokers-tab card. */
-export function mixedSourcesBroker(): Broker {
-  return {
-    id: MIXED_SOURCES_BROKER_ID,
-    name: 'Mixed Sources',
-    shortName: 'Mixed',
-    senderDomains: [],
-    researchAliases: [],
-    coverageTags: [],
-    brandColor: NEUTRAL_COLOR,
-    website: null,
-  }
-}
-
 /** Every research-house name / short name / alias in the catalog — used to
  *  tell when an extracted entity is *any* broker's name (so it needs title or
  *  company-master evidence, not a passing prose mention, to be a stock). */
