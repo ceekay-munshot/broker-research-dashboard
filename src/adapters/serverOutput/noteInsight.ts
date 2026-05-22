@@ -12,6 +12,7 @@ import type { Rating, ReportType, ReportKeyNumber } from '../../domain'
 
 export interface NoteInsight {
   readonly thesis: string | null
+  readonly keyPoints: readonly string[]
   readonly keyNumbers: readonly ReportKeyNumber[]
   readonly watchpoints: readonly string[]
   readonly upsidePct: number | null
@@ -19,7 +20,7 @@ export interface NoteInsight {
 }
 
 export const EMPTY_NOTE_INSIGHT: NoteInsight = {
-  thesis: null, keyNumbers: [], watchpoints: [], upsidePct: null, actionLabel: null,
+  thesis: null, keyPoints: [], keyNumbers: [], watchpoints: [], upsidePct: null, actionLabel: null,
 }
 
 export interface NoteInsightInput {
@@ -34,23 +35,29 @@ export interface NoteInsightInput {
 /** Extract a structured insight from one forwarded broker email. Total —
  *  never throws; returns EMPTY_NOTE_INSIGHT-shaped data when nothing matches. */
 export function extractNoteInsight(input: NoteInsightInput): NoteInsight {
-  const body = cleanText(input.textBody)
+  const paragraphs = cleanText(input.textBody)
+  const body = paragraphs.join(' ')
   if (body.length < 40) {
     return { ...EMPTY_NOTE_INSIGHT, actionLabel: pickActionLabel(input, '', [], null) }
   }
   const keyNumbers = extractKeyNumbers(body)
   const upsidePct = extractUpside(body)
   const watchpoints = extractWatchpoints(body)
-  const thesis = extractThesis(splitSentences(body), input)
+  const pick = extractThesis(paragraphs, input)
+  const thesis = pick.text.trim() || null
+  const keyPoints = pick.paragraphIndex !== null
+    ? paragraphs.slice(pick.paragraphIndex + 1).filter((p) => p.length >= 40)
+    : []
   const actionLabel = pickActionLabel(input, body, keyNumbers, upsidePct)
-  return { thesis, keyNumbers, watchpoints, upsidePct, actionLabel }
+  return { thesis, keyPoints, keyNumbers, watchpoints, upsidePct, actionLabel }
 }
 
 // ── Cleaning ───────────────────────────────────────────────────────────────
-// Strip forwarded-metadata *lines* (dividers, From/Sent/To/Subject headers,
-// greetings, client noise) but keep the research prose. Truncate at the first
-// signature / disclaimer / "see our report" line so compliance boilerplate
-// never reaches extraction.
+// Split the forwarded email into clean prose *paragraphs*. Forwarded-metadata
+// blocks — dividers, From/Sent/To/Subject headers AND their wrapped
+// continuation lines — are dropped whole, as are greetings and client noise.
+// Blank lines mark paragraph boundaries. Extraction stops at the first
+// signature / disclaimer line so compliance boilerplate never reaches it.
 
 const FWD_DIVIDER = /^[-_=]{5,}/
 const FWD_HEADER  = /^\*?\s*(?:from|sent|to|date|cc|bcc|reply-to|subject)\s*:/i
@@ -59,24 +66,40 @@ const NOISE_LINE  = /^(?:get outlook|sent from my|download outlook|\[image:|<?ht
 const TAIL_MARKER =
   /^(?:best\s+regards|warm\s+regards|kind\s+regards|regards|thanks|thank\s+you|cheers)\b|^please\s+(?:find|follow|refer|see)\b|^disclaimer\b|this\s+(?:message|e-?mail|communication)\b[^.]{0,60}confidential|sebi\s+research\s+analyst\s+reg|compliance\s+officer|investments?\s+in\s+securities\s+market\s+are\s+subject|mutual\s+funds?\b[^.]{0,40}market\s+risk/i
 
-function cleanText(raw: string): string {
-  if (!raw) return ''
-  const kept: string[] = []
+/** Split a forwarded broker email into clean prose paragraphs. A forwarded
+ *  header block (opened by a From/Sent/To/Subject line) is dropped in full —
+ *  including wrapped continuation lines — until the next blank line or
+ *  divider, so a line-wrapped Subject can never leak into the prose. */
+function cleanText(raw: string): string[] {
+  if (!raw) return []
+  const paragraphs: string[] = []
+  let current: string[] = []
+  let inHeaderBlock = false
+
+  const flush = (): void => {
+    if (current.length === 0) return
+    const para = current.join(' ')
+      .replace(/<[^>\s]+>/g, ' ')   // inline <url> angle-bracket links
+      .replace(/[*_`]/g, ' ')       // markdown emphasis
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (para) paragraphs.push(para)
+    current = []
+  }
+
   for (const line of raw.split(/\r?\n/)) {
     const t = line.trim()
-    if (TAIL_MARKER.test(t)) break          // signature / disclaimer — stop here
-    if (!t) continue
-    if (FWD_DIVIDER.test(t)) continue
-    if (FWD_HEADER.test(t)) continue
+    if (TAIL_MARKER.test(t)) { flush(); break }                          // signature / disclaimer — stop
+    if (!t)                  { inHeaderBlock = false; flush(); continue } // blank — ends paragraph + header block
+    if (FWD_DIVIDER.test(t)) { inHeaderBlock = false; flush(); continue }
+    if (FWD_HEADER.test(t))  { flush(); inHeaderBlock = true; continue }  // header line — open block, drop
+    if (inHeaderBlock) continue                                          // wrapped header continuation — drop
     if (GREETING.test(t)) continue
     if (NOISE_LINE.test(t)) continue
-    kept.push(t)
+    current.push(t.replace(/^#+\s*/, ''))                                // strip a leading markdown heading marker
   }
-  return kept.join(' ')
-    .replace(/<[^>\s]+>/g, ' ')   // inline <url> angle-bracket links
-    .replace(/[*_`]/g, ' ')       // markdown emphasis
-    .replace(/\s+/g, ' ')
-    .trim()
+  flush()
+  return paragraphs
 }
 
 // ── Sentences ──────────────────────────────────────────────────────────────
@@ -88,10 +111,45 @@ function splitSentences(text: string): string[] {
 }
 
 // ── Thesis ─────────────────────────────────────────────────────────────────
+// The thesis is the analyst's own opening summary — the first substantial
+// prose paragraph, returned verbatim and complete (never clamped). The
+// paragraphs after it become keyPoints. When no paragraph reads as a lede,
+// fall back to the single best keyword-scored sentence.
 
 const RISK_HINT = /\b(?:risk|headwind|pressure|slowdown|weak|concern|overhang|decelerat|de-?growth)/i
 
-function extractThesis(sentences: readonly string[], input: NoteInsightInput): string | null {
+interface ThesisPick {
+  readonly text: string
+  /** Index of the paragraph the thesis was taken from, or null when it came
+   *  from the sentence-scoring fallback — then keyPoints stays empty. */
+  readonly paragraphIndex: number | null
+}
+
+/** Pick the note's thesis: the first substantial prose paragraph (the
+ *  analyst's lede), else the best keyword-scored sentence across the note. */
+function extractThesis(paragraphs: readonly string[], input: NoteInsightInput): ThesisPick {
+  for (let i = 0; i < paragraphs.length; i++) {
+    const text = stripLeadingTitle(paragraphs[i], input.subject)
+    if (text.length >= 80 && /[.!?]/.test(text) && !/^https?:\/\//i.test(text)) {
+      return { text, paragraphIndex: i }
+    }
+  }
+  return { text: bestScoredSentence(paragraphs, input) ?? '', paragraphIndex: null }
+}
+
+/** Drop a leading echo of the note headline — some analysts paste the subject
+ *  line into the body, and it must never prefix the thesis. */
+function stripLeadingTitle(para: string, subject: string): string {
+  const p = para.trim()
+  const words = subject.toLowerCase().match(/[a-z0-9]+/g)
+  if (!words || words.length < 4) return p
+  return p.replace(new RegExp(`^\\W*${words.join('\\W+')}\\W*`, 'i'), '').trim()
+}
+
+/** Fallback for notes with no clear lede paragraph: the highest keyword-scored
+ *  sentence across the whole note. */
+function bestScoredSentence(paragraphs: readonly string[], input: NoteInsightInput): string | null {
+  const sentences = splitSentences(paragraphs.join(' '))
   const company = input.companyName.trim().toLowerCase()
   const ticker = input.ticker.trim().toLowerCase()
   let best: { score: number; text: string } | null = null
@@ -107,16 +165,7 @@ function extractThesis(sentences: readonly string[], input: NoteInsightInput): s
     if (/https?:\/\//i.test(s)) score -= 5
     if (score > 0 && (best === null || score > best.score)) best = { score, text: s }
   }
-  return best ? clampThesis(best.text) : null
-}
-
-/** Trim to a clean one-liner (≤180 chars) at a clause boundary — never mid-word. */
-function clampThesis(s: string): string {
-  if (s.length <= 180) return s.trim()
-  const cut = s.slice(0, 180)
-  const clause = Math.max(cut.lastIndexOf(', '), cut.lastIndexOf('; '))
-  const end = clause > 80 ? clause : cut.lastIndexOf(' ')
-  return cut.slice(0, end > 0 ? end : 180).trim()
+  return best ? best.text : null
 }
 
 // ── Key numbers — generic metric dictionary ────────────────────────────────
