@@ -46,6 +46,7 @@ import {
   brokerRecordForResolution, MIXED_SOURCES_BROKER_ID, RESOLUTION_CLASS_ORDER,
 } from './brokerResolver'
 import { classifyNoteEntity, STOCK_DISPLAY_THRESHOLD } from './entityRole'
+import { extractSubjectName, normalizeKey } from '../../lib/reportSubject'
 
 // ── Raw wire shape ───────────────────────────────────────────────────────
 
@@ -222,15 +223,33 @@ interface RawCandidate {
   readonly parsedNerTp: number | null
 }
 
+/** A resolved covered-stock identity for one report — a display name plus an
+ *  optional ticker. Identity is decoupled from opinion: `ticker` is null for a
+ *  company NER never resolved (a title-only identity), and `rating` / `tp` are
+ *  null unless the source NER row actually carried a broker call. */
+interface StockIdentity {
+  readonly ticker: string | null
+  readonly name: string
+  readonly rating: Rating | null
+  readonly tp: number | null
+}
+
 /** Collapse a report's NER map into at most one Candidate per ticker.
- *  Two passes: collect raw candidates first so the candidate count is known,
- *  then validate each target price — explicit-TP recovery is scoped per
- *  candidate when the upload covers more than one stock. */
+ *
+ *  Identity is decoupled from opinion: every NER entity with a real ticker is
+ *  kept as a candidate stock, even with no rating and no target price. The
+ *  returned `opinionCount` is the number of candidates that *do* carry a call
+ *  (a rating or a NER TP) — the digest threshold reads that, never the full
+ *  identity list, so relaxing the gate cannot inflate a note into a digest.
+ *
+ *  Target-price validation runs only over the opinion-bearing rows — exactly
+ *  the set the validator saw before identity was decoupled — so per-candidate
+ *  TP recovery (run-ownership of the email text) is unchanged. */
 function candidatesFor(
   ner: Record<string, RawNer>,
   textBody: string,
   subject: string,
-): Candidate[] {
+): { candidates: Candidate[]; opinionCount: number } {
   // Pass 1 — raw candidates (NER tp parsed, not yet validated), deduped by ticker.
   const byTicker = new Map<string, RawCandidate>()
   for (const [entityName, row] of Object.entries(ner)) {
@@ -241,7 +260,10 @@ function candidatesFor(
     const rating = mapRating(str(row.rating))
     const rawNerTp = str(row.tp)
     const parsedNerTp = parseTp(rawNerTp)
-    if (rating === null && parsedNerTp === null) continue
+    // No rating/TP gate here — a real ticker is enough to identify a stock.
+    // Entities that are really the research house are dropped downstream by
+    // classifyNoteEntity; junk tickers stay filtered by ENTITY_STOPLIST /
+    // BAD_TICKERS above.
 
     const prev = byTicker.get(ticker)
     if (!prev) {
@@ -258,12 +280,15 @@ function candidatesFor(
     }
   }
 
-  // Pass 2 — validate target prices. Explicit-TP recovery is scoped per
-  // candidate (run-ownership of the email text) so one stock's stated TP is
-  // never assigned to another in a multi-stock email.
+  // Pass 2 — validate target prices for opinion-bearing rows only. Explicit-TP
+  // recovery is scoped per candidate (run-ownership of the email text) so one
+  // stock's stated TP is never assigned to another in a multi-stock email.
   const rawCandidates = [...byTicker.values()]
+  const opinionRows = rawCandidates.filter(
+    (rc) => rc.rating !== null || rc.parsedNerTp !== null,
+  )
   const tps = validateTargetPrices(
-    rawCandidates.map((rc) => ({
+    opinionRows.map((rc) => ({
       companyName: rc.entityName,
       ticker: rc.ticker,
       rawNerTp: rc.rawNerTp,
@@ -271,12 +296,15 @@ function candidatesFor(
     textBody,
     subject,
   )
-  return rawCandidates.map((rc, i) => ({
+  const tpByTicker = new Map<string, number | null>()
+  opinionRows.forEach((rc, i) => tpByTicker.set(rc.ticker, tps[i] ?? null))
+  const candidates = rawCandidates.map((rc) => ({
     ticker: rc.ticker,
     entityName: rc.entityName,
     rating: rc.rating,
-    tp: tps[i],
+    tp: tpByTicker.get(rc.ticker) ?? null,
   }))
+  return { candidates, opinionCount: opinionRows.length }
 }
 
 function inferReportType(title: string, isBody: boolean, isDigest: boolean): ReportType {
@@ -303,6 +331,10 @@ interface ReportSource {
   readonly receivedAt: Iso8601
   readonly isBody: boolean
   readonly candidates: readonly Candidate[]
+  /** Company name extracted from the note title — the identity fallback when
+   *  NER resolved no ticker for the covered company. Null for digests,
+   *  attachments, and titles with no isolable company phrase. */
+  readonly subjectName: string | null
   readonly reportType: ReportType
 }
 
@@ -418,8 +450,11 @@ function buildServerOutputFromEmails(
         seenAttachmentFiles.add(fileKey)
       }
 
-      const rawCandidates = candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
-      const isDigest = rawCandidates.length >= 6
+      const { candidates: rawCandidates, opinionCount } =
+        candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
+      // A digest rates many stocks — count opinion-bearing rows, never the
+      // relaxed identity list, so a single-stock note never becomes a digest.
+      const isDigest = opinionCount >= 6
       // Strip the extension, then a leading broker label (research PDFs are
       // named "<House>_<Stock>_…"), then normalise underscores to spaces.
       const filenameNoExt = filename.replace(/\.[a-z0-9]+$/i, '')
@@ -457,6 +492,21 @@ function buildServerOutputFromEmails(
         return true
       })
 
+      // Title-derived subject identity — the company a single-stock body note
+      // is about leads its subject line, even when NER resolved no ticker for
+      // it. Run it through the same broker-vs-stock classifier so a title that
+      // is only a research house's name never becomes a covered stock.
+      let subjectName: string | null =
+        isBody && !isDigest ? extractSubjectName(title) : null
+      if (subjectName) {
+        const subjCls = classifyNoteEntity(
+          { entityName: subjectName, ticker: '', hasRating: false, hasTargetPrice: false },
+          noteCtx, resolution,
+        )
+        if (subjCls.role === 'broker_only') subjectName = null
+        else if (subjCls.brokerStockConflict) brokerStockConflict = true
+      }
+
       sources.push({
         reportId: asReportId(`rpt_${uploadId}`),
         emailId,
@@ -468,6 +518,7 @@ function buildServerOutputFromEmails(
         receivedAt,
         isBody,
         candidates,
+        subjectName,
         reportType: inferReportType(title, isBody, isDigest),
       })
     }
@@ -517,35 +568,64 @@ function buildServerOutputFromEmails(
   const opinionAccum = new Map<string, OpinionAccum>()
   const stockNames = new Map<string, string>()
 
+  // Payload-wide name → ticker index, built from every covered-stock identity
+  // NER *did* resolve a ticker for. Lets a sibling note rescue a note where
+  // NER returned "No match" for the same company (e.g. one Apollo Hospitals
+  // email resolves APOLLOHOSP, so a second Apollo note inherits it by title).
+  const tickerByName = new Map<string, string>()
+  for (const src of sources) {
+    for (const c of src.candidates) {
+      const key = normalizeKey(c.entityName)
+      if (key && !tickerByName.has(key)) tickerByName.set(key, c.ticker)
+    }
+  }
+
   for (const src of sources) {
     const isDigest = src.reportType === 'morning_note' || src.reportType === 'sector_note'
 
-    // Best stock name seen per ticker (longest entity name that isn't the
-    // bare ticker itself).
-    for (const c of src.candidates) {
-      const prev = stockNames.get(c.ticker)
-      const cand = c.entityName.trim()
-      const usable = cand && cand.toUpperCase() !== c.ticker.toUpperCase()
-      if (usable && (!prev || cand.length > prev.length)) stockNames.set(c.ticker, cand)
-      else if (!prev) stockNames.set(c.ticker, c.ticker)
+    // Merge the NER identities with the title-derived subject identity into
+    // one identity list. The subject is resolved to a ticker via the
+    // payload-wide index — a sibling note may have resolved the same company.
+    const subjectTicker = src.subjectName
+      ? tickerByName.get(normalizeKey(src.subjectName)) ?? null
+      : null
+    const identities: StockIdentity[] = src.candidates.map((c) => ({
+      ticker: c.ticker, name: c.entityName, rating: c.rating, tp: c.tp,
+    }))
+    if (src.subjectName) {
+      const subjectKey = normalizeKey(src.subjectName)
+      const alreadyKnown = identities.some((i) =>
+        (subjectTicker !== null && i.ticker === subjectTicker) ||
+        normalizeKey(i.name) === subjectKey)
+      if (!alreadyKnown) {
+        identities.push({ ticker: subjectTicker, name: src.subjectName, rating: null, tp: null })
+      }
     }
 
-    // Primary subject: the candidate whose name/ticker appears in the title,
-    // preferring one that carries a rating; else the first rated candidate.
-    const titleLc = src.title.toLowerCase()
-    const inTitle = src.candidates.filter((c) =>
-      titleLc.includes(c.entityName.toLowerCase()) || titleLc.includes(c.ticker.toLowerCase()),
-    )
-    const primary =
-      inTitle.find((c) => c.rating !== null)
-      ?? inTitle[0]
-      ?? src.candidates.find((c) => c.rating !== null)
-      ?? src.candidates[0]
+    // Best stock name seen per ticker (longest entity name that isn't the
+    // bare ticker itself).
+    for (const i of identities) {
+      if (!i.ticker) continue
+      const prev = stockNames.get(i.ticker)
+      const cand = i.name.trim()
+      const usable = cand && cand.toUpperCase() !== i.ticker.toUpperCase()
+      if (usable && (!prev || cand.length > prev.length)) stockNames.set(i.ticker, cand)
+      else if (!prev) stockNames.set(i.ticker, i.ticker)
+    }
+
+    // Primary subject: the title identity, else the first rated identity,
+    // else the first identity. A tickerless primary yields a tickerless
+    // report whose display name the worklog derives from the title.
+    const subjectKey = src.subjectName ? normalizeKey(src.subjectName) : null
+    const primary: StockIdentity | null =
+      (subjectKey ? identities.find((i) => normalizeKey(i.name) === subjectKey) ?? null : null)
+      ?? identities.find((i) => i.rating !== null)
+      ?? identities[0]
       ?? null
 
     const reportTickers: StockTicker[] = isDigest
-      ? src.candidates.map((c) => asTicker(c.ticker))
-      : primary
+      ? identities.flatMap((i) => (i.ticker ? [asTicker(i.ticker)] : []))
+      : primary && primary.ticker
         ? [asTicker(primary.ticker)]
         : []
 
@@ -582,8 +662,8 @@ function buildServerOutputFromEmails(
         textBody: textBodyByEmail.get(src.emailId as unknown as string) ?? '',
         rating: primary.rating,
         reportType: src.reportType,
-        companyName: stockNames.get(primary.ticker) ?? primary.entityName,
-        ticker: primary.ticker,
+        companyName: (primary.ticker ? stockNames.get(primary.ticker) : null) ?? primary.name,
+        ticker: primary.ticker ?? '',
       })
       summaries.push({
         id: summaryId,
@@ -614,17 +694,18 @@ function buildServerOutputFromEmails(
     list.push(src.reportId)
     reportIdsByEmail.set(src.emailId as unknown as string, list)
 
-    // Every rated/priced candidate contributes an opinion for this broker.
-    for (const c of src.candidates) {
-      if (c.rating === null && c.tp === null) continue
-      const key = `${src.brokerId}|${c.ticker}`
+    // Every rated/priced identity with a ticker contributes an opinion for
+    // this broker. Title-only (tickerless) identities never carry a call.
+    for (const i of identities) {
+      if (!i.ticker || (i.rating === null && i.tp === null)) continue
+      const key = `${src.brokerId}|${i.ticker}`
       const prev = opinionAccum.get(key)
       if (!prev || src.receivedAt > prev.receivedAt) {
         opinionAccum.set(key, {
           brokerId: src.brokerId,
-          ticker: c.ticker,
-          rating: c.rating,
-          tp: c.tp,
+          ticker: i.ticker,
+          rating: i.rating,
+          tp: i.tp,
           reportId: src.reportId,
           receivedAt: src.receivedAt,
         })
@@ -656,7 +737,12 @@ function buildServerOutputFromEmails(
 
   // ── Stocks + sector ────────────────────────────────────────────────────
 
-  const tickerSet = new Set(opinions.map((o) => o.ticker as unknown as string))
+  // Every ticker referenced anywhere — by an opinion or by a report's
+  // resolved identity — gets a named Stock, so a report identified by ticker
+  // but with no broker call still resolves to its company name downstream.
+  const tickerSet = new Set<string>()
+  for (const o of opinions) tickerSet.add(o.ticker as unknown as string)
+  for (const r of reports) for (const t of r.tickers) tickerSet.add(t as unknown as string)
   const stocks: Stock[] = [...tickerSet].sort().map((t) => ({
     ticker: asTicker(t),
     name: stockNames.get(t) ?? t,
