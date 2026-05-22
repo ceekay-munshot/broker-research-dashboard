@@ -10,6 +10,7 @@ import type {
 } from '../viewModels/divergence'
 import { RATING_TEXT_COLOR, STANCE_TEXT_COLOR, formatPrice, formatShortDate } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
+import { RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -347,8 +348,7 @@ function LinkedReportRow({ r, onClick }: { r: LinkedReportVM; onClick: () => voi
     >
       <div className="flex items-center gap-2">
         <span
-          className="w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold text-ink-950"
-          style={{ background: r.brokerColor ?? '#94a3b8' }}
+          className={`w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold ${BROKER_GLYPH_CLASS}`}
         >{r.brokerShortName.slice(0, 3).toUpperCase()}</span>
         <span className="text-slate-300 text-[11.5px]">{r.brokerShortName}</span>
         <span className={`chip border border-line/10 ${STANCE_TEXT_COLOR[r.stance]} text-[9.5px]`}>{r.stance}</span>
@@ -404,15 +404,6 @@ const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
   mixed_cautious:      'Mixed · Bear tilt',
   unresolved:          'Unresolved',
   outlier_driven:      'Outlier-driven',
-}
-
-const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:   'border-emerald-500/50 text-emerald-300 bg-emerald-500/[0.06]',
-  consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
-  mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
-  mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
-  outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 
 function StateBadge({ state, strength }: { state: ResultantState; strength: StrengthBand }) {

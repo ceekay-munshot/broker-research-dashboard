@@ -3,6 +3,7 @@ import type { FiltersState } from '../../app/filters'
 import type { BrokerCardViewModel, BrokerBookActivityItem } from '../../viewModels/byBroker'
 import { useByBrokerViewModel } from '../../viewModels/byBroker'
 import { STANCE_TEXT_COLOR, formatShortDate } from '../../viewModels/shared'
+import { BROKER_GLYPH_CLASS } from '../../lib/semanticColor'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import BrokerRecentChanges from '../broker/BrokerRecentChanges'
 import BookBadge from '../portfolio/BookBadge'
@@ -64,8 +65,7 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-2.5">
           <div
-            className="w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-bold text-ink-950"
-            style={{ background: b.color ?? '#94a3b8' }}
+            className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-bold ${BROKER_GLYPH_CLASS}`}
           >
             {b.shortName.slice(0, 3).toUpperCase()}
           </div>

@@ -1,5 +1,5 @@
 // Read-only Inbox tab — surfaces what the system has delivered.
-// Click-through opens the relevant tab (briefing, my book, catalysts, sources).
+// Click-through opens the relevant tab (briefing, my book, sources).
 
 import { useInboxViewModel } from '../../hooks/useInboxViewModel'
 import { STATUS_CLASS, type InboxRowViewModel } from '../../viewModels/inbox'
@@ -86,7 +86,7 @@ function InboxRow({
     })
     if (!a.clickThrough) return
     const tab = a.clickThrough.tab
-    if (tab === 'briefing' || tab === 'mybook' || tab === 'catalysts' || tab === 'sources' || tab === 'worklog') {
+    if (tab === 'briefing' || tab === 'mybook' || tab === 'sources' || tab === 'worklog') {
       // Click-through emits a separate event so we can compute CTR.
       emitUsage({
         eventType: 'click_through_delivery',

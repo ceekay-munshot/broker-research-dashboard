@@ -2,6 +2,7 @@ import type {
   Broker, ResearchReport, ReportSummary, Stance, Rating,
   BrokerId, ReportId, StockTicker, Iso8601, BrokerSource,
 } from '../domain'
+import { TONE_TEXT_CLASS, getRecommendationTone, getStanceTone } from '../lib/semanticColor'
 
 // Shared view-model pieces used by more than one screen. Keep everything in
 // this file a pure data transform — no React, no side effects.
@@ -25,19 +26,23 @@ export interface FeedItemViewModel {
   readonly brokerSource: BrokerSource | null
 }
 
+// Rating / stance text colours, projected from the central semantic-tone
+// system (src/lib/semanticColor.ts). Kept as lookup records so the many
+// call-sites stay terse — but the colour *decision* lives in one place.
+// Underweight is bearish, so it resolves to red, not amber.
 export const STANCE_TEXT_COLOR: Readonly<Record<Stance, string>> = {
-  bullish: 'text-emerald-400',
-  neutral: 'text-slate-300',
-  bearish: 'text-rose-400',
+  bullish: TONE_TEXT_CLASS[getStanceTone('bullish')],
+  neutral: TONE_TEXT_CLASS[getStanceTone('neutral')],
+  bearish: TONE_TEXT_CLASS[getStanceTone('bearish')],
 }
 
 export const RATING_TEXT_COLOR: Readonly<Record<Rating, string>> = {
-  'Buy':         'text-emerald-400',
-  'Overweight':  'text-emerald-300',
-  'Hold':        'text-slate-300',
-  'Underweight': 'text-amber-400',
-  'Sell':        'text-rose-400',
-  'Not Rated':   'text-slate-500',
+  'Buy':         TONE_TEXT_CLASS[getRecommendationTone('Buy')],
+  'Overweight':  TONE_TEXT_CLASS[getRecommendationTone('Overweight')],
+  'Hold':        TONE_TEXT_CLASS[getRecommendationTone('Hold')],
+  'Underweight': TONE_TEXT_CLASS[getRecommendationTone('Underweight')],
+  'Sell':        TONE_TEXT_CLASS[getRecommendationTone('Sell')],
+  'Not Rated':   TONE_TEXT_CLASS[getRecommendationTone('Not Rated')],
 }
 
 export function buildFeedItem(

@@ -8,6 +8,10 @@ import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
+import {
+  RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
+  TONE_TEXT_CLASS, getChangeTone,
+} from '../../lib/semanticColor'
 
 interface ByStockProps {
   readonly filters: FiltersState
@@ -55,7 +59,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
               {data.brokers.map((b) => (
                 <th key={b.id} className="px-2 py-2 font-medium">
                   <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: b.brandColor ?? '#94a3b8' }}/>
+                    <span className={`w-1.5 h-1.5 rounded-full ${BROKER_DOT_CLASS}`}/>
                     <span className="uppercase tracking-wider text-[10.5px]">{b.shortName}</span>
                   </div>
                 </th>
@@ -208,7 +212,7 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
             {formatPrice(cell.targetPrice, cell.targetCurrency, 0)}
           </span>
           {cell.targetDelta !== null && cell.targetDelta !== 0 && (
-            <span className={`num text-[10px] ${cell.targetDelta > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            <span className={`num text-[10px] ${TONE_TEXT_CLASS[getChangeTone(cell.targetDelta)]}`}>
               {cell.targetDelta > 0 ? '+' : ''}{cell.targetDelta}
             </span>
           )}
@@ -270,15 +274,6 @@ const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
   mixed_cautious:      'Mixed · Bear tilt',
   unresolved:          'Unresolved',
   outlier_driven:      'Outlier-driven',
-}
-
-const STATE_COLOR: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:   'border-emerald-500/50 text-emerald-300 bg-emerald-500/[0.06]',
-  consensus_bearish:   'border-rose-500/50 text-rose-300 bg-rose-500/[0.06]',
-  mixed_constructive:  'border-emerald-400/30 text-emerald-300 bg-emerald-500/[0.03]',
-  mixed_cautious:      'border-rose-400/30 text-rose-300 bg-rose-500/[0.03]',
-  unresolved:          'border-slate-400/30 text-slate-300 bg-line/[0.02]',
-  outlier_driven:      'border-amber-500/40 text-amber-300 bg-amber-500/[0.04]',
 }
 
 function StateBadge({ state, strength, compact }: { state: ResultantState; strength: StrengthBand; compact?: boolean }) {

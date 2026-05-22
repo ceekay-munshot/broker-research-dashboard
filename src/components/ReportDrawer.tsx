@@ -4,6 +4,7 @@ import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
+import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -117,12 +118,11 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
               <span
-                className="w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold text-ink-950"
-                style={{ background: vm.broker.color ?? '#94a3b8' }}
+                className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
               {vm.actionLabel && (
-                <span className="ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-accent/25 bg-accent/[0.08] text-accent">
+                <span className={`ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(vm.actionLabel)]}`}>
                   {vm.actionLabel}
                 </span>
               )}
@@ -178,7 +178,7 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
                   <li key={idx} className="flex flex-col gap-1.5">
                     <div className="flex gap-2 text-[13px] text-slate-200">
                       <span className="text-slate-500 num w-5">{idx + 1}.</span>
-                      <span className="flex-1 leading-relaxed">{kp}</span>
+                      <span className="flex-1 leading-relaxed">{highlightFigures(kp)}</span>
                     </div>
                     <EvidenceList snippets={vm.evidence.keyPointByIndex.get(idx) ?? []} indent/>
                   </li>
@@ -404,6 +404,33 @@ function EvidenceList({ snippets, indent }: { snippets: readonly EvidenceSnippet
   )
 }
 
+// ── Figure highlighting ─────────────────────────────────────────────────────
+// Bold the data a reader scans for in note prose — percentages, prices,
+// multiples, bps, and the call verb (upgrade / downgrade / maintain /
+// initiate). Period markers like FY26 or 4Q are left plain so the emphasis
+// stays meaningful.
+
+const SCAN_TOKEN =
+  /~?(?:₹|Rs\.?|US\$|\$|INR)\s?\d[\d.,/–-]*(?:bn|cr|mn|m|k|trn|lakh)?|~?\d[\d.,/–-]*\s?%|~?\d[\d.,/–-]*\s?bps|~?\d[\d.,/]*\s?x(?![A-Za-z])|\b(?:up|down)grad(?:e|ed|es|ing)\b|\bmaintain(?:s|ed|ing)?\b|\binitiat(?:e|ed|es|ing|ion)\b/gi
+
+/** Render note prose with scannable data — figures and the call verb — wrapped
+ *  in <strong>. Display only: the stored thesis / key points stay verbatim. */
+function highlightFigures(text: string): React.ReactNode {
+  const out: React.ReactNode[] = []
+  const re = new RegExp(SCAN_TOKEN)
+  let last = 0
+  let m: RegExpExecArray | null
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index))
+    out.push(
+      <strong key={m.index} className="font-semibold text-slate-100">{m[0]}</strong>,
+    )
+    last = m.index + m[0].length
+  }
+  if (last < text.length) out.push(text.slice(last))
+  return out
+}
+
 // ── Broker note snapshot ────────────────────────────────────────────────────
 // Progressive-disclosure detail mined from the forwarded email body: why the
 // note matters, the numbers, and what to monitor. Absorbs the old standalone
@@ -429,7 +456,7 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
           {whyItMatters && (
             <div className="flex flex-col gap-1.5">
               <div className="section-title">Why it matters</div>
-              <p className="text-[13px] text-slate-200 leading-relaxed">{whyItMatters}</p>
+              <p className="text-[13px] text-slate-200 leading-relaxed">{highlightFigures(whyItMatters)}</p>
               <EvidenceList snippets={vm.evidence.thesis}/>
             </div>
           )}

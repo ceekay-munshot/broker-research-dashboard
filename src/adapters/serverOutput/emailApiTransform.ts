@@ -675,7 +675,7 @@ function buildServerOutputFromEmails(
         priorTargetPrice: null,
         targetCurrency: 'INR',
         thesis: insight.thesis ?? '',
-        keyPoints: [],
+        keyPoints: insight.keyPoints,
         themes: [],
         risks: [],
         catalysts: [],

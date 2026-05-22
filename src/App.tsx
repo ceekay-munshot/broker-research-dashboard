@@ -15,7 +15,6 @@ import Today from './components/views/Today'
 import ByBroker from './components/views/ByBroker'
 import ByStock from './components/views/ByStock'
 import Disagreements from './components/views/Disagreements'
-import Catalysts from './components/views/Catalysts'
 // Hidden tabs (admin menu only):
 import Inbox from './components/views/Inbox'
 import SectorFeed from './components/views/SectorFeed'
@@ -154,7 +153,6 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab
     case 'stocks':        return <ByStock       filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport}/>
     case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker}/>
-    case 'catalysts':     return <Catalysts     onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} onOpenBriefing={() => setActiveTab('today')}/>
 
     // Admin/operator tabs (reachable only via the AdminMenu in the header)
     case 'inbox':         return <Inbox setActiveTab={setActiveTab}/>

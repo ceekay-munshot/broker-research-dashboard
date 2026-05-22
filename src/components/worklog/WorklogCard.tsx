@@ -1,5 +1,8 @@
 import type { WorklogItem } from '../../viewModels/worklog'
 import { STANCE_TEXT_COLOR, RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
+import {
+  TONE_TEXT_CLASS, TONE_CHIP_CLASS, getSignificanceTone, getChangeTone, BROKER_GLYPH_CLASS,
+} from '../../lib/semanticColor'
 import BookBadge from '../portfolio/BookBadge'
 import RankCompareChip from '../adaptiveRanking/RankCompareChip'
 import { adaptiveRankingFlags } from '../../engine'
@@ -37,10 +40,9 @@ export default function WorklogCard({ item, selected, onClick }: WorklogCardProp
         {item.priority.bucket}
       </span>
 
-      {/* Broker glyph */}
+      {/* Broker glyph — neutral identity marker, never a sentiment hue */}
       <span
-        className="w-6 h-6 rounded-sm flex-shrink-0 flex items-center justify-center text-[9.5px] font-bold text-ink-950 mt-0.5"
-        style={{ background: item.brokerColor ?? '#94a3b8' }}
+        className={`w-6 h-6 rounded-sm flex-shrink-0 flex items-center justify-center text-[9.5px] font-bold mt-0.5 ${BROKER_GLYPH_CLASS}`}
       >{item.brokerShortName.slice(0, 3).toUpperCase()}</span>
 
       {/* Ticker */}
@@ -129,11 +131,7 @@ function renderChangePill(item: WorklogItem) {
   const c = item.change
   if (!c) return null
   const bucket = c.significance.bucket
-  const tone =
-    bucket === 'major'          ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
-    : bucket === 'moderate'     ? 'text-amber-400 border-amber-500/30 bg-amber-500/10'
-    : bucket === 'first_coverage' ? 'text-accent border-accent/30 bg-accent/10'
-    :                             'text-slate-500 border-slate-500/20 bg-line/[0.02]'
+  const tone = TONE_CHIP_CLASS[getSignificanceTone(bucket)]
   const label =
     bucket === 'major'          ? '▲ major change'
     : bucket === 'moderate'     ? '▲ moderate change'
@@ -151,7 +149,7 @@ function formatTargetChange(item: WorklogItem): { text: string; tone: string } |
   if (item.targetChangeAbs === null || item.targetChangePct === null) return null
   if (item.targetChangeAbs === 0) return null
   const sign = item.targetChangeAbs > 0 ? '▲' : '▼'
-  const tone = item.targetChangeAbs > 0 ? 'text-emerald-400' : 'text-rose-400'
+  const tone = TONE_TEXT_CLASS[getChangeTone(item.targetChangeAbs)]
   return { text: `${sign} ${Math.abs(item.targetChangePct).toFixed(1)}%`, tone }
 }
 

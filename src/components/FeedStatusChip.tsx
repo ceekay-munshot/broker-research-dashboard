@@ -3,7 +3,11 @@ import { getServerOutputAdapter } from '../adapters'
 import {
   buildFeedStatusViewModel, type FeedStatusTone,
 } from '../viewModels/feedStatus'
+import { TONE_TEXT_CLASS, getFeedStatusTone } from '../lib/semanticColor'
 
+// Dot fill keeps its own literal map: the glow shadow is intrinsic to the
+// "live pulse" affordance and cannot be expressed by the generic tone classes.
+// The base hues still mirror the semantic tones (green / amber / red / grey).
 const TONE_DOT: Record<FeedStatusTone, string> = {
   live:    'bg-emerald-400 shadow-[0_0_8px_#34d399]',
   idle:    'bg-slate-400',
@@ -12,12 +16,13 @@ const TONE_DOT: Record<FeedStatusTone, string> = {
   waiting: 'bg-slate-500',
 }
 
+// Text colour is projected straight from the central semantic-tone system.
 const TONE_TEXT: Record<FeedStatusTone, string> = {
-  live:    'text-emerald-300',
-  idle:    'text-slate-300',
-  delayed: 'text-amber-300',
-  error:   'text-rose-300',
-  waiting: 'text-slate-400',
+  live:    TONE_TEXT_CLASS[getFeedStatusTone('live')],
+  idle:    TONE_TEXT_CLASS[getFeedStatusTone('idle')],
+  delayed: TONE_TEXT_CLASS[getFeedStatusTone('delayed')],
+  error:   TONE_TEXT_CLASS[getFeedStatusTone('error')],
+  waiting: TONE_TEXT_CLASS[getFeedStatusTone('waiting')],
 }
 
 function relativeTime(iso: string | null, fromMs: number = Date.now()): string {
