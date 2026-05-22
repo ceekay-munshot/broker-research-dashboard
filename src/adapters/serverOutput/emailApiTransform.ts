@@ -17,9 +17,12 @@
 //     Unmapped Research House / Other Sources / Unknown Broker buckets.
 //   • One report == one deduped document. Re-forwarded PDFs (same filename)
 //     collapse; email bodies become their own reports.
-//   • An extracted row is kept only when it carries a real rating or a real
-//     target price. A short denylist drops obviously-wrong ticker matches
-//     and non-company entities (regulators, accounting terms).
+//   • Stock identity is decoupled from broker opinion: an extracted row with
+//     a real ticker is a covered stock even with no rating or target, and a
+//     note's subject company is also recovered from its title. A row yields
+//     an *opinion* only when it carries a rating or a target price. A short
+//     denylist drops obviously-wrong ticker matches and non-company entities
+//     (regulators, accounting terms).
 //   • Every documented response shape is accepted; pages are merged, emails
 //     deduped by id, and sorted by received_at descending.
 //

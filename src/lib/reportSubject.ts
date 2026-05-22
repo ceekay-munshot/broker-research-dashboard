@@ -36,6 +36,30 @@ const SUBJECT_PREFIXES: readonly string[] = [
   'results', 'result', 'update', 'initiation',
 ]
 
+// Generic market / macro / strategy / newsletter subjects: these lead with a
+// topic, not a company ("Daily Summary: …", "Morning Insight 24 Apr 2026",
+// "India Strategy: …"). A subject whose extracted name is — or leads with —
+// one of these is treated as no company identity, never a fake stock.
+const GENERIC_SUBJECT_PHRASES: readonly string[] = [
+  'daily summary', 'market wrap', 'india strategy', 'morning insight',
+  'morning brief', 'morning note', 'daily note', 'market update',
+  'economy update', 'macro update', 'sector update',
+  'strategy', 'nifty', 'sensex', 'market', 'economy', 'macro',
+]
+
+/** True when an extracted subject name is a generic market/macro/strategy
+ *  topic rather than a company — matched on a leading whole-word prefix, so
+ *  "Nifty Outlook" and "Morning Insight 24 Apr" are caught while a real
+ *  company is not (none in coverage leads with one of these words). */
+function isGenericSubjectName(name: string): boolean {
+  const words = normalizeKey(name).split(' ').filter(Boolean)
+  if (words.length === 0) return true
+  return GENERIC_SUBJECT_PHRASES.some((phrase) => {
+    const pw = phrase.split(' ')
+    return pw.length <= words.length && pw.every((w, i) => w === words[i])
+  })
+}
+
 /**
  * Extract the covered-company name from a (broker-prefix-stripped) note
  * title. Returns null when nothing that plausibly looks like a company name
@@ -68,6 +92,8 @@ export function extractSubjectName(title: string): string | null {
   if (!/[A-Za-z]/.test(s)) return null
   if (!/^[A-Za-z0-9]/.test(s)) return null
   if (s.split(/\s+/).length > 7) return null
+  // A generic market / macro / strategy subject is a topic, not a company.
+  if (isGenericSubjectName(s)) return null
   return s
 }
 

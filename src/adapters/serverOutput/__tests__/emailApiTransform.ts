@@ -183,6 +183,19 @@ test('extractSubjectName isolates the company from a note title', () => {
   )
 })
 
+test('extractSubjectName rejects generic market / macro / strategy subjects', () => {
+  assertEqual(extractSubjectName('Daily Summary: Fed concerns impact markets'), null, 'daily summary')
+  assertEqual(extractSubjectName('Market Wrap: Banks rally'), null, 'market wrap')
+  assertEqual(extractSubjectName('India Strategy: Election update'), null, 'india strategy')
+  assertEqual(extractSubjectName('Morning Insight 24 April 2026'), null, 'morning insight + date')
+  assertEqual(extractSubjectName('Sector Update: Hospitals'), null, 'sector update')
+  assertEqual(extractSubjectName('Economy Update: RBI commentary'), null, 'economy update')
+  assertEqual(extractSubjectName('Daily Note: market commentary'), null, 'daily note')
+  // Real company titles still resolve.
+  assertEqual(extractSubjectName('Apollo Hospitals (4QFY26): Strong quarter'), 'Apollo Hospitals', 'company kept')
+  assertEqual(extractSubjectName('PI Industries: Operating miss - Hold'), 'PI Industries', 'company kept')
+})
+
 // ── Summary ───────────────────────────────────────────────────────────────
 
 const passed = results.filter((r) => r.ok).length
