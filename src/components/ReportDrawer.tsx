@@ -110,7 +110,12 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
                 style={{ background: vm.broker.color ?? '#94a3b8' }}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
-              <span className="chip border border-line/10 text-slate-400 ml-auto">
+              {vm.actionLabel && (
+                <span className="ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-accent/25 bg-accent/[0.08] text-accent">
+                  {vm.actionLabel}
+                </span>
+              )}
+              <span className={`chip border border-line/10 text-slate-400 ${vm.actionLabel ? '' : 'ml-auto'}`}>
                 {REPORT_TYPE_LABEL[vm.reportType]}
               </span>
             </div>
@@ -151,13 +156,8 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
             </div>
           ) : null}
 
-          {/* Thesis */}
-          {vm.thesis && (
-            <Section title="Thesis">
-              <p className="text-[13px] text-slate-200 leading-relaxed">{vm.thesis}</p>
-              <EvidenceList snippets={vm.evidence.thesis}/>
-            </Section>
-          )}
+          {/* Broker note snapshot — absorbs the old standalone Thesis section */}
+          <BrokerNoteSnapshot vm={vm}/>
 
           {/* Key points */}
           {vm.keyPoints.length > 0 && (
@@ -355,5 +355,78 @@ function EvidenceList({ snippets, indent }: { snippets: readonly EvidenceSnippet
         </div>
       ))}
     </div>
+  )
+}
+
+// ── Broker note snapshot ────────────────────────────────────────────────────
+// Progressive-disclosure detail mined from the forwarded email body: why the
+// note matters, the numbers, and what to monitor. Absorbs the old standalone
+// "Thesis" section so the thesis renders exactly once.
+
+function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
+  const whyItMatters = vm.thesis?.trim() || null
+  const numbers = vm.keyNumbers
+  const watch = vm.watchpoints
+  const nothingExtracted = !whyItMatters && numbers.length === 0 && watch.length === 0
+
+  // Nothing mined and no PDF to fall back to — render nothing.
+  if (nothingExtracted && !vm.sourceDocument) return null
+
+  return (
+    <Section title="Broker note snapshot">
+      {nothingExtracted ? (
+        <p className="text-[12px] text-slate-400">
+          Deep note details not extracted yet — open original PDF.
+        </p>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {whyItMatters && (
+            <div className="flex flex-col gap-1.5">
+              <div className="section-title">Why it matters</div>
+              <p className="text-[13px] text-slate-200 leading-relaxed">{whyItMatters}</p>
+              <EvidenceList snippets={vm.evidence.thesis}/>
+            </div>
+          )}
+          {numbers.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="section-title">Numbers that matter</div>
+              <div className="flex flex-wrap gap-1.5">
+                {vm.upsidePct !== null && (
+                  <KeyNumberChip label="Upside" value={`+${Math.round(vm.upsidePct)}%`}/>
+                )}
+                {numbers.map((n) => (
+                  <KeyNumberChip key={n.label} label={n.label} value={n.value}/>
+                ))}
+              </div>
+            </div>
+          )}
+          {watch.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <div className="section-title">What to watch</div>
+              <div className="flex flex-wrap gap-1.5">
+                {watch.map((w) => (
+                  <span
+                    key={w}
+                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] border border-line/5 bg-line/[0.04] text-slate-300"
+                  >{w}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </Section>
+  )
+}
+
+/** Compact label + value chip for "Numbers that matter". Deliberately not the
+ *  global `.chip` class — that is uppercase and would mangle values like
+ *  "23.7%" or "21/16x EBITDA". */
+function KeyNumberChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5 px-2 py-1 rounded border border-line/5 bg-line/[0.04]">
+      <span className="text-[10.5px] text-slate-400">{label}</span>
+      <span className="num text-[11.5px] font-medium text-slate-200">{value}</span>
+    </span>
   )
 }

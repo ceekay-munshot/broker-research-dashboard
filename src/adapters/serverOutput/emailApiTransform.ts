@@ -41,6 +41,7 @@ import {
 import type { ConflictClosure } from '../../engine/types'
 import { buildConflictClosure } from '../../engine/conflictClosure'
 import type { DashboardServerOutput, FeedStatusPayload } from './types'
+import { extractNoteInsight } from './noteInsight'
 
 // ── Raw wire shape ───────────────────────────────────────────────────────
 
@@ -409,9 +410,13 @@ function buildServerOutputFromEmails(
   const attachments: Attachment[] = []
   const sources: ReportSource[] = []
   const seenAttachmentFiles = new Set<string>()
+  // emailId → raw text_body, for deterministic note-insight extraction at
+  // ReportSummary-construction time (the source loop below has no `text_body`).
+  const textBodyByEmail = new Map<string, string>()
 
   for (const e of rawEmails) {
     const emailId = asEmailId(`eml_${str(e.id)}`)
+    textBodyByEmail.set(emailId as unknown as string, str(e.text_body))
     const receivedAt = anchorIso(str(e.received_at))
     const rawUploads = Array.isArray(e.uploads) ? (e.uploads as RawUpload[]) : []
     const sender = resolveSender(e)
@@ -567,6 +572,17 @@ function buildServerOutputFromEmails(
     })
 
     if (summaryId && primary) {
+      // Adapter-level MVP enrichment: mine the forwarded email body for a
+      // thesis, key numbers, watchpoints and an action label. rating / TP
+      // stay sourced from NER — the extractor only *adds* fields.
+      const insight = extractNoteInsight({
+        subject: src.title,
+        textBody: textBodyByEmail.get(src.emailId as unknown as string) ?? '',
+        rating: primary.rating,
+        reportType: src.reportType,
+        companyName: stockNames.get(primary.ticker) ?? primary.entityName,
+        ticker: primary.ticker,
+      })
       summaries.push({
         id: summaryId,
         orgId: ORG_ID,
@@ -576,7 +592,7 @@ function buildServerOutputFromEmails(
         targetPrice: primary.tp,
         priorTargetPrice: null,
         targetCurrency: 'INR',
-        thesis: '',
+        thesis: insight.thesis ?? '',
         keyPoints: [],
         themes: [],
         risks: [],
@@ -585,6 +601,10 @@ function buildServerOutputFromEmails(
         generatedAt: src.receivedAt,
         generatorVersion: 'email-api-preview',
         evidenceIds: [],
+        keyNumbers: insight.keyNumbers,
+        watchpoints: insight.watchpoints,
+        upsidePct: insight.upsidePct,
+        actionLabel: insight.actionLabel,
       })
     }
 

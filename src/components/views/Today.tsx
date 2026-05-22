@@ -19,7 +19,7 @@ import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../viewModels/arb'
-import { formatPrice } from '../../viewModels/shared'
+import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -49,7 +49,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
   const disagreeRows = rows
     .filter((r) => r.arbVerdict.band === 'high' || r.arbVerdict.band === 'moderate')
     .slice(0, 6)
-  const changedItems = (worklog.data?.items ?? []).slice(0, 6)
+  const changedItems = [...(worklog.data?.items ?? [])].sort(compareForOverview).slice(0, 6)
   const upcomingCatalysts = (catalysts.data?.upcoming7d ?? []).slice(0, 4)
 
   // The forwarded-email feed carries no catalyst data today, so the catalysts
@@ -235,29 +235,78 @@ function ConsensusText({ cr }: { cr: ConsensusRating }) {
 // ── What changed today ──────────────────────────────────────────────────────
 
 function ChangedRow({ item, onSelect }: { item: WorklogItem; onSelect: () => void }) {
+  const company = item.stockName ?? item.ticker ?? '—'
+  const thesis = item.thesis?.trim() || null
+  const numbers = item.keyNumbers.slice(0, 3)
+  const extraNumbers = item.keyNumbers.length - numbers.length
+  const hasSignals = item.actionLabel !== null || item.keyNumbers.length > 0
+
   return (
     <li className="border-b border-line/5 last:border-0">
       <button
         onClick={onSelect}
-        className="w-full text-left px-4 py-2.5 hover:bg-line/[0.03] transition-colors flex items-center gap-3"
+        className="w-full text-left px-4 py-2.5 hover:bg-line/[0.03] transition-colors flex flex-col gap-1"
       >
-        <span className="num text-slate-100 text-[13px] font-semibold w-16 shrink-0">{item.ticker ?? '—'}</span>
-        <span className="text-[12px] text-slate-300 truncate flex-1 min-w-0" title={item.headline || item.title}>
-          {item.headline || item.title}
-        </span>
-        <span className="text-[11px] text-slate-400 shrink-0">{item.brokerShortName}</span>
-        {item.rating && <span className="text-[11px] text-slate-300 shrink-0">{item.rating}</span>}
-        {item.targetPrice != null && (
-          <span className="text-[11px] text-slate-300 num shrink-0">
-            TP {formatPrice(item.targetPrice, item.targetCurrency, 0)}
+        {/* Identity — company · broker · rating · target · upside */}
+        <div className="flex items-center gap-2 min-w-0 text-[11.5px]">
+          <span className="text-slate-100 text-[13px] font-semibold truncate">{company}</span>
+          <Dot/>
+          <span className="text-slate-400 shrink-0">{item.brokerShortName}</span>
+          {item.rating && (
+            <><Dot/><span className={`shrink-0 ${RATING_TEXT_COLOR[item.rating]}`}>{item.rating}</span></>
+          )}
+          {item.targetPrice != null && (
+            <><Dot/><span className="text-slate-300 num shrink-0">TP {formatPrice(item.targetPrice, item.targetCurrency, 0)}</span></>
+          )}
+          {item.upsidePct != null && (
+            <><Dot/><span className={`num shrink-0 ${item.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {item.upsidePct >= 0 ? '+' : ''}{Math.round(item.upsidePct)}%
+            </span></>
+          )}
+          <span className="text-[10.5px] text-slate-500 num shrink-0 ml-auto pl-2">
+            {relativeTime(item.receivedAt)}
           </span>
+        </div>
+
+        {/* Why it matters — extracted thesis, else the headline */}
+        {thesis ? (
+          <div className="text-[12px] text-slate-300 truncate" title={thesis}>
+            <span className="text-slate-500">Why it matters: </span>{thesis}
+          </div>
+        ) : (
+          <div className="text-[12px] text-slate-400 truncate" title={item.headline || item.title}>
+            {item.headline || item.title}
+          </div>
         )}
-        <span className="text-[10.5px] text-slate-500 num shrink-0 w-16 text-right">
-          {relativeTime(item.receivedAt)}
-        </span>
+
+        {/* Signals — one action label + up to three key-number chips */}
+        {hasSignals && (
+          <div className="flex items-center gap-1.5 overflow-hidden">
+            {item.actionLabel && (
+              <span className="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border border-accent/25 bg-accent/[0.08] text-accent">
+                {item.actionLabel}
+              </span>
+            )}
+            {numbers.map((n) => (
+              <span
+                key={n.label}
+                className="shrink-0 whitespace-nowrap num text-[10.5px] px-1.5 py-0.5 rounded border border-line/5 bg-line/[0.04] text-slate-300"
+              >
+                {n.label} {n.value}
+              </span>
+            ))}
+            {extraNumbers > 0 && (
+              <span className="shrink-0 text-[10.5px] text-slate-500">+{extraNumbers}</span>
+            )}
+          </div>
+        )}
       </button>
     </li>
   )
+}
+
+function Dot() {
+  return <span className="text-slate-600 shrink-0" aria-hidden>·</span>
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -270,4 +319,20 @@ function relativeTime(iso: string, fromMs: number = Date.now()): string {
   if (ms < 3_600_000)  return `${Math.floor(ms / 60_000)}m ago`
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`
   return `${Math.floor(ms / 86_400_000)}d ago`
+}
+
+/** Overview-only re-rank for the "What changed today" teaser. Reads threaded
+ *  view-model fields only — never re-parses email text, never replaces the
+ *  worklog builder's canonical order. Tier 0: a decision-ready note (rating +
+ *  target + upside + thesis). Tier 1: a big-upside call. Tier 2: the rest.
+ *  Newest-first within a tier; Array.sort is stable so ties keep builder order. */
+function compareForOverview(a: WorklogItem, b: WorklogItem): number {
+  const tier = (it: WorklogItem): number => {
+    if (it.rating !== null && it.targetPrice !== null && it.upsidePct !== null && !!it.thesis) return 0
+    if (it.upsidePct !== null && it.upsidePct >= 15) return 1
+    return 2
+  }
+  const byTier = tier(a) - tier(b)
+  if (byTier !== 0) return byTier
+  return b.receivedAt.localeCompare(a.receivedAt)
 }

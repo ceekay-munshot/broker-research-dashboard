@@ -13,7 +13,7 @@
 import type {
   BrokerId, ReportId, SectorId, StockTicker,
   Stance, Rating, Iso8601, IsoCurrency, EmailId,
-  PortfolioRelevance, PortfolioMembership,
+  PortfolioRelevance, PortfolioMembership, ReportKeyNumber,
 } from '../../domain'
 import type { ReportChangeSet } from '../brokerMemory/types'
 
@@ -78,6 +78,15 @@ export interface WorklogItem {
   readonly title: string
   readonly headline: string
   readonly summaryShort: string
+
+  // Note insight — deep detail mined from the forwarded email body by the
+  // adapter-level extractor. Display-only; null / empty when nothing was
+  // confidently extracted (mock / HTTP feeds, or a thin email body).
+  readonly thesis: string | null
+  readonly keyNumbers: readonly ReportKeyNumber[]
+  readonly watchpoints: readonly string[]
+  readonly upsidePct: number | null
+  readonly actionLabel: string | null
 
   // Signal
   readonly stance: Stance

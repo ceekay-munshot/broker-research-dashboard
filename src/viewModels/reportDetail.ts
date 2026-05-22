@@ -2,7 +2,7 @@ import type {
   Broker, ResearchReport, ReportSummary, EvidenceSnippet,
   Sector, Stock, BrokerEmail, Attachment,
   ReportId, EmailProcessingStatus, Rating, Stance, ReportCatalyst,
-  EvidenceSupportingField, StockTicker,
+  EvidenceSupportingField, StockTicker, ReportKeyNumber,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
@@ -69,6 +69,13 @@ export interface ReportDetailViewModel {
   readonly risks: readonly string[]
   readonly catalysts: readonly ReportCatalyst[]
   readonly confidence: number | null
+
+  // Note insight — deep detail mined from the forwarded email body.
+  // Display-only; empty / null when nothing was confidently extracted.
+  readonly keyNumbers: readonly ReportKeyNumber[]
+  readonly watchpoints: readonly string[]
+  readonly upsidePct: number | null
+  readonly actionLabel: string | null
 
   readonly evidence: EvidenceBySection
   readonly evidenceCount: number
@@ -199,6 +206,11 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     risks: summary?.risks ?? [],
     catalysts: summary?.catalysts ?? [],
     confidence: summary?.confidence ?? null,
+
+    keyNumbers: summary?.keyNumbers ?? [],
+    watchpoints: summary?.watchpoints ?? [],
+    upsidePct: summary?.upsidePct ?? null,
+    actionLabel: summary?.actionLabel ?? null,
 
     evidence: evidenceBySection,
     evidenceCount: evidence.length,

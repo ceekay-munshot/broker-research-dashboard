@@ -60,11 +60,25 @@ export interface ReportSummary {
   readonly generatedAt: Iso8601
   readonly generatorVersion: string
   readonly evidenceIds: readonly EvidenceId[]
+  // Note-insight enrichments — frontend-derived from forwarded email text by
+  // the deterministic extractor (src/adapters/serverOutput/noteInsight.ts).
+  // Optional: absent on HTTP / upstream / mock summaries.
+  readonly keyNumbers?: readonly ReportKeyNumber[]
+  readonly watchpoints?: readonly string[]
+  readonly upsidePct?: number | null
+  readonly actionLabel?: string | null
 }
 
 export interface ReportCatalyst {
   readonly label: string
   readonly expectedOn: Iso8601 | null
+}
+
+/** One labelled metric lifted verbatim from broker-note prose by the
+ *  deterministic note-insight extractor. Display-only — never an engine input. */
+export interface ReportKeyNumber {
+  readonly label: string
+  readonly value: string
 }
 
 // Which structured field in a ReportSummary this snippet backs. `fieldRef` is
