@@ -283,6 +283,20 @@ test('a house writing about itself → both, flagged brokerStockConflict', () =>
   assert(cls.brokerStockConflict, 'brokerStockConflict flagged — kept, never deleted')
 })
 
+test('a bare NER ticker with no title / master / prose evidence → unresolved', () => {
+  const cls = classifyNoteEntity(
+    { entityName: 'Zydus Lifesciences', ticker: 'ZYDUSLIFE', hasRating: false, hasTargetPrice: false },
+    {
+      cleanTitle: 'Pricol — Q4FY26 Result Update',
+      proseText: 'We maintain BUY on Pricol after a steady quarter.',
+      disclaimerText: '',
+      brokerPrefixTokens: [],
+    },
+    iiflRes,
+  )
+  assertEqual(cls.role, 'unresolved', 'no title / master / prose hit → unresolved, not a covered stock')
+})
+
 // ── Summary ───────────────────────────────────────────────────────────────
 
 const passed = results.filter((r) => r.ok).length
