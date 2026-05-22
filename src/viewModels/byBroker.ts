@@ -1,7 +1,7 @@
 import type {
   Broker, ResearchReport, ReportSummary, Stance,
   BrokerId, PortfolioSnapshot, BrokerStockOpinion, Stock,
-  CalibrationSnapshot, PostEventReview,
+  CalibrationSnapshot, PostEventReview, ResolutionClass,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import {
@@ -31,6 +31,10 @@ export interface BrokerCardViewModel {
   readonly latestReports: readonly FeedItemViewModel[]
   /** Module 18: items this broker published on book / watchlist names. */
   readonly bookActivity: BrokerBookActivity
+  /** How this broker was resolved — drives card ordering and labels. */
+  readonly resolutionClass: ResolutionClass | null
+  /** Reports flagged for QA (broker conflict or broker/stock overlap). */
+  readonly conflictCount: number
 }
 
 export interface BrokerBookActivity {
@@ -83,6 +87,15 @@ function bucketBaseline(b: 'critical' | 'high' | 'medium' | 'low' | 'none'): num
     case 'low':      return 20
     case 'none':     return 0
   }
+}
+
+/** Card order: real research houses first, then unmapped, then non-broker
+ *  buckets, then unresolved. */
+const CLASS_RANK: Record<ResolutionClass, number> = {
+  mapped: 0,
+  unmapped_research_house: 1,
+  other_source: 2,
+  unknown: 3,
 }
 
 export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
@@ -229,6 +242,11 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       }
     })()
 
+    const resolutionClass = theirs[0]?.brokerResolution?.resolutionClass ?? null
+    const conflictCount = theirs.filter(
+      (r) => r.brokerResolution?.brokerConflict || r.brokerStockConflict,
+    ).length
+
     return {
       brokerId: broker.id,
       name: broker.name,
@@ -241,19 +259,26 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       topThemes,
       latestReports,
       bookActivity,
+      resolutionClass,
+      conflictCount,
     }
   })
 
-  if (overlay && overlay.hasPortfolio) {
-    cards.sort((a, b) => {
-      if (a.bookActivity.onBookCount !== b.bookActivity.onBookCount) {
-        return b.bookActivity.onBookCount - a.bookActivity.onBookCount
-      }
-      return b.reportCount - a.reportCount
-    })
-  }
+  // Only brokers with reports surface as cards — zero-report buckets (e.g.
+  // "Mixed Sources") never appear. Order by resolution class, then activity.
+  const visible = cards.filter((c) => c.reportCount > 0)
+  visible.sort((a, b) => {
+    const ra = CLASS_RANK[a.resolutionClass ?? 'mapped']
+    const rb = CLASS_RANK[b.resolutionClass ?? 'mapped']
+    if (ra !== rb) return ra - rb
+    if (overlay && overlay.hasPortfolio
+      && a.bookActivity.onBookCount !== b.bookActivity.onBookCount) {
+      return b.bookActivity.onBookCount - a.bookActivity.onBookCount
+    }
+    return b.reportCount - a.reportCount
+  })
 
-  return { brokers: cards }
+  return { brokers: visible }
 }
 
 export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBrokerViewModel> {

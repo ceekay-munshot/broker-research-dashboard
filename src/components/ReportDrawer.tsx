@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import type { ReportId, EvidenceSnippet, ReportType, StockTicker } from '../domain'
+import type { ReportId, EvidenceSnippet, ReportType, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
@@ -22,6 +22,17 @@ const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   sector_note:      'Sector note',
   deep_dive:        'Deep dive',
   other:            'Research note',
+}
+
+// Plain-language labels for how a note's broker was resolved.
+const PROVENANCE_LABEL: Record<BrokerSource, string> = {
+  metadata:                'from broker metadata',
+  forwarded_body_header:   'from a forwarded “From:” header',
+  signature_or_disclaimer: 'from the body / disclaimer',
+  original_sender_domain:  'from the sender’s email domain',
+  subject_prefix:          'from the subject prefix',
+  llm_extraction:          'by extraction',
+  unknown:                 'could not be resolved',
 }
 
 export default function ReportDrawer({ reportId, onClose, onSelectTicker }: ReportDrawerProps) {
@@ -214,6 +225,41 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
                   </li>
                 ))}
               </ul>
+            </Section>
+          )}
+
+          {/* Where this note came from — forwarder + broker provenance */}
+          {(vm.receivedVia || vm.brokerProvenance) && (
+            <Section title="Source">
+              <div className="flex flex-col gap-1.5">
+                {vm.receivedVia && (
+                  <div className="flex gap-2 text-[12px]">
+                    <span className="text-slate-500 w-28 shrink-0">Received via</span>
+                    <span className="text-slate-300">{vm.receivedVia}</span>
+                  </div>
+                )}
+                {vm.brokerProvenance && (
+                  <div className="flex gap-2 text-[12px]">
+                    <span className="text-slate-500 w-28 shrink-0">Broker resolved</span>
+                    <span className="text-slate-300">
+                      {PROVENANCE_LABEL[vm.brokerProvenance.source]}
+                      {vm.brokerProvenance.evidence && (
+                        <span className="text-slate-500"> — {vm.brokerProvenance.evidence}</span>
+                      )}
+                    </span>
+                  </div>
+                )}
+                {vm.brokerProvenance?.conflict && (
+                  <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
+                    Conflicting broker signals on this note — flagged for QA.
+                  </div>
+                )}
+                {vm.brokerStockConflict && (
+                  <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
+                    This research house is also a covered company in this note — kept as both.
+                  </div>
+                )}
+              </div>
             </Section>
           )}
 

@@ -3,6 +3,7 @@ import type {
   Sector, Stock, BrokerEmail, Attachment,
   ReportId, EmailProcessingStatus, Rating, Stance, ReportCatalyst,
   EvidenceSupportingField, StockTicker, ReportKeyNumber,
+  BrokerSource, ResolutionClass,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
@@ -38,6 +39,18 @@ export interface ReportStreetContext {
   readonly outlierDirection: 'bullish' | 'bearish' | null
   /** Where this report's target sits within the Street range. */
   readonly targetStanding: 'highest' | 'lowest' | 'mid' | 'unknown'
+}
+
+/** How this note's broker/research house was resolved — drives the drawer's
+ *  "Source" section and QA flags. */
+export interface ReportBrokerProvenance {
+  readonly canonicalName: string
+  readonly source: BrokerSource
+  readonly confidence: number
+  readonly evidence: string | null
+  readonly conflict: boolean
+  readonly resolutionClass: ResolutionClass
+  readonly reason: string | null
 }
 
 export interface ReportDetailViewModel {
@@ -96,6 +109,13 @@ export interface ReportDetailViewModel {
 
   /** This call vs the Street — null when no multi-broker comparison exists. */
   readonly streetContext: ReportStreetContext | null
+
+  /** Who forwarded this note into the inbox — shown as "Received via". */
+  readonly receivedVia: string | null
+  /** How this note's broker was resolved — provenance for trust + QA. */
+  readonly brokerProvenance: ReportBrokerProvenance | null
+  /** The resolved research house is also a covered company in this note. */
+  readonly brokerStockConflict: boolean
 }
 
 interface Inputs {
@@ -227,6 +247,18 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
       : null,
 
     streetContext: buildStreetContext(closure, report, summary),
+
+    receivedVia: sourceEmail?.senderName ?? null,
+    brokerProvenance: report.brokerResolution ? {
+      canonicalName: report.brokerResolution.brokerCanonicalName,
+      source: report.brokerResolution.brokerSource,
+      confidence: report.brokerResolution.brokerConfidence,
+      evidence: report.brokerResolution.brokerEvidence ?? null,
+      conflict: report.brokerResolution.brokerConflict,
+      resolutionClass: report.brokerResolution.resolutionClass,
+      reason: report.brokerResolution.resolutionReason ?? null,
+    } : null,
+    brokerStockConflict: report.brokerStockConflict ?? false,
   }
 }
 

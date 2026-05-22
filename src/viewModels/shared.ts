@@ -1,6 +1,6 @@
 import type {
   Broker, ResearchReport, ReportSummary, Stance, Rating,
-  BrokerId, ReportId, StockTicker, Iso8601,
+  BrokerId, ReportId, StockTicker, Iso8601, BrokerSource,
 } from '../domain'
 
 // Shared view-model pieces used by more than one screen. Keep everything in
@@ -20,6 +20,9 @@ export interface FeedItemViewModel {
   readonly thesisOneLiner: string
   readonly targetPrice: number | null
   readonly priorTargetPrice: number | null
+  /** How this note's broker was resolved — for the evidence tooltip. */
+  readonly brokerEvidence: string | null
+  readonly brokerSource: BrokerSource | null
 }
 
 export const STANCE_TEXT_COLOR: Readonly<Record<Stance, string>> = {
@@ -56,6 +59,8 @@ export function buildFeedItem(
     thesisOneLiner: summary?.thesis ?? '',
     targetPrice: summary?.targetPrice ?? null,
     priorTargetPrice: summary?.priorTargetPrice ?? null,
+    brokerEvidence: report.brokerResolution?.brokerEvidence ?? null,
+    brokerSource: report.brokerResolution?.brokerSource ?? null,
   }
 }
 

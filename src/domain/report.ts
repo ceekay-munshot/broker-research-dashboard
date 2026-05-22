@@ -4,6 +4,7 @@ import type {
 } from './ids'
 import type { Iso8601, Stance, Rating, Confidence, IsoCurrency } from './common'
 import type { EmailProcessingStatus } from './status'
+import type { BrokerResolution } from './broker'
 
 // Canonical taxonomy of broker research formats. Keep this explicit — the UI
 // will filter/group by these categories.
@@ -38,6 +39,13 @@ export interface ResearchReport {
   readonly language: string
   readonly status: EmailProcessingStatus
   readonly summaryId: SummaryId | null
+  // Note-level broker identity + provenance, recovered from the forwarded
+  // email by the serverOutput broker resolver. Optional: absent on
+  // HTTP / upstream / mock reports.
+  readonly brokerResolution?: BrokerResolution
+  // True when the resolved research house is also a covered listed company
+  // in this same note — the ticker is kept, never deleted.
+  readonly brokerStockConflict?: boolean
 }
 
 // The Phase-1 output: a structured synthesis of a single research report.

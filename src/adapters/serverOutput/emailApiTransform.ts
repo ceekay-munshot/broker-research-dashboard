@@ -11,12 +11,10 @@
 // summaries and per-(broker,ticker) opinions from the extracted output.
 //
 // Source-of-truth rules:
-//   • Broker identity — a research house is used only when the attachment
-//     filename names it unambiguously (Ambit, Goldman Sachs, Kotak).
-//     Otherwise the report is attributed honestly to whoever forwarded the
-//     email (sender name → sender address → forwarding mailbox), keyed by
-//     sender address so one sender stays one stable source. Never an
-//     invented placeholder label.
+//   • Broker identity — recovered per source document by ./brokerResolver
+//     from scored evidence (forwarded headers, domains, disclaimers, subject
+//     prefixes), never the forwarder. Unresolved notes fall into honest
+//     Unmapped Research House / Other Sources / Unknown Broker buckets.
 //   • One report == one deduped document. Re-forwarded PDFs (same filename)
 //     collapse; email bodies become their own reports.
 //   • An extracted row is kept only when it carries a real rating or a real
@@ -32,10 +30,10 @@ import type {
   Organization, User, OrgScope, Iso8601,
   Broker, BrokerId, BrokerEmail, Attachment, Sector, Stock,
   ResearchReport, ReportSummary, ReportType, BrokerStockOpinion,
-  KpiSnapshot, Rating, Stance, StockTicker,
+  KpiSnapshot, Rating, Stance, StockTicker, BrokerResolution,
 } from '../../domain'
 import {
-  asOrgId, asUserId, asBrokerId, asEmailId, asAttachmentId,
+  asOrgId, asUserId, asEmailId, asAttachmentId,
   asReportId, asSummaryId, asSectorId, asTicker,
 } from '../../lib/ids'
 import type { ConflictClosure } from '../../engine/types'
@@ -43,6 +41,11 @@ import { buildConflictClosure } from '../../engine/conflictClosure'
 import type { DashboardServerOutput, FeedStatusPayload } from './types'
 import { extractNoteInsight } from './noteInsight'
 import { parseTp, validateTargetPrices } from './targetPrice'
+import {
+  buildEmailBrokerContext, resolveBrokerForNote, stripBrokerPrefixes,
+  brokerRecordForResolution, mixedSourcesBroker, MIXED_SOURCES_BROKER_ID,
+} from './brokerResolver'
+import { classifyNoteEntity, STOCK_DISPLAY_THRESHOLD } from './entityRole'
 
 // ── Raw wire shape ───────────────────────────────────────────────────────
 
@@ -100,7 +103,6 @@ const ENTITY_STOPLIST = new Set([
 // ── Small helpers ────────────────────────────────────────────────────────
 
 function str(v: unknown): string { return typeof v === 'string' ? v : '' }
-function slug(s: string): string { return s.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '').toLowerCase() }
 
 /** Map the NER rating vocabulary onto the dashboard's canonical Rating. */
 function mapRating(raw: string): Rating | null {
@@ -186,106 +188,20 @@ function dedupeAndSortEmails(emails: readonly RawEmail[]): RawEmail[] {
   return [...byId.values(), ...noId].sort((a, b) => receivedMs(b) - receivedMs(a))
 }
 
-// ── Broker registry ──────────────────────────────────────────────────────
+// ── Broker resolution ────────────────────────────────────────────────────
 //
-// Broker identity for one source document is resolved in priority order:
-//   1. A research house recognised unambiguously from the attachment
-//      filename (Ambit, Goldman Sachs, Kotak).
-//   2. Otherwise the forwarded email's own sender — display name, then
-//      sender address, then forwarding mailbox — keyed by sender address
-//      so every report from one sender groups under a single source.
-// No synthetic labels: an unrecognised source is shown honestly as whoever
-// forwarded it.
+// Broker identity is recovered per source document by the deterministic
+// resolver in ./brokerResolver — from scored evidence, never the forwarder.
+// See that module for the evidence tiers and the Unmapped Research House /
+// Other Sources / Unknown Broker fallback buckets.
 
-interface BrokerRec {
-  readonly id: BrokerId
-  readonly name: string
-  readonly shortName: string
-  readonly color: string
-}
-
-const KNOWN_BROKERS: readonly {
-  readonly test: RegExp
-  readonly key: string
-  readonly name: string
-  readonly short: string
-  readonly color: string
-}[] = [
-  { test: /ambit/i,                      key: 'ambit',     name: 'Ambit Capital',                short: 'Ambit',     color: '#d97757' },
-  { test: /_gs_|\bgs\b/i,                key: 'gs',        name: 'Goldman Sachs',                short: 'GS',        color: '#6699cc' },
-  { test: /morning insight|stock reco/i, key: 'kotak_sec', name: 'Kotak Securities',             short: 'Kotak Sec', color: '#e0a458' },
-  { test: /india[ _]daily/i,             key: 'kie',       name: 'Kotak Institutional Equities', short: 'KIE',       color: '#c44e6b' },
-]
-
-/** A fixed palette for sender-resolved sources, so By Stock columns and
- *  broker dots stay visually distinct from one another. */
-const SENDER_COLORS = ['#6b8e9e', '#9e8b6b', '#7d9e6b', '#9e6b8b', '#6b6b9e', '#8b9e6b'] as const
-
-/** A forwarded email's sender identity, resolved once per email. */
-interface SenderIdentity {
-  /** Stable key — sender address where available; one sender = one source. */
-  readonly key: string
-  /** Display name: sender name → sender address → forwarding mailbox. */
-  readonly name: string
-}
-
-/** Resolve a forwarded email's sender. Display falls back name → address →
- *  forwarding mailbox → "Unknown sender"; the key prefers the address so the
- *  same sender stays one stable source. */
-function resolveSender(e: RawEmail): SenderIdentity {
-  const senderEmail = str(e.original_sender_email).trim()
-  const senderName  = str(e.original_sender_name).trim()
-  const forwardedBy = str(e.forwarded_by_email).trim()
-  return {
-    key:  (senderEmail || forwardedBy || senderName || 'unknown').toLowerCase(),
-    name: senderName || senderEmail || forwardedBy || 'Unknown sender',
-  }
-}
-
-/** A tidy short label for a sender-resolved source: the email domain's
- *  first label where the display name is an address, else the name. */
-function senderShortName(name: string): string {
-  const at = name.indexOf('@')
-  if (at < 0) return name
-  const label = name.slice(at + 1).split('.')[0]
-  return label || name.slice(0, at) || name
-}
-
-function makeBrokerRegistry() {
-  const recs = new Map<string, BrokerRec>()
-  let senderColorIdx = 0
-
-  function ensure(key: string, make: () => BrokerRec): BrokerRec {
-    const existing = recs.get(key)
-    if (existing) return existing
-    const rec = make()
-    recs.set(key, rec)
-    return rec
-  }
-
-  return {
-    /** Resolve the broker for one source document within an email. */
-    resolve(filename: string, sender: SenderIdentity): BrokerRec {
-      // 1 — a research house named unambiguously by the filename.
-      for (const k of KNOWN_BROKERS) {
-        if (k.test.test(filename)) {
-          return ensure(`house:${k.key}`, () => ({
-            id: asBrokerId(`brk_${slug(k.key)}`),
-            name: k.name, shortName: k.short, color: k.color,
-          }))
-        }
-      }
-      // 2 — otherwise the forwarding sender, keyed so one sender stays one
-      //     source across every email and every attachment.
-      return ensure(`sender:${sender.key}`, () => ({
-        id: asBrokerId(`brk_sender_${slug(sender.key)}`),
-        name: sender.name,
-        shortName: senderShortName(sender.name),
-        color: SENDER_COLORS[senderColorIdx++ % SENDER_COLORS.length],
-      }))
-    },
-    all(): readonly BrokerRec[] { return [...recs.values()] },
-  }
+/** The forwarder's display name for a forwarded email — surfaced as
+ *  "Received via" in the UI, never used as the broker identity. */
+function resolveSenderName(e: RawEmail): string {
+  return str(e.original_sender_name).trim()
+    || str(e.original_sender_email).trim()
+    || str(e.forwarded_by_email).trim()
+    || 'Unknown sender'
 }
 
 // ── Per-report extracted call ────────────────────────────────────────────
@@ -380,7 +296,9 @@ interface ReportSource {
   readonly reportId: ReturnType<typeof asReportId>
   readonly emailId: ReturnType<typeof asEmailId>
   readonly attachmentId: ReturnType<typeof asAttachmentId> | null
-  readonly broker: BrokerRec
+  readonly brokerId: BrokerId
+  readonly brokerResolution: BrokerResolution
+  readonly brokerStockConflict: boolean
   readonly title: string
   readonly receivedAt: Iso8601
   readonly isBody: boolean
@@ -435,7 +353,9 @@ function buildServerOutputFromEmails(
     return new Date(ms + delta).toISOString()
   }
 
-  const brokers = makeBrokerRegistry()
+  // Set true when an email's source documents resolve to more than one
+  // research house — that email's brokerId becomes brk_mixed_sources.
+  let anyMixedEmail = false
 
   const emails: BrokerEmail[] = []
   const attachments: Attachment[] = []
@@ -450,9 +370,18 @@ function buildServerOutputFromEmails(
     textBodyByEmail.set(emailId as unknown as string, str(e.text_body))
     const receivedAt = anchorIso(str(e.received_at))
     const rawUploads = Array.isArray(e.uploads) ? (e.uploads as RawUpload[]) : []
-    const sender = resolveSender(e)
+    const senderName = resolveSenderName(e)
+    const brokerCtx = buildEmailBrokerContext({
+      subject: str(e.subject),
+      textBody: str(e.text_body),
+      originalSenderEmail: str(e.original_sender_email),
+      originalSenderName: str(e.original_sender_name),
+      forwardedByEmail: str(e.forwarded_by_email),
+    })
 
     const emailAttachmentIds: ReturnType<typeof asAttachmentId>[] = []
+    // Broker ids resolved for this email's source documents.
+    const emailBrokerIds: BrokerId[] = []
 
     for (const u of rawUploads) {
       const uploadId = str(u.id)
@@ -493,16 +422,52 @@ function buildServerOutputFromEmails(
         seenAttachmentFiles.add(fileKey)
       }
 
-      const candidates = candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
-      const isDigest = candidates.length >= 6
-      const title = isBody ? (str(e.subject) || 'Email note') : cleanTitle(filename)
-      const broker = brokers.resolve(filename, sender)
+      const rawCandidates = candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
+      const isDigest = rawCandidates.length >= 6
+      // Strip the extension, then a leading broker label (research PDFs are
+      // named "<House>_<Stock>_…"), then normalise underscores to spaces.
+      const filenameNoExt = filename.replace(/\.[a-z0-9]+$/i, '')
+      const filenameTitle =
+        cleanTitle(stripBrokerPrefixes(filenameNoExt).cleanTitle || filenameNoExt)
+      const title = isBody
+        ? (stripBrokerPrefixes(str(e.subject)).cleanTitle || 'Email note')
+        : (filenameTitle || cleanTitle(filename))
+
+      // Resolve this source's broker — report-specific evidence (its own
+      // filename) first, shared email-level evidence as fallback.
+      const resolution = resolveBrokerForNote({ filename }, brokerCtx)
+      emailBrokerIds.push(resolution.brokerId)
+
+      // Note-scoped broker-vs-stock role: drop entities that are really the
+      // research house; keep real companies (flag broker/stock overlaps).
+      const noteCtx = {
+        cleanTitle: title,
+        proseText: brokerCtx.proseText,
+        disclaimerText: brokerCtx.disclaimerText,
+        brokerPrefixTokens: brokerCtx.brokerPrefixTokens,
+      }
+      let brokerStockConflict = false
+      const candidates = rawCandidates.filter((c) => {
+        const cls = classifyNoteEntity(
+          {
+            entityName: c.entityName, ticker: c.ticker,
+            hasRating: c.rating !== null, hasTargetPrice: c.tp !== null,
+          },
+          noteCtx, resolution,
+        )
+        if (cls.role === 'broker_only') return false
+        if (cls.role === 'unresolved' && cls.stockConfidence < STOCK_DISPLAY_THRESHOLD) return false
+        if (cls.brokerStockConflict) brokerStockConflict = true
+        return true
+      })
 
       sources.push({
         reportId: asReportId(`rpt_${uploadId}`),
         emailId,
         attachmentId: isBody ? null : attachmentId,
-        broker,
+        brokerId: resolution.brokerId,
+        brokerResolution: resolution,
+        brokerStockConflict,
         title,
         receivedAt,
         isBody,
@@ -511,12 +476,21 @@ function buildServerOutputFromEmails(
       })
     }
 
+    // Email-level brokerId: the shared house when every source agrees, else
+    // brk_mixed_sources. Downstream grouping uses report.brokerId, not this.
+    const distinctEmailBrokers = new Set(emailBrokerIds)
+    const emailBrokerId: BrokerId | null =
+      distinctEmailBrokers.size === 0 ? null
+      : distinctEmailBrokers.size === 1 ? emailBrokerIds[0]
+      : MIXED_SOURCES_BROKER_ID
+    if (distinctEmailBrokers.size > 1) anyMixedEmail = true
+
     emails.push({
       id: emailId,
       orgId: ORG_ID,
-      brokerId: null,
+      brokerId: emailBrokerId,
       senderAddress: str(e.original_sender_email),
-      senderName: sender.name,
+      senderName,
       recipientAddress: '',
       subject: str(e.subject),
       bodyPreview: str(e.text_body).slice(0, 240),
@@ -587,7 +561,7 @@ function buildServerOutputFromEmails(
     reports.push({
       id: src.reportId,
       orgId: ORG_ID,
-      brokerId: src.broker.id,
+      brokerId: src.brokerId,
       sourceEmailId: src.emailId,
       sourceAttachmentId: src.attachmentId,
       title: src.title,
@@ -600,6 +574,8 @@ function buildServerOutputFromEmails(
       language: 'en',
       status: 'ready',
       summaryId,
+      brokerResolution: src.brokerResolution,
+      brokerStockConflict: src.brokerStockConflict,
     })
 
     if (summaryId && primary) {
@@ -646,11 +622,11 @@ function buildServerOutputFromEmails(
     // Every rated/priced candidate contributes an opinion for this broker.
     for (const c of src.candidates) {
       if (c.rating === null && c.tp === null) continue
-      const key = `${src.broker.id}|${c.ticker}`
+      const key = `${src.brokerId}|${c.ticker}`
       const prev = opinionAccum.get(key)
       if (!prev || src.receivedAt > prev.receivedAt) {
         opinionAccum.set(key, {
-          brokerId: src.broker.id,
+          brokerId: src.brokerId,
           ticker: c.ticker,
           rating: c.rating,
           tp: c.tp,
@@ -704,17 +680,23 @@ function buildServerOutputFromEmails(
   }]
 
   // ── Broker catalog ─────────────────────────────────────────────────────
+  // One entry per research house referenced by a report (the real catalog
+  // entry for mapped houses, a synthetic neutral bucket for Unmapped Research
+  // House / Other Sources / Unknown Broker), plus a zero-report Mixed Sources
+  // entry when an email bundled several houses.
 
-  const brokerList: Broker[] = brokers.all().map((b) => ({
-    id: b.id,
-    name: b.name,
-    shortName: b.shortName,
-    senderDomains: [],
-    researchAliases: [],
-    coverageTags: [],
-    brandColor: b.color,
-    website: null,
-  }))
+  const resolutionByBrokerId = new Map<string, BrokerResolution>()
+  for (const src of sources) {
+    const key = src.brokerId as unknown as string
+    if (!resolutionByBrokerId.has(key)) resolutionByBrokerId.set(key, src.brokerResolution)
+  }
+  const brokerList: Broker[] = [...resolutionByBrokerId.values()].map(brokerRecordForResolution)
+  if (anyMixedEmail) brokerList.push(mixedSourcesBroker())
+
+  // KPI "brokers tracked" counts only genuine research houses.
+  const researchHouseCount = [...resolutionByBrokerId.values()].filter(
+    (r) => r.resolutionClass === 'mapped' || r.resolutionClass === 'unmapped_research_house',
+  ).length
 
   // ── Conflict closures ──────────────────────────────────────────────────
   // Run the deterministic closure engine over every multi-broker ticker.
@@ -755,7 +737,7 @@ function buildServerOutputFromEmails(
   const kpi: KpiSnapshot = {
     orgId: ORG_ID,
     asOf: now.toISOString(),
-    brokersTracked: brokerList.length,
+    brokersTracked: researchHouseCount,
     reportsIngested: reports.length,
     stocksCovered: stocks.length,
     divergenceFlags,

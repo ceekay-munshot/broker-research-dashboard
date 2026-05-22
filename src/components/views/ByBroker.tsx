@@ -26,7 +26,7 @@ export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-slate-100 font-semibold text-base">By Broker</h2>
+          <h2 className="text-slate-100 font-semibold text-base">By Broker / Research House</h2>
           <p className="text-slate-400 text-[12px]">Stance mix, latest notes, and top themes per research house.</p>
         </div>
       </div>
@@ -77,6 +77,12 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
             </span>
           </div>
         </div>
+        {b.conflictCount > 0 && (
+          <span
+            className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px] shrink-0"
+            title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
+          >QA {b.conflictCount}</span>
+        )}
       </div>
 
       <div className="flex items-center gap-3 text-[11px]">
@@ -101,7 +107,10 @@ function BrokerCard({ b, onSelectReport }: { b: BrokerCardViewModel; onSelectRep
                 onClick={() => onSelectReport(r.reportId)}
                 className="w-full text-left flex items-start gap-2 text-[12px] leading-tight hover:text-slate-100 transition-colors"
               >
-                <span className="num text-[10.5px] text-slate-500 w-12 pt-0.5">{formatShortDate(r.publishedAt)}</span>
+                <span
+                  className="num text-[10.5px] text-slate-500 w-12 pt-0.5"
+                  title={r.brokerEvidence ? `Broker resolved from: ${r.brokerEvidence}` : undefined}
+                >{formatShortDate(r.publishedAt)}</span>
                 {r.ticker && (
                   <span className={`chip border ${r.stance === 'bullish' ? 'border-emerald-500/30 text-emerald-400' : r.stance === 'bearish' ? 'border-rose-500/30 text-rose-400' : 'border-slate-500/30 text-slate-300'}`}>{r.ticker}</span>
                 )}
