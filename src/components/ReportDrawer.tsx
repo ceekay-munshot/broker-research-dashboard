@@ -307,8 +307,13 @@ function BrokerCallHero({ vm, noteSignal, primaryTicker, cmpCell }: {
   primaryTicker: StockTicker | null
   cmpCell: PriceCell | undefined
 }) {
+  // 5 cards × 640-px drawer = ~112-px slots at lg:grid-cols-5 — too
+  // tight for the "Target ₹9,700 +500" / "Inferred from the note's
+  // title" sub-lines. 3-up at lg gives ~193-px slots and wraps the last
+  // two cards (Note signal · Street context) cleanly to row 2 instead
+  // of leaving a single orphan card.
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+    <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
       <FormalCallCard vm={vm}/>
       {primaryTicker !== null && (
         <CmpCard cell={cmpCell} targetPrice={vm.targetPrice} targetCurrency={vm.targetCurrency}/>
