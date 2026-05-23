@@ -138,11 +138,33 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
 // Re-sorts the matrix only — no row is ever hidden. "My portfolio" appears
 // solely when a portfolio is loaded.
 
-const STOCK_VIEWS: readonly { readonly id: StockView; readonly label: string; readonly portfolioOnly?: boolean }[] = [
-  { id: 'most-covered', label: 'Most covered' },
-  { id: 'consensus',    label: 'Consensus' },
-  { id: 'contested',    label: 'ARB severity' },
-  { id: 'portfolio',    label: 'My portfolio', portfolioOnly: true },
+const STOCK_VIEWS: readonly {
+  readonly id: StockView
+  readonly label: string
+  readonly tooltip: string
+  readonly portfolioOnly?: boolean
+}[] = [
+  {
+    id: 'most-covered',
+    label: 'Most covered',
+    tooltip: 'Stocks with the most broker coverage at the top — see what the Street is paying the most attention to.',
+  },
+  {
+    id: 'consensus',
+    label: 'Consensus',
+    tooltip: 'Stocks where brokers most agree at the top — clearest collective view, whether bullish or bearish.',
+  },
+  {
+    id: 'contested',
+    label: 'ARB severity',
+    tooltip: 'Stocks where brokers most disagree at the top — where the Street is split on rating or price target.',
+  },
+  {
+    id: 'portfolio',
+    label: 'My portfolio',
+    tooltip: 'Only the stocks you hold — your positions first, ordered by position size.',
+    portfolioOnly: true,
+  },
 ]
 
 function ViewSelector({ view, setView, showPortfolio }: {
@@ -157,6 +179,8 @@ function ViewSelector({ view, setView, showPortfolio }: {
         <button
           key={v.id}
           onClick={() => setView(v.id)}
+          title={v.tooltip}
+          aria-label={v.tooltip}
           className={`px-2.5 py-1 text-[11px] rounded border transition-colors
             ${view === v.id
               ? 'bg-accent/15 border-accent/40 text-accent'
