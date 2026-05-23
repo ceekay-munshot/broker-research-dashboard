@@ -33,13 +33,23 @@ export interface StockDetailViewModel {
   readonly sectorName: string
   readonly currency: string
   readonly spotPrice: number | null
-  readonly closure: ConflictClosure
-  /** The per-stock ARB (broker-disagreement) verdict — band + subtext. */
-  readonly arb: ArbVerdict
-  /** The Street's consensus rating, or a tie / no-rating result. */
-  readonly consensusRating: ConsensusRating
+  /** How many distinct brokers cover this stock. Always populated —
+   *  derived from `closure.brokerCount` when present, or from the
+   *  distinct broker count of `linkedReports` when the stock has no
+   *  multi-broker closure (single-broker coverage). */
+  readonly brokerCount: number
+  /** Null when only one broker covers the stock (no Street comparison
+   *  possible). The drawer falls back to a single-broker view. */
+  readonly closure: ConflictClosure | null
+  /** The per-stock ARB (broker-disagreement) verdict — band + subtext.
+   *  Null in single-broker mode (no comparison). */
+  readonly arb: ArbVerdict | null
+  /** The Street's consensus rating, or a tie / no-rating result.
+   *  Null in single-broker mode. */
+  readonly consensusRating: ConsensusRating | null
   /** Broker on the highest / lowest published target, with the count of any
-   *  others tied at the same value. Null when no broker published a target. */
+   *  others tied at the same value. Null when no broker published a target
+   *  or when there's no closure to compare against. */
   readonly highTargetBroker: BrokerRef | null
   readonly highTargetTieCount: number
   readonly lowTargetBroker: BrokerRef | null
@@ -55,7 +65,9 @@ export interface StockDetailViewModel {
 interface Inputs {
   readonly stock: Stock
   readonly sector: Sector | null
-  readonly closure: ConflictClosure
+  /** Optional — null when the stock has only one broker covering it
+   *  (single-broker mode). */
+  readonly closure: ConflictClosure | null
   readonly brokers: readonly Broker[]
   readonly reports: readonly ResearchReport[]
   readonly summaries: readonly ReportSummary[]
@@ -74,7 +86,7 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
   const name = (id: BrokerId) => brokerById.get(id as unknown as string)?.shortName ?? (id as unknown as string).toUpperCase()
   const ref = (id: BrokerId) => ({ id: id as unknown as string, name: name(id) })
 
-  const consensus: ConsensusPointVM[] = closure.consensus.map((p) => ({
+  const consensus: ConsensusPointVM[] = (closure?.consensus ?? []).map((p) => ({
     dimension: p.dimension,
     topic: p.topic,
     claim: p.claim,
@@ -84,7 +96,7 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     evidenceCount: p.evidenceIds.length,
   }))
 
-  const disagreements: DisagreementPointVM[] = closure.disagreements.map((d) => ({
+  const disagreements: DisagreementPointVM[] = (closure?.disagreements ?? []).map((d) => ({
     dimension: d.dimension,
     topic: d.topic,
     bullClaims: d.bullClaims.filter((c) => c.trim().length > 0),
@@ -95,7 +107,7 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     bearCitationCount: d.bearEvidenceIds.length,
   }))
 
-  const outliers: OutlierVM[] = closure.outliers.map((o) => ({
+  const outliers: OutlierVM[] = (closure?.outliers ?? []).map((o) => ({
     brokerId: o.brokerId as unknown as string,
     brokerName: name(o.brokerId),
     direction: o.direction,
@@ -123,9 +135,16 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
       }
     })
 
+  // Distinct broker count — closure when we have one, else derived from the
+  // linked reports. The fallback handles single-broker coverage (no closure
+  // exists for a stock with only 1 covering broker).
+  const brokerCount = closure?.brokerCount
+    ?? new Set(inputs.reports.map((r) => r.brokerId as string)).size
+
   // ── ARB verdict + consensus + high/low target broker ──────────────────
-  const arb = deriveArbVerdict(closure, closure.brokerCount)
-  const consensusRating = deriveConsensusRating(closure)
+  // All closure-derived; null in single-broker mode.
+  const arb = closure ? deriveArbVerdict(closure, closure.brokerCount) : null
+  const consensusRating = closure ? deriveConsensusRating(closure) : null
 
   const targetByBroker = new Map<string, number>()
   for (const r of inputs.reports) {
@@ -133,16 +152,18 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     if (sum?.targetPrice != null) targetByBroker.set(r.brokerId as string, sum.targetPrice)
   }
   const extremes = targetExtremesFromMap(targetByBroker)
-  const highId = extremes.highIds[0]
-  const lowId = extremes.lowIds[0]
+  const highId = closure ? extremes.highIds[0] : undefined
+  const lowId = closure ? extremes.lowIds[0] : undefined
 
   // The "why" is missing when there is real ARB evidence but no extracted
   // prose reason — never invent one; surface the source reports instead.
-  const hasArbEvidence =
-    arb.band === 'high' || arb.band === 'moderate'
+  // Only computable when there's a closure to evaluate.
+  const hasArbEvidence = closure !== null && (
+    arb!.band === 'high' || arb!.band === 'moderate'
     || closure.outliers.length > 0 || closure.disagreements.length > 0
+  )
   const hasProseReason =
-    closure.disagreements.some((d) =>
+    (closure?.disagreements ?? []).some((d) =>
       d.dimension !== 'rating' && d.dimension !== 'target_price'
       && [...d.bullClaims, ...d.bearClaims].some((c) => c.trim().length > 0))
     || inputs.summaries.some((s) => s.thesis.trim().length > 0 || s.keyPoints.length > 0)
@@ -154,13 +175,14 @@ export function buildStockDetailViewModel(inputs: Inputs): StockDetailViewModel 
     sectorName: sector?.name ?? '—',
     currency: stock.currency,
     spotPrice: stock.lastPrice,
+    brokerCount,
     closure,
     arb,
     consensusRating,
     highTargetBroker: highId ? ref(highId) : null,
-    highTargetTieCount: Math.max(0, extremes.highIds.length - 1),
+    highTargetTieCount: closure ? Math.max(0, extremes.highIds.length - 1) : 0,
     lowTargetBroker: lowId ? ref(lowId) : null,
-    lowTargetTieCount: Math.max(0, extremes.lowIds.length - 1),
+    lowTargetTieCount: closure ? Math.max(0, extremes.lowIds.length - 1) : 0,
     whyMissing,
     consensus,
     disagreements,
@@ -176,6 +198,8 @@ export function useStockDetailViewModel(ticker: StockTicker | null): QueryResult
     async (a, s) => ticker ? a.getStock(s, ticker) : null,
     [tickerKey],
   )
+  // Closure is genuinely optional — single-broker stocks have no closure.
+  // The viewmodel handles `null` cleanly via the single-broker view.
   const closure = useAdapterQuery(
     async (a, s) => ticker ? a.getConflictClosure(s, ticker) : null,
     [tickerKey],
@@ -183,25 +207,32 @@ export function useStockDetailViewModel(ticker: StockTicker | null): QueryResult
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
   const sectors = useAdapterQuery((a, s) => a.listSectors(s), [])
 
-  // Fetch reports + summaries for the reports referenced by the closure.
-  const reportIds = closure.data?.lastReportIds ?? []
-  const reports = useAdapterQuery(async (a, s) => {
-    return Promise.all(reportIds.map((id) => a.getResearchReport(s, id)))
-      .then((xs) => xs.filter((x): x is NonNullable<typeof x> => x !== null))
-  }, [reportIds.join(',')])
+  // Reports for this ticker — used to populate `linkedReports` whether or
+  // not a closure exists. We always have the full feed page from the
+  // adapter and filter to the ticker client-side; that ensures
+  // single-broker stocks (no closure → no `lastReportIds`) still surface
+  // their note(s) in the drawer instead of leaving it blank.
+  const reportsAll = useAdapterQuery((a, s) => a.listResearchReports(s), [])
+  const reportsForTicker = ticker && reportsAll.data
+    ? reportsAll.data.items.filter((r) => r.tickers.some((t) => t === ticker))
+    : []
+  const reportIds = reportsForTicker.map((r) => r.id as string)
   const summaries = useAdapterQuery(async (a, s) => {
-    return Promise.all(reportIds.map((id) => a.getReportSummary(s, id)))
+    return Promise.all(reportIds.map((id) => a.getReportSummary(s, id as ReportId)))
       .then((xs) => xs.filter((x): x is NonNullable<typeof x> => x !== null))
   }, [reportIds.join(',')])
 
   if (!ticker) return { data: null, loading: false, error: null }
 
-  const loading = stock.loading || closure.loading || brokers.loading || sectors.loading || reports.loading || summaries.loading
-  const error = stock.error ?? closure.error ?? brokers.error ?? sectors.error ?? reports.error ?? summaries.error
+  const loading = stock.loading || closure.loading || brokers.loading || sectors.loading || reportsAll.loading || summaries.loading
+  const error = stock.error ?? closure.error ?? brokers.error ?? sectors.error ?? reportsAll.error ?? summaries.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!stock.data || !closure.data || !brokers.data || !sectors.data || !reports.data || !summaries.data) {
+  // Note: `closure.data` may legitimately be `null` for single-broker stocks
+  // — that's no longer a blocker. We only need stock / brokers / sectors /
+  // the reports page / summaries to render.
+  if (!stock.data || !brokers.data || !sectors.data || !reportsAll.data || !summaries.data) {
     return { data: null, loading: true, error: null }
   }
 
@@ -209,9 +240,9 @@ export function useStockDetailViewModel(ticker: StockTicker | null): QueryResult
   const vm = buildStockDetailViewModel({
     stock: stock.data,
     sector,
-    closure: closure.data,
+    closure: closure.data,  // may be null in single-broker mode
     brokers: brokers.data,
-    reports: reports.data,
+    reports: reportsForTicker,
     summaries: summaries.data,
   })
   return { data: vm, loading: false, error: null }

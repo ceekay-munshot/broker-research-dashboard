@@ -85,143 +85,182 @@ function Content({ vm, onClose, onSelectReport }: {
   onSelectReport: (id: ReportId) => void;
 }) {
   const { closure } = vm
+  const headerTitle = closure
+    ? `${vm.ticker} · Street view`
+    : `${vm.ticker} · Stock view`
   return (
     <>
-      <Header title={`${vm.ticker} · Street view`} onClose={onClose}/>
+      <Header title={headerTitle} onClose={onClose}/>
       <div className="flex-1 overflow-y-auto">
         <div className="p-5 flex flex-col gap-5">
-          {/* Title row */}
+          {/* Title row — state badge only when closure exists */}
           <div className="flex flex-col gap-1">
             <div className="flex items-center justify-between gap-3">
               <h2 className="text-slate-100 text-[18px] font-semibold">{vm.ticker}</h2>
-              <StateBadge state={closure.resultant.state} strength={closure.resultant.strength}/>
+              {closure && (
+                <StateBadge state={closure.resultant.state} strength={closure.resultant.strength}/>
+              )}
             </div>
             <div className="text-[11.5px] text-slate-400">
-              {vm.stockName} · Spot {formatPrice(vm.spotPrice, vm.currency, 2)} · {closure.brokerCount} broker{closure.brokerCount === 1 ? '' : 's'}
+              {vm.stockName} · Spot {formatPrice(vm.spotPrice, vm.currency, 2)} · {vm.brokerCount} broker{vm.brokerCount === 1 ? '' : 's'}
             </div>
           </div>
 
-          {/* Narrative */}
-          <div className="rounded border border-accent/30 bg-accent/[0.04] p-3 text-[13px] text-slate-100 leading-relaxed">
-            {closure.resultant.narrative}
-          </div>
+          {closure
+            ? <FullStreetView vm={vm} closure={closure}/>
+            : <SingleBrokerView vm={vm}/>}
 
-          {/* ARB verdict + consensus rating */}
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`chip border ${ARB_COLOR[vm.arb.band]} text-[11px] ${vm.arb.band === 'none' ? '' : 'cursor-help'}`}
-              title={vm.arb.band === 'none' ? undefined : ARB_TOOLTIP}
-            >{ARB_LABEL[vm.arb.band]}</span>
-            <span className="text-[11px] text-slate-500">{vm.arb.subtext}</span>
-            <span className="ml-auto"><ConsensusLine cr={vm.consensusRating}/></span>
-          </div>
-
-          {/* Target stats grid */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-            <Stat label="Mean" value={formatPrice(closure.targetStats.mean, vm.currency, 0)}/>
-            <Stat label="Median" value={formatPrice(closure.targetStats.median, vm.currency, 0)}/>
-            <Stat label="High" value={formatPrice(closure.targetStats.high, vm.currency, 0)} valueClass="text-emerald-400"
-              sub={vm.highTargetBroker ? vm.highTargetBroker.name + (vm.highTargetTieCount > 0 ? ` +${vm.highTargetTieCount}` : '') : undefined}/>
-            <Stat label="Low" value={formatPrice(closure.targetStats.low, vm.currency, 0)} valueClass="text-rose-400"
-              sub={vm.lowTargetBroker ? vm.lowTargetBroker.name + (vm.lowTargetTieCount > 0 ? ` +${vm.lowTargetTieCount}` : '') : undefined}/>
-          </div>
-
-          <div className="flex items-center gap-2 text-[11px]">
-            <span className="text-slate-500 uppercase tracking-widest">Spread</span>
-            <span className={`num ${closure.targetStats.spreadPct !== null && closure.targetStats.spreadPct >= 25 ? 'text-amber-300' : 'text-slate-300'}`}>
-              {closure.targetStats.spreadPct !== null ? `${closure.targetStats.spreadPct.toFixed(1)}%` : '—'}
-            </span>
-            <span className="mx-2 text-slate-700">·</span>
-            <span className="text-slate-500 uppercase tracking-widest">Stdev</span>
-            <span className="num text-slate-300">
-              {closure.targetStats.stdev !== null ? `±${closure.targetStats.stdev.toFixed(1)}` : '—'}
-            </span>
-            <span className="ml-auto flex items-center gap-2">
-              <span className="text-slate-500 uppercase tracking-widest">Confidence</span>
-              <ConfidenceBar score={closure.confidence.score} band={closure.confidence.band}/>
-            </span>
-          </div>
-
-          {/* Stance distribution */}
-          <div className="flex items-center gap-3 text-[11.5px]">
-            <span className="text-slate-500 uppercase tracking-widest text-[10px]">Stance</span>
-            <StanceBar dist={closure.stanceDistribution}/>
-            <span className="num"><span className="text-emerald-400">{closure.stanceDistribution.bullish}</span> bull</span>
-            <span className="num"><span className="text-slate-400">{closure.stanceDistribution.neutral}</span> neutral</span>
-            <span className="num"><span className="text-rose-400">{closure.stanceDistribution.bearish}</span> bear</span>
-          </div>
-
-          {/* Consensus */}
-          {vm.consensus.length > 0 && (
-            <Section title={`Where they agree (${vm.consensus.length})`}>
+          {/* Linked reports — always shown, regardless of closure */}
+          {vm.linkedReports.length > 0 && (
+            <Section title={closure ? 'Source reports' : 'Broker notes'}>
               <ul className="flex flex-col gap-1.5">
-                {vm.consensus.map((c, idx) => <ConsensusRow key={idx} point={c}/>)}
-              </ul>
-            </Section>
-          )}
-
-          {/* Disagreements */}
-          {vm.disagreements.length > 0 && (
-            <Section title={`Where they disagree (${vm.disagreements.length})`}>
-              <ul className="flex flex-col gap-2">
-                {vm.disagreements.map((d, idx) => <DisagreementRow key={idx} point={d}/>)}
-              </ul>
-            </Section>
-          )}
-
-          {/* Why missing — honest when ARB exists but no reason was extracted */}
-          {vm.whyMissing && (
-            <Section title="Why they disagree">
-              <div className="rounded border border-amber-500/20 bg-amber-500/[0.04] p-3 text-[12px] text-slate-300 leading-snug">
-                Reason not extracted yet — source reports available.
-              </div>
-            </Section>
-          )}
-
-          {/* Outliers */}
-          {vm.outliers.length > 0 && (
-            <Section title={`Outliers (${vm.outliers.length})`}>
-              <ul className="flex flex-col gap-2">
-                {vm.outliers.map((o, idx) => <OutlierRow key={idx} out={o}/>)}
-              </ul>
-            </Section>
-          )}
-
-          {/* Key drivers */}
-          {closure.resultant.keyDrivers.length > 0 && (
-            <Section title="Key drivers">
-              <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
-                {closure.resultant.keyDrivers.map((k, idx) => (
-                  <li key={idx} className="leading-snug">{k}</li>
+                {vm.linkedReports.map((r) => (
+                  <li key={r.reportId}>
+                    <LinkedReportRow r={r} onClick={() => onSelectReport(r.reportId)}/>
+                  </li>
                 ))}
               </ul>
             </Section>
           )}
-
-          {/* Open questions */}
-          {closure.resultant.openQuestions.length > 0 && (
-            <Section title="Open questions">
-              <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
-                {closure.resultant.openQuestions.map((q, idx) => (
-                  <li key={idx} className="leading-snug">{q}</li>
-                ))}
-              </ul>
-            </Section>
-          )}
-
-          {/* Linked reports */}
-          <Section title="Source reports">
-            <ul className="flex flex-col gap-1.5">
-              {vm.linkedReports.map((r) => (
-                <li key={r.reportId}>
-                  <LinkedReportRow r={r} onClick={() => onSelectReport(r.reportId)}/>
-                </li>
-              ))}
-            </ul>
-          </Section>
         </div>
       </div>
     </>
+  )
+}
+
+/** Renders all the closure-dependent analytics. Only mounted when the stock
+ *  has multi-broker coverage and the engine produced a ConflictClosure. */
+function FullStreetView({ vm, closure }: {
+  vm: StockDetailViewModel;
+  closure: NonNullable<StockDetailViewModel['closure']>;
+}) {
+  // Closure-dependent fields are guaranteed non-null when closure is set
+  // (the viewmodel builder populates them together).
+  const arb = vm.arb!
+  const consensusRating = vm.consensusRating!
+  return (
+    <>
+      {/* Narrative */}
+      <div className="rounded border border-accent/30 bg-accent/[0.04] p-3 text-[13px] text-slate-100 leading-relaxed">
+        {closure.resultant.narrative}
+      </div>
+
+      {/* ARB verdict + consensus rating */}
+      <div className="flex flex-wrap items-center gap-2">
+        <span
+          className={`chip border ${ARB_COLOR[arb.band]} text-[11px] ${arb.band === 'none' ? '' : 'cursor-help'}`}
+          title={arb.band === 'none' ? undefined : ARB_TOOLTIP}
+        >{ARB_LABEL[arb.band]}</span>
+        <span className="text-[11px] text-slate-500">{arb.subtext}</span>
+        <span className="ml-auto"><ConsensusLine cr={consensusRating}/></span>
+      </div>
+
+      {/* Target stats grid */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+        <Stat label="Mean" value={formatPrice(closure.targetStats.mean, vm.currency, 0)}/>
+        <Stat label="Median" value={formatPrice(closure.targetStats.median, vm.currency, 0)}/>
+        <Stat label="High" value={formatPrice(closure.targetStats.high, vm.currency, 0)} valueClass="text-emerald-400"
+          sub={vm.highTargetBroker ? vm.highTargetBroker.name + (vm.highTargetTieCount > 0 ? ` +${vm.highTargetTieCount}` : '') : undefined}/>
+        <Stat label="Low" value={formatPrice(closure.targetStats.low, vm.currency, 0)} valueClass="text-rose-400"
+          sub={vm.lowTargetBroker ? vm.lowTargetBroker.name + (vm.lowTargetTieCount > 0 ? ` +${vm.lowTargetTieCount}` : '') : undefined}/>
+      </div>
+
+      <div className="flex items-center gap-2 text-[11px]">
+        <span className="text-slate-500 uppercase tracking-widest">Spread</span>
+        <span className={`num ${closure.targetStats.spreadPct !== null && closure.targetStats.spreadPct >= 25 ? 'text-amber-300' : 'text-slate-300'}`}>
+          {closure.targetStats.spreadPct !== null ? `${closure.targetStats.spreadPct.toFixed(1)}%` : '—'}
+        </span>
+        <span className="mx-2 text-slate-700">·</span>
+        <span className="text-slate-500 uppercase tracking-widest">Stdev</span>
+        <span className="num text-slate-300">
+          {closure.targetStats.stdev !== null ? `±${closure.targetStats.stdev.toFixed(1)}` : '—'}
+        </span>
+        <span className="ml-auto flex items-center gap-2">
+          <span className="text-slate-500 uppercase tracking-widest">Confidence</span>
+          <ConfidenceBar score={closure.confidence.score} band={closure.confidence.band}/>
+        </span>
+      </div>
+
+      {/* Stance distribution */}
+      <div className="flex items-center gap-3 text-[11.5px]">
+        <span className="text-slate-500 uppercase tracking-widest text-[10px]">Stance</span>
+        <StanceBar dist={closure.stanceDistribution}/>
+        <span className="num"><span className="text-emerald-400">{closure.stanceDistribution.bullish}</span> bull</span>
+        <span className="num"><span className="text-slate-400">{closure.stanceDistribution.neutral}</span> neutral</span>
+        <span className="num"><span className="text-rose-400">{closure.stanceDistribution.bearish}</span> bear</span>
+      </div>
+
+      {/* Consensus */}
+      {vm.consensus.length > 0 && (
+        <Section title={`Where they agree (${vm.consensus.length})`}>
+          <ul className="flex flex-col gap-1.5">
+            {vm.consensus.map((c, idx) => <ConsensusRow key={idx} point={c}/>)}
+          </ul>
+        </Section>
+      )}
+
+      {/* Disagreements */}
+      {vm.disagreements.length > 0 && (
+        <Section title={`Where they disagree (${vm.disagreements.length})`}>
+          <ul className="flex flex-col gap-2">
+            {vm.disagreements.map((d, idx) => <DisagreementRow key={idx} point={d}/>)}
+          </ul>
+        </Section>
+      )}
+
+      {/* Why missing — honest when ARB exists but no reason was extracted */}
+      {vm.whyMissing && (
+        <Section title="Why they disagree">
+          <div className="rounded border border-amber-500/20 bg-amber-500/[0.04] p-3 text-[12px] text-slate-300 leading-snug">
+            Reason not extracted yet — source reports available.
+          </div>
+        </Section>
+      )}
+
+      {/* Outliers */}
+      {vm.outliers.length > 0 && (
+        <Section title={`Outliers (${vm.outliers.length})`}>
+          <ul className="flex flex-col gap-2">
+            {vm.outliers.map((o, idx) => <OutlierRow key={idx} out={o}/>)}
+          </ul>
+        </Section>
+      )}
+
+      {/* Key drivers */}
+      {closure.resultant.keyDrivers.length > 0 && (
+        <Section title="Key drivers">
+          <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
+            {closure.resultant.keyDrivers.map((k, idx) => (
+              <li key={idx} className="leading-snug">{k}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
+
+      {/* Open questions */}
+      {closure.resultant.openQuestions.length > 0 && (
+        <Section title="Open questions">
+          <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
+            {closure.resultant.openQuestions.map((q, idx) => (
+              <li key={idx} className="leading-snug">{q}</li>
+            ))}
+          </ul>
+        </Section>
+      )}
+    </>
+  )
+}
+
+/** Renders when only one broker covers the stock — there is no closure to
+ *  derive a Street view from, but the broker's note(s) are still useful.
+ *  Honest "no comparison" message + linked reports section (rendered by
+ *  parent) keep the drawer useful instead of hanging on a loading state. */
+function SingleBrokerView({ vm }: { vm: StockDetailViewModel }) {
+  return (
+    <div className="rounded border border-line/10 bg-line/[0.02] p-3 text-[12.5px] text-slate-300 leading-snug">
+      Only 1 broker covers {vm.ticker} in this feed — no Street comparison available.
+      Open the broker note below to see the full analysis.
+    </div>
   )
 }
 
