@@ -5,12 +5,13 @@ import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/r
 import { RATING_TEXT_COLOR, formatShortDate, formatPrice } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR } from '../viewModels/arb'
 import {
-  TONE_CHIP_CLASS, getActionLabelTone, getChangeTone, BROKER_GLYPH_CLASS,
+  TONE_CHIP_CLASS, TONE_TEXT_CLASS, getActionLabelTone, getChangeTone, BROKER_GLYPH_CLASS,
   type SemanticTone,
 } from '../lib/semanticColor'
 import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 import { cleanDisplayKeyPoints, isBoilerplateKeyPoint } from '../lib/researchTextCleaners'
+import { useStockPrices, type PriceCell } from '../hooks/useStockPrices'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -117,8 +118,8 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
 }) {
   const primaryTicker = vm.stocks[0]?.ticker ?? null
   // Single source of truth for the note-signal chip — applies the typed-kind
-  // precedence AND the formal-rating suppression in one place. Hero card 3
-  // and any future consumer read from this, never from raw vm fields.
+  // precedence AND the formal-rating suppression in one place. Hero card
+  // reads from this, never from raw vm fields.
   const noteSignal: NoteSignalInput | null = resolveSummaryNoteSignal(
     {
       noteSignalKind: vm.noteSignalKind,
@@ -127,6 +128,14 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
     },
     vm.rating,
   )
+  // Live CMP for the report's primary ticker. The hook is called
+  // unconditionally (hooks rule) with an empty array when there's no
+  // ticker — a true no-op inside the hook. The module-scoped cache in
+  // `useStockPrices` means the same fetch is shared with the By Stock
+  // matrix; opening a drawer for a ticker already shown there is free.
+  const cmpTickers = primaryTicker ? [primaryTicker as string] : []
+  const { prices: cmpPrices } = useStockPrices(cmpTickers)
+  const cmpCell = primaryTicker ? cmpPrices.get(primaryTicker as string) : undefined
 
   return (
     <>
@@ -137,10 +146,17 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
               moved into the hero panel below so the title row stays clean. */}
           <DrawerTitleRow vm={vm}/>
 
-          {/* Investor-grade hero — 4 cards: Formal call, Implied upside,
-              Note signal, Street context. Replaces the old two-card
-              Rating/Target grid AND the standalone Street-context block. */}
-          <BrokerCallHero vm={vm} noteSignal={noteSignal}/>
+          {/* Investor-grade hero — up to 5 cards: Formal call, CMP,
+              Implied upside, Note signal, Street context. CMP renders
+              whenever the report has a primary ticker; the others gate
+              on their own data. Replaces the old two-card Rating/Target
+              grid AND the standalone Street-context block. */}
+          <BrokerCallHero
+            vm={vm}
+            noteSignal={noteSignal}
+            primaryTicker={primaryTicker}
+            cmpCell={cmpCell}
+          />
 
           {/* Rich Street-context detail — outlier callout + "Open Street
               view →" link. Only rendered when the broker is an outlier;
@@ -285,13 +301,18 @@ function DrawerTitleRow({ vm }: { vm: ReportDetailViewModel }) {
 // reads from the resolved `noteSignal` prop so the suppression rule
 // applied in `DrawerContent` is the single source of truth.
 
-function BrokerCallHero({ vm, noteSignal }: {
+function BrokerCallHero({ vm, noteSignal, primaryTicker, cmpCell }: {
   vm: ReportDetailViewModel
   noteSignal: NoteSignalInput | null
+  primaryTicker: StockTicker | null
+  cmpCell: PriceCell | undefined
 }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
       <FormalCallCard vm={vm}/>
+      {primaryTicker !== null && (
+        <CmpCard cell={cmpCell} targetPrice={vm.targetPrice} targetCurrency={vm.targetCurrency}/>
+      )}
       {vm.upsideChipPct !== null && <ImpliedUpsideCard upsideChipPct={vm.upsideChipPct}/>}
       {noteSignal?.noteSignalKind && <NoteSignalCard noteSignal={noteSignal}/>}
       <StreetContextCard vm={vm}/>
@@ -330,6 +351,80 @@ function FormalCallCard({ vm }: { vm: ReportDetailViewModel }) {
       )}
     </HeroCard>
   )
+}
+
+function CmpCard({ cell, targetPrice, targetCurrency }: {
+  cell: PriceCell | undefined
+  targetPrice: number | null
+  targetCurrency: string | null
+}) {
+  // Loading skeleton — also covers the "no cache hit yet" case for a
+  // fresh open before the in-flight fetch resolves.
+  if (!cell || cell.status === 'loading') {
+    return (
+      <HeroCard label="CMP">
+        <div className="inline-block h-4 w-16 bg-line/10 rounded animate-pulse"/>
+      </HeroCard>
+    )
+  }
+  // Unavailable: dead/ambiguous ticker or upstream error. Em-dash + a
+  // muted reason hint matches the By Stock CMP cell's behaviour.
+  if (cell.status === 'unavailable') {
+    return (
+      <HeroCard label="CMP">
+        <div className="text-[16px] font-semibold text-slate-500 leading-tight">—</div>
+        <div className="text-[10.5px] text-slate-500">{CMP_UNAVAILABLE_TOOLTIP[cell.reason]}</div>
+      </HeroCard>
+    )
+  }
+  const delta = computeUpsideToTarget(targetPrice, cell.price)
+  return (
+    <HeroCard label="CMP">
+      <div className="num text-[16px] font-semibold leading-tight text-slate-100">
+        {formatPrice(cell.price, targetCurrency ?? 'INR', 0)}
+      </div>
+      {delta && (
+        <div className={`num text-[10.5px] ${TONE_TEXT_CLASS[delta.tone]}`} title={delta.tooltip}>
+          {delta.label}
+        </div>
+      )}
+      {!delta && (
+        <div className="text-[10.5px] text-slate-500">No target to compare</div>
+      )}
+    </HeroCard>
+  )
+}
+
+const CMP_UNAVAILABLE_TOOLTIP: Readonly<Record<'not_found' | 'ambiguous_ticker' | 'upstream_error', string>> = {
+  not_found: 'No live quote available for this ticker',
+  ambiguous_ticker: 'Ticker symbol is ambiguous — CMP hidden to avoid showing wrong data',
+  upstream_error: 'Live price service is temporarily unreachable',
+}
+
+/** Compute the broker's implied upside / downside relative to the LIVE
+ *  current market price (vs. the at-publication upside that lives on
+ *  `vm.upsideChipPct`). Positive: target above CMP → upside. Negative:
+ *  target below CMP → the stock has run past the target. */
+function computeUpsideToTarget(target: number | null, cmp: number): {
+  readonly label: string
+  readonly tone: SemanticTone
+  readonly tooltip: string
+} | null {
+  if (target === null || cmp <= 0) return null
+  const pct = (target / cmp - 1) * 100
+  if (!Number.isFinite(pct)) return null
+  const rounded = Math.round(pct)
+  if (rounded === 0) {
+    return { label: '0% to target', tone: 'neutral', tooltip: "Broker target equals the current market price" }
+  }
+  const sign = rounded > 0 ? '+' : ''
+  return {
+    label: `${sign}${rounded}% to target`,
+    tone: rounded > 0 ? 'positive' : 'negative',
+    tooltip: rounded > 0
+      ? `Broker target is ${rounded}% above the current market price`
+      : `Broker target is ${Math.abs(rounded)}% below the current market price`,
+  }
 }
 
 function ImpliedUpsideCard({ upsideChipPct }: { upsideChipPct: number }) {
