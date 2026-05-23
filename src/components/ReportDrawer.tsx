@@ -1,12 +1,16 @@
-import React, { useEffect } from 'react'
+import React, { Fragment, useEffect } from 'react'
 import type { ReportId, EvidenceSnippet, ReportType, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
-import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
-import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP } from '../viewModels/arb'
-import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
+import { RATING_TEXT_COLOR, formatShortDate, formatPrice } from '../viewModels/shared'
+import { ARB_LABEL, ARB_COLOR } from '../viewModels/arb'
+import {
+  TONE_CHIP_CLASS, getActionLabelTone, getChangeTone, BROKER_GLYPH_CLASS,
+  type SemanticTone,
+} from '../lib/semanticColor'
 import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
+import { cleanDisplayKeyPoints, isBoilerplateKeyPoint } from '../lib/researchTextCleaners'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -111,104 +115,52 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
   onClose: () => void
   onSelectTicker: (t: StockTicker) => void
 }) {
-  const targetChangeFormat = formatTargetDelta(vm.targetPrice, vm.priorTargetPrice)
   const primaryTicker = vm.stocks[0]?.ticker ?? null
+  // Single source of truth for the note-signal chip — applies the typed-kind
+  // precedence AND the formal-rating suppression in one place. Hero card 3
+  // and any future consumer read from this, never from raw vm fields.
+  const noteSignal: NoteSignalInput | null = resolveSummaryNoteSignal(
+    {
+      noteSignalKind: vm.noteSignalKind,
+      noteSignalSource: vm.noteSignalSource,
+      actionLabel: vm.actionLabel,
+    },
+    vm.rating,
+  )
 
   return (
     <>
       <DrawerHeader title={`${vm.broker.shortName} · ${primaryTicker ?? 'Report'}`} onClose={onClose}/>
       <div className="flex-1 overflow-y-auto">
         <div className="p-5 flex flex-col gap-5">
-          {/* Title + metadata */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span
-                className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}
-              >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
-              <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
-              {(() => {
-                // Prefer the typed kind; fall back through the legacy mapper.
-                // Renderers never display the raw legacy string.
-                const sig = resolveNoteSignalChip(vm)
-                if (sig === null || sig.noteSignalKind === null) {
-                  return (
-                    <span className="chip border border-line/10 text-slate-400 ml-auto">
-                      {REPORT_TYPE_LABEL[vm.reportType]}
-                    </span>
-                  )
-                }
-                const label = NOTE_SIGNAL_LABEL[sig.noteSignalKind]
-                return (
-                  <>
-                    <span
-                      className={`ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(label)]}`}
-                      title={sig.noteSignalSource ? NOTE_SIGNAL_SOURCE_BLURB[sig.noteSignalSource] : undefined}
-                    >
-                      {label}
-                    </span>
-                    <span className="chip border border-line/10 text-slate-400">
-                      {REPORT_TYPE_LABEL[vm.reportType]}
-                    </span>
-                  </>
-                )
-              })()}
-            </div>
-            <h2 className="text-slate-100 text-[16px] font-semibold leading-snug">{vm.title}</h2>
-            <div className="flex items-center gap-3 text-[11px] text-slate-500 num">
-              <span>Published {formatShortDate(vm.publishedAt)}</span>
-              <span>·</span>
-              <span>Received {formatShortDate(vm.receivedAt)}</span>
-              {vm.pageCount !== null && (<><span>·</span><span>{vm.pageCount} pages</span></>)}
-            </div>
-          </div>
+          {/* Title + metadata. The note-signal chip used to live here; it
+              moved into the hero panel below so the title row stays clean. */}
+          <DrawerTitleRow vm={vm}/>
 
-          {/* This broker's call */}
-          <div className="grid grid-cols-2 gap-2">
-            <CalloutCell label="Rating"
-              value={vm.rating ?? 'Not rated'}
-              valueClass={vm.rating ? RATING_TEXT_COLOR[vm.rating] : 'text-slate-500'}/>
-            <CalloutCell label="Target"
-              value={formatPrice(vm.targetPrice, vm.targetCurrency, 0)}
-              sub={
-                vm.targetChanged
-                  ? `${targetChangeFormat.direction === 'up' ? '▲ +' : targetChangeFormat.direction === 'down' ? '▼ ' : ''}${targetChangeFormat.delta}${vm.priorTargetPrice != null ? ` from ${formatPrice(vm.priorTargetPrice, vm.targetCurrency, 0)}` : ''}`
-                  : vm.priorTargetPrice != null ? 'unchanged' : undefined
-              }
-              subClass={
-                targetChangeFormat.direction === 'up' ? 'text-emerald-400'
-                : targetChangeFormat.direction === 'down' ? 'text-rose-400'
-                : 'text-slate-500'
-              }/>
-          </div>
+          {/* Investor-grade hero — 4 cards: Formal call, Implied upside,
+              Note signal, Street context. Replaces the old two-card
+              Rating/Target grid AND the standalone Street-context block. */}
+          <BrokerCallHero vm={vm} noteSignal={noteSignal}/>
 
-          {/* How this call sits with the Street */}
-          {vm.streetContext ? (
-            <StreetContext ctx={vm.streetContext} currency={vm.targetCurrency} onOpenStreet={onSelectTicker}/>
-          ) : primaryTicker ? (
-            <div className="rounded border border-line/10 bg-line/[0.02] p-3 text-[12px] text-slate-400">
-              No other broker covers {primaryTicker} in this feed yet — no Street comparison.
-            </div>
-          ) : null}
-
-          {/* Broker note snapshot — absorbs the old standalone Thesis section */}
-          <BrokerNoteSnapshot vm={vm}/>
-
-          {/* Key points */}
-          {vm.keyPoints.length > 0 && (
-            <Section title="Key points">
-              <ul className="flex flex-col gap-3">
-                {vm.keyPoints.map((kp, idx) => (
-                  <li key={idx} className="flex flex-col gap-1.5">
-                    <div className="flex gap-2 text-[13px] text-slate-200">
-                      <span className="text-slate-500 num w-5">{idx + 1}.</span>
-                      <span className="flex-1 leading-relaxed">{highlightFigures(kp)}</span>
-                    </div>
-                    <EvidenceList snippets={vm.evidence.keyPointByIndex.get(idx) ?? []} indent/>
-                  </li>
-                ))}
-              </ul>
-            </Section>
+          {/* Rich Street-context detail — outlier callout + "Open Street
+              view →" link. Only rendered when the broker is an outlier;
+              otherwise the hero card already says everything needed. */}
+          {vm.streetContext?.isOutlier && (
+            <OutlierCallout ctx={vm.streetContext} onOpenStreet={onSelectTicker}/>
           )}
+
+          {/* Executive read — highlighted thesis card with left accent. */}
+          <ExecutiveRead vm={vm}/>
+
+          {/* Numbers that matter — table (3+ rows) or compact chips (≤2). */}
+          <NumbersTable vm={vm}/>
+
+          {/* Watch items — chip rail with deterministic tone hints. */}
+          <WatchItemsRail vm={vm}/>
+
+          {/* Key takeaways — boilerplate-filtered bullets with evidence,
+              numbered by display index but evidence-looked-up by original. */}
+          <KeyTakeawaysList vm={vm}/>
 
           {/* Themes */}
           {vm.themes.length > 0 && (
@@ -299,71 +251,297 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
   )
 }
 
-// ── The Street context ──────────────────────────────────────────────────────
+// ── Title row ──────────────────────────────────────────────────────────────
+// Broker badge + name + report-type chip + title + meta. The note-signal
+// chip that used to live here has moved into the hero panel below.
 
-function StreetContext({ ctx, currency, onOpenStreet }: {
-  ctx: ReportStreetContext
-  currency: string | null
-  onOpenStreet: (t: StockTicker) => void
+function DrawerTitleRow({ vm }: { vm: ReportDetailViewModel }) {
+  return (
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <span
+          className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}
+        >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
+        <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
+        <span className="chip border border-line/10 text-slate-400 ml-auto">
+          {REPORT_TYPE_LABEL[vm.reportType]}
+        </span>
+      </div>
+      <h2 className="text-slate-100 text-[16px] font-semibold leading-snug">{vm.title}</h2>
+      <div className="flex items-center gap-3 text-[11px] text-slate-500 num">
+        <span>Published {formatShortDate(vm.publishedAt)}</span>
+        <span>·</span>
+        <span>Received {formatShortDate(vm.receivedAt)}</span>
+        {vm.pageCount !== null && (<><span>·</span><span>{vm.pageCount} pages</span></>)}
+      </div>
+    </div>
+  )
+}
+
+// ── Broker call hero — 4 cards ─────────────────────────────────────────────
+// Formal call · Implied upside · Note signal · Street context. Always
+// shows Formal call and Street context (with safe fallbacks); Implied
+// upside and Note signal render conditionally. The Note signal card
+// reads from the resolved `noteSignal` prop so the suppression rule
+// applied in `DrawerContent` is the single source of truth.
+
+function BrokerCallHero({ vm, noteSignal }: {
+  vm: ReportDetailViewModel
+  noteSignal: NoteSignalInput | null
 }) {
   return (
-    <section className="rounded border border-line/10 bg-line/[0.02] p-3 flex flex-col gap-2">
-      <div className="flex items-center justify-between gap-2">
-        <h3 className="section-title">The Street on {ctx.ticker}</h3>
-        <span
-          className={`chip border ${ARB_COLOR[ctx.arb.band]} text-[10px] cursor-help`}
-          title={ARB_TOOLTIP}
-        >{ARB_LABEL[ctx.arb.band]}</span>
-      </div>
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
+      <FormalCallCard vm={vm}/>
+      {vm.upsideChipPct !== null && <ImpliedUpsideCard upsideChipPct={vm.upsideChipPct}/>}
+      {noteSignal?.noteSignalKind && <NoteSignalCard noteSignal={noteSignal}/>}
+      <StreetContextCard vm={vm}/>
+    </div>
+  )
+}
 
-      <div className="text-[12.5px] text-slate-200">
-        {formatConsensusRating(ctx.consensusRating)}
-        {ctx.consensusTarget !== null && (
-          <span className="text-slate-400"> · median target {formatPrice(ctx.consensusTarget, currency, 0)}</span>
-        )}
-      </div>
+function HeroCard({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="panel p-3 flex flex-col gap-1.5">
+      <div className="section-title">{label}</div>
+      {children}
+    </div>
+  )
+}
 
-      {ctx.targetLow !== null && ctx.targetHigh !== null && (
-        <div className="text-[11.5px] text-slate-500 num">
-          Range {formatPrice(ctx.targetLow, currency, 0)} – {formatPrice(ctx.targetHigh, currency, 0)}
-          {' '}across {ctx.brokerCount} broker{ctx.brokerCount === 1 ? '' : 's'}
+function FormalCallCard({ vm }: { vm: ReportDetailViewModel }) {
+  const ratingClass = vm.rating ? RATING_TEXT_COLOR[vm.rating] : 'text-slate-500'
+  const targetText = formatPrice(vm.targetPrice, vm.targetCurrency, 0)
+  const priorTarget = vm.priorTargetPrice
+  const deltaTone: SemanticTone = vm.targetDelta == null ? 'neutral' : getChangeTone(vm.targetDelta)
+  const deltaArrow = vm.targetDelta == null ? '' : vm.targetDelta > 0 ? '▲' : vm.targetDelta < 0 ? '▼' : ''
+  return (
+    <HeroCard label="Formal call">
+      <div className={`text-[16px] font-semibold leading-tight ${ratingClass}`}>
+        {vm.rating ?? 'Not rated'}
+      </div>
+      <div className="num text-[12px] text-slate-300">Target {targetText}</div>
+      {vm.targetChanged && vm.targetDelta != null && (
+        <div className={`num text-[10.5px] ${TONE_CHIP_CLASS[deltaTone].split(' ').find((c) => c.startsWith('text-')) ?? ''}`}>
+          {deltaArrow} {vm.targetDelta > 0 ? '+' : ''}{vm.targetDelta}
+          {priorTarget != null && (
+            <span className="text-slate-500"> from {formatPrice(priorTarget, vm.targetCurrency, 0)}</span>
+          )}
         </div>
       )}
+    </HeroCard>
+  )
+}
 
-      <StandingLine ctx={ctx}/>
+function ImpliedUpsideCard({ upsideChipPct }: { upsideChipPct: number }) {
+  const tone: SemanticTone = getChangeTone(upsideChipPct)
+  const toneTextClass = TONE_CHIP_CLASS[tone].split(' ').find((c) => c.startsWith('text-')) ?? 'text-slate-200'
+  const sign = upsideChipPct >= 0 ? '+' : ''
+  return (
+    <HeroCard label="Implied upside">
+      <div className={`num text-[16px] font-semibold leading-tight ${toneTextClass}`}>
+        {sign}{Math.round(upsideChipPct)}% upside
+      </div>
+      <div className="text-[10.5px] text-slate-500">Extracted from the note body</div>
+    </HeroCard>
+  )
+}
 
+function NoteSignalCard({ noteSignal }: { noteSignal: NoteSignalInput }) {
+  // Guard: render path ensures noteSignalKind is non-null at the call site,
+  // but TS narrowing needs an explicit check.
+  if (noteSignal.noteSignalKind === null) return null
+  const label = NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]
+  return (
+    <HeroCard label="Note signal">
+      <span
+        className={`chip border w-fit ${TONE_CHIP_CLASS[getActionLabelTone(label)]}`}
+      >{label}</span>
+      {noteSignal.noteSignalSource && (
+        <div className="text-[10.5px] text-slate-500">
+          {NOTE_SIGNAL_SOURCE_BLURB[noteSignal.noteSignalSource]}
+        </div>
+      )}
+    </HeroCard>
+  )
+}
+
+function StreetContextCard({ vm }: { vm: ReportDetailViewModel }) {
+  const ctx = vm.streetContext
+  if (!ctx) {
+    return (
+      <HeroCard label="Street context">
+        <div className="text-[12.5px] text-slate-500 italic leading-tight">No Street comparison yet</div>
+      </HeroCard>
+    )
+  }
+  return (
+    <HeroCard label="Street context">
+      <div className="text-[12.5px] text-slate-200 leading-tight">
+        {formatConsensusRating(ctx.consensusRating)}
+      </div>
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <span className={`chip border ${ARB_COLOR[ctx.arb.band]} text-[10px]`}>
+          {ARB_LABEL[ctx.arb.band]}
+        </span>
+        {ctx.consensusTarget !== null && (
+          <span className="num text-[10.5px] text-slate-400">
+            median {formatPrice(ctx.consensusTarget, vm.targetCurrency, 0)}
+          </span>
+        )}
+      </div>
+    </HeroCard>
+  )
+}
+
+// ── Outlier callout — only when this broker breaks from the Street ─────────
+// Surfaces the rich detail that used to live inside the standalone
+// `StreetContext` component (now dissolved into the hero panel above).
+
+function OutlierCallout({ ctx, onOpenStreet }: {
+  ctx: ReportStreetContext
+  onOpenStreet: (t: StockTicker) => void
+}) {
+  const extremity =
+    ctx.targetStanding === 'highest' ? ' It holds the highest target on the Street.'
+    : ctx.targetStanding === 'lowest' ? ' It holds the lowest target on the Street.'
+    : ''
+  return (
+    <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-3 py-2 flex items-center justify-between gap-3">
+      <span className="text-[11.5px] text-amber-200 leading-snug">
+        Outlier call — this broker breaks from the Street
+        {ctx.outlierDirection ? ` (${ctx.outlierDirection})` : ''}.{extremity}
+      </span>
       <button
         onClick={() => onOpenStreet(ctx.ticker)}
-        className="self-start text-[11px] text-accent hover:text-accent-soft transition-colors"
+        className="text-[11px] text-accent hover:text-accent-soft transition-colors shrink-0 whitespace-nowrap"
       >Open Street view →</button>
+    </div>
+  )
+}
+
+// ── Executive read — highlighted thesis card ───────────────────────────────
+// "Why this note matters" with a left accent border. Falls back to the
+// first non-boilerplate key point when the extractor produced no thesis.
+
+function ExecutiveRead({ vm }: { vm: ReportDetailViewModel }) {
+  const thesis = vm.thesis?.trim() || null
+  const fallback = thesis === null
+    ? (cleanDisplayKeyPoints(vm.keyPoints)[0] ?? null)
+    : null
+  const text = thesis ?? fallback
+  if (text === null) return null
+  return (
+    <section className="border-l-2 border-accent/40 pl-3 flex flex-col gap-1.5">
+      <div className="section-title">Why this note matters</div>
+      <p className="text-[13.5px] text-slate-100 leading-relaxed">{highlightFigures(text)}</p>
+      {thesis !== null && vm.evidence.thesis.length > 0 && (
+        <EvidenceList snippets={vm.evidence.thesis} indent/>
+      )}
     </section>
   )
 }
 
-function StandingLine({ ctx }: { ctx: ReportStreetContext }) {
-  if (ctx.isOutlier) {
-    const extremity =
-      ctx.targetStanding === 'highest' ? ' It holds the highest target on the Street.'
-      : ctx.targetStanding === 'lowest' ? ' It holds the lowest target on the Street.'
-      : ''
+// ── Numbers that matter — table for 3+, compact chips for ≤2 ───────────────
+// Adds an explicit "Upside +X%" row when `upsideChipPct` is set, alongside
+// the body-extracted `keyNumbers`. Read-through column is a deterministic
+// generic phrase set — never invents a company-specific narrative.
+
+function NumbersTable({ vm }: { vm: ReportDetailViewModel }) {
+  type Row = { readonly label: string; readonly value: string }
+  const rows: Row[] = []
+  if (vm.upsideChipPct !== null) {
+    const sign = vm.upsideChipPct >= 0 ? '+' : ''
+    rows.push({ label: 'Upside', value: `${sign}${Math.round(vm.upsideChipPct)}%` })
+  }
+  for (const n of vm.keyNumbers) rows.push({ label: n.label, value: n.value })
+  if (rows.length === 0) return null
+
+  if (rows.length <= 2) {
     return (
-      <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
-        Outlier call — this broker breaks from the Street
-        {ctx.outlierDirection ? ` (${ctx.outlierDirection})` : ''}.{extremity}
-      </div>
+      <Section title="Numbers that matter">
+        <div className="flex flex-wrap gap-1.5">
+          {rows.map((r) => <KeyNumberChip key={r.label} label={r.label} value={r.value}/>)}
+        </div>
+      </Section>
     )
   }
-  if (ctx.targetStanding === 'highest' || ctx.targetStanding === 'lowest') {
-    return (
-      <div className="text-[11.5px] text-slate-400">
-        This is the {ctx.targetStanding} target on the Street.
+
+  return (
+    <Section title="Numbers that matter">
+      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 gap-y-1.5 items-baseline">
+        <div className="section-title">Metric</div>
+        <div className="section-title text-right">Value</div>
+        <div className="section-title">Read-through</div>
+        {rows.map((r) => (
+          <Fragment key={r.label}>
+            <div className="text-[12px] text-slate-200 truncate" title={r.label}>{r.label}</div>
+            <div className="num text-[12px] text-slate-100 font-semibold text-right whitespace-nowrap">{r.value}</div>
+            <div className="text-[11.5px] text-slate-500 truncate" title={readThroughLabel(r.label)}>
+              {readThroughLabel(r.label)}
+            </div>
+          </Fragment>
+        ))}
       </div>
-    )
-  }
-  if (ctx.targetStanding === 'mid') {
-    return <div className="text-[11.5px] text-slate-500">This call sits within the Street's range.</div>
-  }
-  return null
+    </Section>
+  )
+}
+
+function readThroughLabel(label: string): string {
+  if (/revenue|sales|rev\b|nii|aum|order/i.test(label)) return 'Growth / sales momentum'
+  if (/ebitda|ebit\b|margin|roe|roic/i.test(label))    return 'Profitability'
+  if (/pat\b|eps\b|profit/i.test(label))               return 'Earnings'
+  if (/^upside$|upside\s*\(/i.test(label))             return 'Valuation'
+  if (/guidance|outlook/i.test(label))                 return 'Management outlook'
+  if (/cagr|capacity|expansion/i.test(label))          return 'Growth runway'
+  return 'Key metric'
+}
+
+// ── Watch items — chip rail with deterministic tone ────────────────────────
+
+function WatchItemsRail({ vm }: { vm: ReportDetailViewModel }) {
+  if (vm.watchpoints.length === 0) return null
+  return (
+    <Section title="Watch items">
+      <div className="flex flex-wrap gap-1.5">
+        {vm.watchpoints.map((w) => (
+          <span key={w} className={`chip border ${TONE_CHIP_CLASS[watchpointTone(w)]}`}>{w}</span>
+        ))}
+      </div>
+    </Section>
+  )
+}
+
+function watchpointTone(label: string): SemanticTone {
+  if (/leverage|debt|regulatory|pricing\s+pressure|input\s+cost|fx|forex/i.test(label)) return 'caution'
+  if (/capacity|market\s+share|guidance|expansion/i.test(label)) return 'info'
+  return 'neutral'
+}
+
+// ── Key takeaways — boilerplate-filtered bullets ───────────────────────────
+// Display numbering uses the FILTERED index (1, 2, 3, ...). Evidence
+// lookup uses the ORIGINAL index so existing snippet attribution survives
+// the filter pass.
+
+function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
+  const displayed = vm.keyPoints
+    .map((text, originalIndex) => ({ text, originalIndex }))
+    .filter((p) => !isBoilerplateKeyPoint(p.text))
+  if (displayed.length === 0) return null
+  return (
+    <Section title="Key takeaways">
+      <ol className="flex flex-col gap-3">
+        {displayed.map((p, i) => (
+          <li key={p.originalIndex} className="flex flex-col gap-1.5">
+            <div className="flex gap-2 text-[13px] text-slate-200">
+              <span className="text-slate-500 num w-5">{i + 1}.</span>
+              <span className="flex-1 leading-relaxed">{highlightFigures(p.text)}</span>
+            </div>
+            <EvidenceList snippets={vm.evidence.keyPointByIndex.get(p.originalIndex) ?? []} indent/>
+          </li>
+        ))}
+      </ol>
+    </Section>
+  )
 }
 
 // ── Source section — four customer-facing rows ──────────────────────────
@@ -487,20 +665,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function CalloutCell({
-  label, value, valueClass, sub, subClass,
-}: {
-  label: string; value: string; valueClass?: string; sub?: string; subClass?: string;
-}) {
-  return (
-    <div className="panel p-3 flex flex-col gap-1">
-      <div className="section-title">{label}</div>
-      <div className={`text-[14px] font-semibold ${valueClass ?? 'text-slate-100'}`}>{value}</div>
-      {sub && <div className={`text-[10.5px] num ${subClass ?? 'text-slate-500'}`}>{sub}</div>}
-    </div>
-  )
-}
-
 function EvidenceList({ snippets, indent }: { snippets: readonly EvidenceSnippet[]; indent?: boolean }) {
   if (snippets.length === 0) return null
   return (
@@ -545,130 +709,9 @@ function highlightFigures(text: string): React.ReactNode {
   return out
 }
 
-// ── Broker note snapshot ────────────────────────────────────────────────────
-// Progressive-disclosure detail mined from the forwarded email body: why the
-// note matters, the numbers, and what to monitor. Absorbs the old standalone
-// "Thesis" section so the thesis renders exactly once.
-
-function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
-  const whyItMatters = vm.thesis?.trim() || null
-  const numbers = vm.keyNumbers
-  const watch = vm.watchpoints
-  const noteSignal = resolveNoteSignalChip(vm)
-  const upsideChip = vm.upsideChipPct
-  const nothingExtracted =
-    !whyItMatters
-    && numbers.length === 0
-    && watch.length === 0
-    && (noteSignal === null || noteSignal.noteSignalKind === null)
-    && upsideChip === null
-
-  // Nothing mined and no PDF to fall back to — render nothing.
-  if (nothingExtracted && !vm.sourceDocument) return null
-
-  return (
-    <Section title="Broker note snapshot">
-      {nothingExtracted ? (
-        <p className="text-[12px] text-slate-400">
-          Deep note details not extracted yet — open original PDF.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {/* Note signal — typed chip + plain-language source blurb. The
-              transform already suppressed redundant signals where the
-              formal Call covers them, so anything we render here adds
-              information beyond the Rating column. */}
-          {noteSignal !== null && noteSignal.noteSignalKind !== null && (
-            <div className="flex flex-col gap-1">
-              <div className="section-title">Note signal</div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <span
-                  className={`shrink-0 text-[10.5px] font-semibold px-2 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
-                >
-                  {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
-                </span>
-                {noteSignal.noteSignalSource && (
-                  <span className="text-[11px] text-slate-500">
-                    {NOTE_SIGNAL_SOURCE_BLURB[noteSignal.noteSignalSource]}
-                  </span>
-                )}
-              </div>
-            </div>
-          )}
-          {/* Implied upside — independent of Note signal. Renders whenever
-              the body produced a ≥15% upside, even if no note-signal chip
-              fires and no other key-numbers were extracted. */}
-          {upsideChip !== null && (
-            <div className="flex items-center gap-2 flex-wrap">
-              <span
-                className="shrink-0 num text-[10.5px] font-semibold px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
-                title="Extracted from the note body"
-              >
-                +{Math.round(upsideChip)}% upside
-              </span>
-              <span className="text-[11px] text-slate-500">Extracted from the note body</span>
-            </div>
-          )}
-          {whyItMatters && (
-            <div className="flex flex-col gap-1.5">
-              <div className="section-title">Why it matters</div>
-              <p className="text-[13px] text-slate-200 leading-relaxed">{highlightFigures(whyItMatters)}</p>
-              <EvidenceList snippets={vm.evidence.thesis}/>
-            </div>
-          )}
-          {numbers.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <div className="section-title">Numbers that matter</div>
-              <div className="flex flex-wrap gap-1.5">
-                {vm.upsidePct !== null && (
-                  <KeyNumberChip label="Upside" value={`+${Math.round(vm.upsidePct)}%`}/>
-                )}
-                {numbers.map((n) => (
-                  <KeyNumberChip key={n.label} label={n.label} value={n.value}/>
-                ))}
-              </div>
-            </div>
-          )}
-          {watch.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <div className="section-title">What to watch</div>
-              <div className="flex flex-wrap gap-1.5">
-                {watch.map((w) => (
-                  <span
-                    key={w}
-                    className="inline-flex items-center px-2 py-0.5 rounded text-[11px] border border-line/5 bg-line/[0.04] text-slate-300"
-                  >{w}</span>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </Section>
-  )
-}
-
-/** Resolve the Note signal chip for the drawer. Delegates to the shared
- *  `resolveSummaryNoteSignal` so the precedence (typed kind → legacy
- *  fallback) AND the non-duplication rule against `vm.rating` are
- *  applied in one place. Defence in depth: the transform already nulls
- *  `actionLabel` when it suppresses `noteSignalKind`, but re-applying
- *  here means OLD summaries on disk that still carry a legacy string
- *  can't revive a suppressed chip either. */
-function resolveNoteSignalChip(vm: ReportDetailViewModel): NoteSignalInput | null {
-  return resolveSummaryNoteSignal(
-    {
-      noteSignalKind: vm.noteSignalKind,
-      noteSignalSource: vm.noteSignalSource,
-      actionLabel: vm.actionLabel,
-    },
-    vm.rating,
-  )
-}
-
-/** Compact label + value chip for "Numbers that matter". Deliberately not the
- *  global `.chip` class — that is uppercase and would mangle values like
- *  "23.7%" or "21/16x EBITDA". */
+/** Compact label + value chip used by `NumbersTable` when there are ≤2
+ *  metrics to surface. Deliberately not the global `.chip` class — that
+ *  is uppercase and would mangle values like "23.7%" or "21/16x EBITDA". */
 function KeyNumberChip({ label, value }: { label: string; value: string }) {
   return (
     <span className="inline-flex items-baseline gap-1.5 px-2 py-1 rounded border border-line/5 bg-line/[0.04]">
