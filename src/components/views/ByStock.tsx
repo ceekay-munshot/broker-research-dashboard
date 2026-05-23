@@ -5,9 +5,7 @@ import type { FiltersState } from '../../app/filters'
 import type { OpinionCell, ByStockRowViewModel, StockView } from '../../viewModels/byStock'
 import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
-import { useAdapterQuery } from '../../hooks/useAdapterQuery'
 import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
-import StockBrokerChanges from '../stock/StockBrokerChanges'
 import CmpCell from '../cells/CmpCell'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
 import { RESULTANT_STATE_LABEL, formatConsensusRating } from '../../lib/signalVocab'
@@ -25,11 +23,6 @@ interface ByStockProps {
 export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByStockProps) {
   const [view, setView] = useState<StockView>('contested')
   const { data, loading, error } = useByStockViewModel(filters, view)
-  const [focusTicker, setFocusTicker] = useState<StockTicker | null>(null)
-
-  // Shared catalogs for the change-rail builder.
-  const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
-  const stocks  = useAdapterQuery((a, s) => a.listStocks(s), [])
 
   // Live CMP fetch — called unconditionally (hooks rule) with a null-safe
   // ticker list. Empty list = no-op inside the hook.
@@ -55,10 +48,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
           return cell && cell.rating !== null && ratingFilter.has(cell.rating)
         }))
     : data.rows
-
-  // Default the change rail to the first row so the analyst always sees
-  // something without extra clicks.
-  const activeTicker = focusTicker ?? visibleRows[0]?.ticker ?? null
 
   return (
     <div className="flex flex-col gap-4">
@@ -107,7 +96,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
                 cmp={prices.get(row.ticker)}
                 ratingFilter={ratingFilterActive ? ratingFilter : null}
                 onSelectReport={onSelectReport}
-                onSelectTicker={(t) => { setFocusTicker(t); onSelectTicker(t) }}
+                onSelectTicker={onSelectTicker}
               />
             ))}
           </tbody>
@@ -127,28 +116,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         ))}
       </div>
 
-      {activeTicker && brokers.data && stocks.data && (
-        <>
-          <div className="flex items-center gap-2 text-[11px] text-slate-500 -mb-2">
-            <span className="section-title">Focus ticker</span>
-            <div className="flex gap-1">
-              {data.rows.slice(0, 8).map((row) => (
-                <button
-                  key={row.ticker}
-                  onClick={() => setFocusTicker(row.ticker)}
-                  className={`chip border text-[10.5px] ${activeTicker === row.ticker ? 'border-accent/40 text-accent bg-accent/10' : 'border-line/10 text-slate-400 hover:text-slate-200'}`}
-                >{row.ticker}</button>
-              ))}
-            </div>
-          </div>
-          <StockBrokerChanges
-            ticker={activeTicker}
-            brokers={brokers.data}
-            stocks={stocks.data}
-            onSelectReport={onSelectReport}
-          />
-        </>
-      )}
     </div>
   )
 }
