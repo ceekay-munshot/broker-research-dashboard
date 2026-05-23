@@ -6,7 +6,7 @@ import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } fr
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
 import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB } from '../lib/signalVocab'
-import { legacyActionLabelToNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
+import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -548,14 +548,22 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
   )
 }
 
-/** Resolve the Note signal chip for the drawer. Prefers the new typed
- *  kind; falls back through the legacy mapper. Never returns or renders a
- *  raw legacy actionLabel string. */
+/** Resolve the Note signal chip for the drawer. Delegates to the shared
+ *  `resolveSummaryNoteSignal` so the precedence (typed kind → legacy
+ *  fallback) AND the non-duplication rule against `vm.rating` are
+ *  applied in one place. Defence in depth: the transform already nulls
+ *  `actionLabel` when it suppresses `noteSignalKind`, but re-applying
+ *  here means OLD summaries on disk that still carry a legacy string
+ *  can't revive a suppressed chip either. */
 function resolveNoteSignalChip(vm: ReportDetailViewModel): NoteSignalInput | null {
-  if (vm.noteSignalKind !== null) {
-    return { noteSignalKind: vm.noteSignalKind, noteSignalSource: vm.noteSignalSource }
-  }
-  return legacyActionLabelToNoteSignal(vm.actionLabel)
+  return resolveSummaryNoteSignal(
+    {
+      noteSignalKind: vm.noteSignalKind,
+      noteSignalSource: vm.noteSignalSource,
+      actionLabel: vm.actionLabel,
+    },
+    vm.rating,
+  )
 }
 
 /** Compact label + value chip for "Numbers that matter". Deliberately not the

@@ -733,7 +733,13 @@ function buildServerOutputFromEmails(
         noteSignalKind: display?.noteSignalKind ?? null,
         noteSignalSource: display?.noteSignalSource ?? null,
         upsideChipPct,
-        actionLabel: insight.actionLabel,
+        // CRITICAL: null `actionLabel` when the display signal was
+        // suppressed. Otherwise the renderer's legacy-fallback path
+        // (`legacyActionLabelToNoteSignal`) would revive the suppressed
+        // chip from the legacy string (e.g. formal Buy → display === null,
+        // but actionLabel === 'BUY idea' → fallback maps back to
+        // bullish_signal → duplicate chip alongside the Rating column).
+        actionLabel: display ? insight.actionLabel : null,
       })
     }
 

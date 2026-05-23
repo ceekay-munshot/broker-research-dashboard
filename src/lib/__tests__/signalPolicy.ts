@@ -5,7 +5,7 @@
 
 import type { Rating } from '../../domain'
 import {
-  resolveDisplayNoteSignal, legacyActionLabelToNoteSignal,
+  resolveDisplayNoteSignal, legacyActionLabelToNoteSignal, resolveSummaryNoteSignal,
   type NoteSignalInput,
 } from '../signalPolicy'
 
@@ -107,6 +107,107 @@ check('unknown string → null',
   legacyActionLabelToNoteSignal('Something weird') === null)
 check('null in → null out',
   legacyActionLabelToNoteSignal(null) === null)
+
+console.log('\nsignalPolicy — resolveSummaryNoteSignal (composed, end-to-end)\n')
+
+// The single helper renderers use. Encodes precedence (typed kind first,
+// then legacy actionLabel fallback) AND re-applies the non-duplication
+// rule against the formal rating. The transform already nulls the legacy
+// field when the typed kind is suppressed, but defence-in-depth means
+// old summaries on disk that still carry "BUY idea" + a formal Buy can't
+// revive a suppressed chip through the legacy fallback.
+
+// ── The critical bug being fixed ────────────────────────────────────────
+// Formal Buy + legacy "BUY idea" + noteSignalKind == null →
+// the renderer must NOT revive a Bullish-signal chip.
+check('formal Buy + legacy "BUY idea" + null kind → suppressed',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'BUY idea' },
+    'Buy' as Rating,
+  ) === null)
+check('formal Overweight + legacy "BUY idea" + null kind → suppressed',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'BUY idea' },
+    'Overweight' as Rating,
+  ) === null)
+check('formal Hold + legacy "Hold / monitor" + null kind → suppressed',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'Hold / monitor' },
+    'Hold' as Rating,
+  ) === null)
+
+// ── Legacy fallback still surfaces a chip when sentiment doesn't overlap ─
+// No formal rating → legacy "BUY idea" renders as Bullish signal.
+{
+  const out = resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'BUY idea' },
+    null,
+  )
+  check('no formal rating + legacy "BUY idea" → Bullish signal',
+    out?.noteSignalKind === 'bullish_signal' && out.noteSignalSource === 'title')
+}
+{
+  const out = resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'Hold / monitor' },
+    null,
+  )
+  check('no formal rating + legacy "Hold / monitor" → Cautious signal',
+    out?.noteSignalKind === 'cautious_signal' && out.noteSignalSource === 'title')
+}
+
+// ── Persisted bearish kind + formal Sell → suppressed (defence in depth) ─
+// Bearish is new vocabulary and has no legacy actionLabel, but if a
+// noteSignalKind was somehow persisted as bearish_signal alongside a
+// formal Sell rating, the renderer should still suppress.
+check('formal Sell + persisted bearish_signal → suppressed',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: 'bearish_signal', noteSignalSource: 'title', actionLabel: null },
+    'Sell' as Rating,
+  ) === null)
+check('formal Underweight + persisted bearish_signal → suppressed',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: 'bearish_signal', noteSignalSource: 'title', actionLabel: null },
+    'Underweight' as Rating,
+  ) === null)
+
+// ── Information-adding signals always survive, even on legacy fallback ──
+{
+  const out = resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'Upgrade' },
+    'Buy' as Rating,
+  )
+  check('formal Buy + legacy "Upgrade" → Upgrade survives (adds info)',
+    out?.noteSignalKind === 'upgrade')
+}
+{
+  const out = resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: 'Initiation' },
+    'Buy' as Rating,
+  )
+  check('formal Buy + legacy "Initiation" → New coverage survives',
+    out?.noteSignalKind === 'new_coverage')
+}
+
+// ── Typed kind preferred over legacy ────────────────────────────────────
+{
+  const out = resolveSummaryNoteSignal(
+    {
+      noteSignalKind: 'upgrade',
+      noteSignalSource: 'body',
+      actionLabel: 'BUY idea',  // legacy says something different
+    },
+    null,
+  )
+  check('typed kind wins over legacy actionLabel',
+    out?.noteSignalKind === 'upgrade' && out.noteSignalSource === 'body')
+}
+
+// ── Truly nothing in, nothing out ───────────────────────────────────────
+check('null kind + null actionLabel → null',
+  resolveSummaryNoteSignal(
+    { noteSignalKind: null, noteSignalSource: null, actionLabel: null },
+    'Buy' as Rating,
+  ) === null)
 
 if (failed > 0) {
   console.error(`\n${failed} check(s) failed`)

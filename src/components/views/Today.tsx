@@ -23,7 +23,7 @@ import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 import { stockIdentityKey } from '../../lib/reportSubject'
 import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
 import { NOTE_SIGNAL_LABEL } from '../../lib/signalVocab'
-import { legacyActionLabelToNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
+import { resolveSummaryNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -333,16 +333,22 @@ function ChangedStockGroup({ group, onSelectReport, onSelectTicker }: {
   )
 }
 
-/** Resolve the Note signal chip for an Overview row. Prefers the new
- *  `noteSignalKind` enum; falls back through the legacy `actionLabel`
- *  mapper for summaries written before the v2 transform. NEVER renders
- *  a raw legacy string (e.g. "BUY idea"). Returns null when no chip
- *  should render. */
+/** Resolve the Note signal chip for an Overview row. Delegates to the
+ *  shared `resolveSummaryNoteSignal` so the precedence (typed kind →
+ *  legacy fallback) AND the non-duplication rule against the formal
+ *  rating are applied in one place. Defence in depth: the transform
+ *  already nulls `actionLabel` when it suppresses `noteSignalKind`, but
+ *  re-applying here means OLD summaries on disk that still carry a
+ *  legacy string can't revive a suppressed chip either. */
 function resolveNoteSignalChip(item: WorklogItem): NoteSignalInput | null {
-  if (item.noteSignalKind !== null) {
-    return { noteSignalKind: item.noteSignalKind, noteSignalSource: item.noteSignalSource }
-  }
-  return legacyActionLabelToNoteSignal(item.actionLabel)
+  return resolveSummaryNoteSignal(
+    {
+      noteSignalKind: item.noteSignalKind,
+      noteSignalSource: item.noteSignalSource,
+      actionLabel: item.actionLabel,
+    },
+    item.rating,
+  )
 }
 
 /** One broker note, nested under its company group. */

@@ -321,9 +321,12 @@ test('non-duplication: formal Buy rating + title ending in BUY → no Bullish-si
   // Formal rating is unchanged — opinion still gets the Buy.
   assertEqual(summary!.rating, 'Buy', 'formal rating preserved')
   assertEqual(summary!.targetPrice, 9700, 'formal target preserved')
-  // And the legacy back-compat string still mirrors the kind that *would* have rendered.
-  assertEqual(summary!.actionLabel, 'BUY idea',
-    'legacy actionLabel mirror still set (renderer routes through legacyActionLabelToNoteSignal — never displayed raw)')
+  // CRITICAL: when the display signal is suppressed, the legacy back-compat
+  // string must ALSO be null. Otherwise the renderer's legacy fallback
+  // would revive the suppressed chip ("BUY idea" → bullish_signal →
+  // duplicate of the Rating column).
+  assertEqual(summary!.actionLabel, null,
+    'legacy actionLabel nulled when display signal suppressed — prevents renderer revival')
 })
 
 test('upgrade always survives non-duplication even when rating is Buy', () => {

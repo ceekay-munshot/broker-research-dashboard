@@ -76,3 +76,32 @@ export function legacyActionLabelToNoteSignal(actionLabel: string | null): NoteS
   if (actionLabel === null) return null
   return LEGACY_MAP[actionLabel] ?? null
 }
+
+// ── Composed renderer helper ────────────────────────────────────────────
+// The single resolver every consumer should use. Encodes the precedence:
+//   1. Prefer the new typed `noteSignalKind` field when present.
+//   2. Fall back to the legacy `actionLabel` string via the back-compat
+//      mapper (which itself returns enums, never strings).
+//   3. RE-APPLY the non-duplication rule against the formal rating.
+//
+// Step 3 is the defense-in-depth that prevents a suppressed signal from
+// being revived through the legacy fallback. The transform also nulls
+// `actionLabel` when it suppresses `noteSignalKind`, so for new summaries
+// this rule is double-enforced; old summaries on disk that still carry a
+// legacy string get the same suppression at render time.
+
+export interface ResolveSummaryNoteSignalInput {
+  readonly noteSignalKind: NoteSignalKind | null
+  readonly noteSignalSource: NoteSignalSource | null
+  readonly actionLabel: string | null
+}
+
+export function resolveSummaryNoteSignal(
+  input: ResolveSummaryNoteSignalInput,
+  formalRating: Rating | null,
+): NoteSignalInput | null {
+  const candidate: NoteSignalInput | null = input.noteSignalKind !== null
+    ? { noteSignalKind: input.noteSignalKind, noteSignalSource: input.noteSignalSource }
+    : legacyActionLabelToNoteSignal(input.actionLabel)
+  return candidate ? resolveDisplayNoteSignal(candidate, formalRating) : null
+}
