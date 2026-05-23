@@ -111,7 +111,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
       {/* 2 — What changed today */}
       <Section
         title="What changed today"
-        subtitle="The latest broker notes, grouped by company — click a note to open the report."
+        subtitle="The latest broker notes, grouped by company. Click a company name to open its stock view, or click a note to open the report."
       >
         {worklog.loading && !worklog.data ? (
           <Loading/>
@@ -294,25 +294,38 @@ function ChangedStockGroup({ group, onSelectReport, onSelectTicker }: {
   const shown = group.items.slice(0, NOTE_CAP)
   const extra = group.items.length - shown.length
   const ticker = group.ticker
-  const header = (
-    <>
-      <span className="text-slate-100 text-[13px] font-semibold truncate">{group.name}</span>
-      {group.items.length > 1 && (
-        <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
-      )}
-    </>
-  )
   return (
     <li className="border-b border-line/5 last:border-0 py-1">
       {ticker ? (
+        // `group` so the name and the trailing arrow both light up on
+        // row hover — the static styling alone read as a heading, not
+        // a link. The arrow + accent-hover give an unmistakable cue
+        // that the company name opens the stock view.
         <button
           onClick={() => onSelectTicker(ticker)}
-          className="w-full text-left px-4 pt-1.5 pb-1 flex items-center gap-2 hover:bg-line/[0.03] transition-colors"
+          title={`Open ${group.name} stock view`}
+          className="group w-full text-left px-4 pt-1.5 pb-1 flex items-center gap-2 cursor-pointer hover:bg-line/[0.03] transition-colors"
         >
-          {header}
+          <span className="text-slate-100 text-[13px] font-semibold truncate group-hover:text-accent transition-colors">
+            {group.name}
+          </span>
+          {group.items.length > 1 && (
+            <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
+          )}
+          <span
+            aria-hidden
+            className="ml-auto text-[11px] text-slate-500 group-hover:text-accent transition-colors shrink-0"
+          >
+            Open stock view →
+          </span>
         </button>
       ) : (
-        <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">{header}</div>
+        <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">
+          <span className="text-slate-100 text-[13px] font-semibold truncate">{group.name}</span>
+          {group.items.length > 1 && (
+            <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
+          )}
+        </div>
       )}
       <ul className="flex flex-col">
         {shown.map((it) => (
