@@ -6,7 +6,9 @@ import type { OpinionCell, ByStockRowViewModel, StockView } from '../../viewMode
 import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useAdapterQuery } from '../../hooks/useAdapterQuery'
+import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
+import CmpCell from '../cells/CmpCell'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
 import {
   RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
@@ -27,6 +29,11 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
   // Shared catalogs for the change-rail builder.
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
   const stocks  = useAdapterQuery((a, s) => a.listStocks(s), [])
+
+  // Live CMP fetch — called unconditionally (hooks rule) with a null-safe
+  // ticker list. Empty list = no-op inside the hook.
+  const cmpTickers = data?.rows.map((r) => r.ticker as string) ?? []
+  const { prices, refetch: refetchCmp, lastFetchedAt } = useStockPrices(cmpTickers)
 
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
   if (loading || !data) return <ViewMessage tone="loading" text="Loading by-stock view…"/>
@@ -49,11 +56,17 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
       </div>
 
       <div className="panel overflow-x-auto">
-        <table className="w-full min-w-[1180px] text-[12px]">
+        <table className="w-full min-w-[1260px] text-[12px]">
           <thead className="bg-line/[0.02] border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 z-10 bg-ink-900 border-r border-line/10">Ticker</th>
               <th className="px-3 py-2 font-medium">Street state</th>
+              <th className="px-3 py-2 font-medium text-right">
+                <div className="flex items-center justify-end gap-1.5">
+                  <span>CMP</span>
+                  <RefreshCmpButton onClick={refetchCmp} fetchedAt={lastFetchedAt}/>
+                </div>
+              </th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
               <th className="px-3 py-2 font-medium">ARB verdict</th>
               {data.brokers.map((b) => (
@@ -73,6 +86,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
                 row={row}
                 zebra={idx % 2 === 1}
                 brokerColumnIds={data.brokers.map((b) => b.id)}
+                cmp={prices.get(row.ticker)}
                 onSelectReport={onSelectReport}
                 onSelectTicker={(t) => { setFocusTicker(t); onSelectTicker(t) }}
               />
@@ -153,10 +167,11 @@ function ViewSelector({ view, setView, showPortfolio }: {
   )
 }
 
-function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker }: {
+function StockRow({ row, zebra, brokerColumnIds, cmp, onSelectReport, onSelectTicker }: {
   row: ByStockRowViewModel;
   zebra: boolean;
   brokerColumnIds: readonly BrokerId[];
+  cmp: PriceCell | undefined;
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
 }) {
@@ -182,6 +197,9 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
           </span>
         </div>
       </td>
+      <td className="px-3 py-2 num text-right">
+        <CmpCell cell={cmp} avgTarget={row.avgTarget}/>
+      </td>
       <td className="px-3 py-2 num text-right text-slate-100">
         {formatPrice(row.avgTarget, row.currency, 0)}
       </td>
@@ -196,6 +214,26 @@ function StockRow({ row, zebra, brokerColumnIds, onSelectReport, onSelectTicker 
         />
       ))}
     </tr>
+  )
+}
+
+function RefreshCmpButton({ onClick, fetchedAt }: { onClick: () => void; fetchedAt: Date | null }) {
+  const title = fetchedAt
+    ? `Refresh live prices · last updated ${fetchedAt.toLocaleTimeString()}`
+    : 'Refresh live prices'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={title}
+      aria-label={title}
+      className="text-slate-500 hover:text-accent transition-colors leading-none"
+    >
+      {/* Inline SVG keeps the bundle dep-free. */}
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.88l1.6-1.6V6.5h-4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </button>
   )
 }
 
