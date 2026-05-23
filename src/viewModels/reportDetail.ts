@@ -4,6 +4,7 @@ import type {
   ReportId, EmailProcessingStatus, Rating, Stance, ReportCatalyst,
   EvidenceSupportingField, StockTicker, ReportKeyNumber,
   BrokerSource, ResolutionClass,
+  NoteSignalKind, NoteSignalSource,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
@@ -88,6 +89,17 @@ export interface ReportDetailViewModel {
   readonly keyNumbers: readonly ReportKeyNumber[]
   readonly watchpoints: readonly string[]
   readonly upsidePct: number | null
+
+  // Note signal — typed display annotation surfaced in the drawer's
+  // "Note signal" section. `noteSignalKind` is the chip enum; the source
+  // drives the one-line plain-language blurb.
+  readonly noteSignalKind: NoteSignalKind | null
+  readonly noteSignalSource: NoteSignalSource | null
+  /** Standalone numeric upside chip (only set when upsidePct >= 15). */
+  readonly upsideChipPct: number | null
+  /** Legacy back-compat — renderers route through
+   *  `signalPolicy.legacyActionLabelToNoteSignal()`; they never display
+   *  the raw string. */
   readonly actionLabel: string | null
 
   readonly evidence: EvidenceBySection
@@ -230,6 +242,9 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     keyNumbers: summary?.keyNumbers ?? [],
     watchpoints: summary?.watchpoints ?? [],
     upsidePct: summary?.upsidePct ?? null,
+    noteSignalKind: summary?.noteSignalKind ?? null,
+    noteSignalSource: summary?.noteSignalSource ?? null,
+    upsideChipPct: summary?.upsideChipPct ?? null,
     actionLabel: summary?.actionLabel ?? null,
 
     evidence: evidenceBySection,

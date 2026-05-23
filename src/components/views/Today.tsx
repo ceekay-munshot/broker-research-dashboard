@@ -22,6 +22,8 @@ import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../v
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 import { stockIdentityKey } from '../../lib/reportSubject'
 import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
+import { NOTE_SIGNAL_LABEL } from '../../lib/signalVocab'
+import { legacyActionLabelToNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -321,12 +323,26 @@ function ChangedStockGroup({ group, onSelectReport, onSelectTicker }: {
   )
 }
 
+/** Resolve the Note signal chip for an Overview row. Prefers the new
+ *  `noteSignalKind` enum; falls back through the legacy `actionLabel`
+ *  mapper for summaries written before the v2 transform. NEVER renders
+ *  a raw legacy string (e.g. "BUY idea"). Returns null when no chip
+ *  should render. */
+function resolveNoteSignalChip(item: WorklogItem): NoteSignalInput | null {
+  if (item.noteSignalKind !== null) {
+    return { noteSignalKind: item.noteSignalKind, noteSignalSource: item.noteSignalSource }
+  }
+  return legacyActionLabelToNoteSignal(item.actionLabel)
+}
+
 /** One broker note, nested under its company group. */
 function ChangedNoteRow({ item, onSelect }: { item: WorklogItem; onSelect: () => void }) {
   const thesis = item.thesis?.trim() || null
   const numbers = item.keyNumbers.slice(0, 3)
   const extraNumbers = item.keyNumbers.length - numbers.length
-  const hasSignals = item.actionLabel !== null || item.keyNumbers.length > 0
+  const noteSignal = resolveNoteSignalChip(item)
+  const upsideChip = item.upsideChipPct
+  const hasSignals = noteSignal !== null || upsideChip !== null || item.keyNumbers.length > 0
 
   return (
     <li>
@@ -364,12 +380,26 @@ function ChangedNoteRow({ item, onSelect }: { item: WorklogItem; onSelect: () =>
           </div>
         )}
 
-        {/* Signals — one action label + up to three key-number chips */}
+        {/* Signals — note-signal chip + optional upside chip + up to three
+            key-number chips. The note-signal chip is suppressed at transform
+            time when the formal rating already covers it (Bullish signal +
+            formal Buy), so we don't render a duplicate of the rating column. */}
         {hasSignals && (
           <div className="flex items-center gap-1.5 overflow-hidden">
-            {item.actionLabel && (
-              <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(item.actionLabel)]}`}>
-                {item.actionLabel}
+            {noteSignal !== null && noteSignal.noteSignalKind !== null && (
+              <span
+                className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
+                title={NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
+              >
+                {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
+              </span>
+            )}
+            {upsideChip !== null && (
+              <span
+                className="shrink-0 num text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                title="Extracted from the note body"
+              >
+                +{Math.round(upsideChip)}% upside
               </span>
             )}
             {numbers.map((n) => (

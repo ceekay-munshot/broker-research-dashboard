@@ -43,6 +43,7 @@ import type { ConflictClosure } from '../../engine/types'
 import { buildConflictClosure } from '../../engine/conflictClosure'
 import type { DashboardServerOutput, FeedStatusPayload } from './types'
 import { extractNoteInsight, EMPTY_NOTE_INSIGHT } from './noteInsight'
+import { resolveDisplayNoteSignal } from '../../lib/signalPolicy'
 import { parseTp, validateTargetPrices } from './targetPrice'
 import {
   buildEmailBrokerContext, resolveBrokerForNote, stripBrokerPrefixes,
@@ -690,6 +691,24 @@ function buildServerOutputFromEmails(
     })
 
     if (summaryId && primary) {
+      // Apply the non-duplication rule at the transform boundary so the
+      // persisted summary already matches what the UI will render. If the
+      // broker's formal Call covers the inferred sentiment, the chip is
+      // suppressed (Bullish signal + formal Buy → null). Upgrade /
+      // Downgrade / New coverage always survive (they add information).
+      const display = resolveDisplayNoteSignal(
+        {
+          noteSignalKind: insight.noteSignalKind,
+          noteSignalSource: insight.noteSignalSource,
+        },
+        primary.rating,
+      )
+      // Upside chip is a separate render concern — only surface it when the
+      // body produced a meaningful upside number (>= 15%).
+      const upsideChipPct = insight.upsidePct !== null && insight.upsidePct >= 15
+        ? insight.upsidePct
+        : null
+
       summaries.push({
         id: summaryId,
         orgId: ORG_ID,
@@ -711,6 +730,9 @@ function buildServerOutputFromEmails(
         keyNumbers: insight.keyNumbers,
         watchpoints: insight.watchpoints,
         upsidePct: insight.upsidePct,
+        noteSignalKind: display?.noteSignalKind ?? null,
+        noteSignalSource: display?.noteSignalSource ?? null,
+        upsideChipPct,
         actionLabel: insight.actionLabel,
       })
     }

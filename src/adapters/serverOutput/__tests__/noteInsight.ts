@@ -85,6 +85,15 @@ check('keyNumbers — EBITDA margin 23.7%', hasNumber(nephro, /margin/i, /23\.7\
 check('keyNumbers — Rev/EBITDA/EPS CAGR 19/24/39%', hasNumber(nephro, /cagr/i, /19\/24\/39\s*%/))
 check('upsidePct === 22', nephro.upsidePct === 22, String(nephro.upsidePct))
 check('no compliance / footer text in any field', !FOOTER.test(allText(nephro)), allText(nephro))
+// With NER rating = Buy, the signal mirrors the formal rating. The transform
+// will suppress the chip via the non-duplication rule before render — but
+// the extractor still tags the source so the suppression has something to act on.
+check('noteSignalKind === bullish_signal (NER Buy)', nephro.noteSignalKind === 'bullish_signal',
+  String(nephro.noteSignalKind))
+check('noteSignalSource === formal_rating (came from NER, not title)',
+  nephro.noteSignalSource === 'formal_rating', String(nephro.noteSignalSource))
+check('legacy actionLabel kept as "BUY idea" for back-compat',
+  nephro.actionLabel === 'BUY idea', String(nephro.actionLabel))
 report(nephro)
 
 // ── Eris — the line-wrapped-Subject regression ──────────────────────────────
@@ -116,6 +125,78 @@ check('thesis is complete — keeps the closing valuation line',
 check('keyPoints — at least two supporting paragraphs', eris.keyPoints.length >= 2, String(eris.keyPoints.length))
 check('no compliance / footer text in any field', !FOOTER.test(allText(eris)), allText(eris))
 report(eris)
+
+// ── Title-only rating detectors — bullish / cautious / bearish ──────────────
+// These are the new code path that the prior PR's "BUY idea" rule kicked off,
+// now lifted into the typed NoteSignalKind enum + a NoteSignalSource.
+
+console.log('\nextractNoteInsight — title-only rating detectors\n')
+
+// NephroPlus title ends in "– BUY" but NER returned null rating.
+const nephroNoRating = extractNoteInsight({
+  subject: nephroEmail.subject,
+  textBody: nephroEmail.text_body,
+  rating: null,
+  reportType: 'earnings_review',
+  companyName: 'NephroPlus',
+  ticker: 'NEPHRO',
+})
+check('NephroPlus title-only: noteSignalKind === bullish_signal',
+  nephroNoRating.noteSignalKind === 'bullish_signal', String(nephroNoRating.noteSignalKind))
+check('NephroPlus title-only: noteSignalSource === title (no formal rating)',
+  nephroNoRating.noteSignalSource === 'title', String(nephroNoRating.noteSignalSource))
+
+// PI Industries-shaped subject ending with "- Hold".
+const piHold = extractNoteInsight({
+  subject: 'PI Industries: Operating miss, recovery some time away - Hold',
+  textBody: 'PI Industries 4QFY26 result review: operating performance came in below estimates, with margin pressure across the agrochem export business. Management commentary on the timing of the recovery remains cautious. We maintain our rating; valuation looks fair.',
+  rating: null,
+  reportType: 'earnings_review',
+  companyName: 'PI Industries',
+  ticker: 'PIIND',
+})
+check('Hold title: noteSignalKind === cautious_signal',
+  piHold.noteSignalKind === 'cautious_signal', String(piHold.noteSignalKind))
+check('Hold title: noteSignalSource === title',
+  piHold.noteSignalSource === 'title', String(piHold.noteSignalSource))
+check('Hold title: legacy actionLabel === "Hold / monitor"',
+  piHold.actionLabel === 'Hold / monitor', String(piHold.actionLabel))
+
+// Bearish title — symmetric with bullish/neutral.
+const sellTitle = extractNoteInsight({
+  subject: 'Acme Inc — derate on margin pressure — Sell',
+  textBody: 'Acme Inc faces sustained margin pressure across its core categories. Multiple expansion looks limited. We move our rating cautious.',
+  rating: null,
+  reportType: 'earnings_review',
+  companyName: 'Acme Inc',
+  ticker: 'ACME',
+})
+check('Sell title: noteSignalKind === bearish_signal',
+  sellTitle.noteSignalKind === 'bearish_signal', String(sellTitle.noteSignalKind))
+check('Sell title: noteSignalSource === title',
+  sellTitle.noteSignalSource === 'title', String(sellTitle.noteSignalSource))
+
+// Underweight + Underperform + Reduce all also map to bearish_signal.
+for (const word of ['Underweight', 'Underperform', 'Reduce']) {
+  const out = extractNoteInsight({
+    subject: `Some Company - thesis recap - ${word}`,
+    textBody: 'Some Company posted a soft quarter and we see continued pressure on near-term earnings. Maintaining our cautious view through the upcoming guidance cycle.',
+    rating: null, reportType: 'update', companyName: 'Some Company', ticker: 'SOMECO',
+  })
+  check(`title ending "- ${word}" → bearish_signal`,
+    out.noteSignalKind === 'bearish_signal', String(out.noteSignalKind))
+}
+
+// ── Negative space: false-positive guards ───────────────────────────────────
+// "we maintain Buy" in the body must NOT trigger the title detector — it
+// runs on the subject only.
+const bodyOnlyBuy = extractNoteInsight({
+  subject: 'Generic update',  // no standalone rating at end
+  textBody: 'We maintain Buy at current levels. Earnings growth continues to track in line.',
+  rating: null, reportType: 'update', companyName: 'X Co', ticker: 'X',
+})
+check('body-only "Buy" prose does NOT trigger title detector',
+  bodyOnlyBuy.noteSignalSource !== 'title', String(bodyOnlyBuy.noteSignalSource))
 
 if (failed > 0) {
   console.error(`\n${failed} check(s) failed`)

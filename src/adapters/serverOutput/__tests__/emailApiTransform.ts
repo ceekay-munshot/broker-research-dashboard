@@ -278,6 +278,80 @@ test('NephroPlus-shaped note: rich body + NER rating/TP both null still gets a s
 
   assertEqual(summary!.upsidePct, 22, 'upside % was captured from the body')
   assertEqual(summary!.actionLabel, 'BUY idea', 'title-based BUY detector produces BUY idea')
+
+  // The new typed Note signal fields survive into the persisted summary.
+  // NER rating is null on this payload, so the source is 'title' (not 'formal_rating').
+  assertEqual(summary!.noteSignalKind, 'bullish_signal',
+    'noteSignalKind === bullish_signal (title-detector fired)')
+  assertEqual(summary!.noteSignalSource, 'title',
+    'noteSignalSource === title (NER rating was null)')
+  assertEqual(summary!.upsideChipPct, 22,
+    'upsideChipPct === 22 (body upside >= 15)')
+})
+
+test('non-duplication: formal Buy rating + title ending in BUY → no Bullish-signal chip', () => {
+  // The transform applies resolveDisplayNoteSignal so the persisted summary
+  // already reflects what the UI will render. When the broker's formal call
+  // is Buy/Overweight and the inferred sentiment is also bullish, the chip
+  // is suppressed — the Rating column says it already.
+  const out = emailApiResponseToServerOutput(payload([{
+    id: 'e-apollo-formal',
+    forwarded_by_email: 'ceekay@muns.io',
+    original_sender_email: 'research@iiflcap.com',
+    original_sender_name: 'IIFL Research',
+    subject: 'Apollo Hospitals - strong execution continues - BUY',
+    text_body: '*From:* IIFL Research <research@iiflcap.com>\n\nApollo Hospitals continues to execute well across hospitals, healthco, and AHLL. Revenue tracking +18% with margin expansion. We stay BUY at TP 9700.',
+    received_at: '2026-05-22T09:00:00.000Z',
+    uploads: [{
+      id: 'u-apollo-formal', type: 'BODY', filename: 'body.txt',
+      metadata: { ner_results: { 'Apollo Hospitals': { ticker: 'APOLLOHOSP', rating: 'BUY', tp: '9700' } } },
+    }],
+  }]))
+
+  const rpt = out.reports.find((r) => r.title.includes('Apollo'))
+  assert(rpt && rpt.summaryId, 'a rated Apollo report + summary')
+  const summary = out.summaries.find((s) => s.id === rpt.summaryId)
+  assert(summary, 'summary was pushed')
+
+  // Rating column already says Buy → suppress the redundant Bullish-signal chip.
+  assertEqual(summary!.noteSignalKind, null,
+    'noteSignalKind === null because formal Buy covers it')
+  assertEqual(summary!.noteSignalSource, null,
+    'noteSignalSource === null when suppressed')
+  // Formal rating is unchanged — opinion still gets the Buy.
+  assertEqual(summary!.rating, 'Buy', 'formal rating preserved')
+  assertEqual(summary!.targetPrice, 9700, 'formal target preserved')
+  // And the legacy back-compat string still mirrors the kind that *would* have rendered.
+  assertEqual(summary!.actionLabel, 'BUY idea',
+    'legacy actionLabel mirror still set (renderer routes through legacyActionLabelToNoteSignal — never displayed raw)')
+})
+
+test('upgrade always survives non-duplication even when rating is Buy', () => {
+  // Upgrade carries new information beyond the rating itself, so the chip
+  // must NOT be suppressed when the formal rating is Buy/Overweight.
+  const out = emailApiResponseToServerOutput(payload([{
+    id: 'e-upg',
+    forwarded_by_email: 'ceekay@muns.io',
+    original_sender_email: 'research@iiflcap.com',
+    original_sender_name: 'IIFL Research',
+    subject: 'Acme Corp: upgrade to BUY on improving outlook',
+    text_body: '*From:* IIFL Research <research@iiflcap.com>\n\nAcme Corp posted strong results and we upgrade to BUY with a higher target. Operating leverage continues to play out.',
+    received_at: '2026-05-22T09:00:00.000Z',
+    uploads: [{
+      id: 'u-upg', type: 'BODY', filename: 'body.txt',
+      metadata: { ner_results: { 'Acme Corp': { ticker: 'ACME', rating: 'BUY', tp: '500' } } },
+    }],
+  }]))
+
+  const rpt = out.reports.find((r) => r.title.toLowerCase().includes('acme corp'))
+  assert(rpt && rpt.summaryId, 'a rated Acme report + summary')
+  const summary = out.summaries.find((s) => s.id === rpt.summaryId)
+  assert(summary, 'summary was pushed')
+
+  assertEqual(summary!.noteSignalKind, 'upgrade',
+    'noteSignalKind === upgrade — survives the non-duplication rule')
+  assertEqual(summary!.noteSignalSource, 'body',
+    'noteSignalSource === body')
 })
 
 test('a Hold-in-title note with no NER call gets the Hold / monitor action label', () => {

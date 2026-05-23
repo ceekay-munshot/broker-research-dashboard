@@ -14,6 +14,7 @@ import type {
   BrokerId, ReportId, SectorId, StockTicker,
   Stance, Rating, Iso8601, IsoCurrency, EmailId,
   PortfolioRelevance, PortfolioMembership, ReportKeyNumber,
+  NoteSignalKind, NoteSignalSource,
 } from '../../domain'
 import type { ReportChangeSet } from '../brokerMemory/types'
 
@@ -86,6 +87,18 @@ export interface WorklogItem {
   readonly keyNumbers: readonly ReportKeyNumber[]
   readonly watchpoints: readonly string[]
   readonly upsidePct: number | null
+
+  // Note signal — typed display annotation. Renderers read `noteSignalKind`
+  // and look up the label in signalVocab.NOTE_SIGNAL_LABEL; the source
+  // drives the one-line blurb shown in the drawer. `actionLabel` is the
+  // legacy string equivalent kept for one release; back-compat reading
+  // routes through `signalPolicy.legacyActionLabelToNoteSignal()`.
+  readonly noteSignalKind: NoteSignalKind | null
+  readonly noteSignalSource: NoteSignalSource | null
+  /** Numeric upside chip — only non-null when upsidePct >= 15. Surfaced
+   *  separately from `noteSignalKind` so the row can show e.g. both a
+   *  `New coverage` chip AND a `+22% upside` chip. */
+  readonly upsideChipPct: number | null
   readonly actionLabel: string | null
 
   // Signal

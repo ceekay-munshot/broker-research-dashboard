@@ -5,6 +5,7 @@ import type {
 import type { Iso8601, Stance, Rating, Confidence, IsoCurrency } from './common'
 import type { EmailProcessingStatus } from './status'
 import type { BrokerResolution } from './broker'
+import type { NoteSignalKind, NoteSignalSource } from './signal'
 
 // Canonical taxonomy of broker research formats. Keep this explicit — the UI
 // will filter/group by these categories.
@@ -74,6 +75,25 @@ export interface ReportSummary {
   readonly keyNumbers?: readonly ReportKeyNumber[]
   readonly watchpoints?: readonly string[]
   readonly upsidePct?: number | null
+
+  // Note signal — the inferred sentiment chip shown on Overview rows and in
+  // the Report drawer. `noteSignalKind` is the enum the UI renders via
+  // signalVocab.NOTE_SIGNAL_LABEL; `noteSignalSource` is which signal
+  // produced it (title / body / report-type / formal-rating mirror).
+  //
+  // The non-duplication rule (don't surface "Bullish signal" alongside a
+  // formal "Buy") is applied at the transform boundary in
+  // emailApiTransform.ts so the persisted value already matches what the UI
+  // renders. Suppressed entries persist as `noteSignalKind: null`.
+  //
+  // `actionLabel` is the *legacy* string equivalent — kept for one release
+  // so old summaries on disk still render. Renderers MUST prefer
+  // `noteSignalKind` and fall back through
+  // `signalPolicy.legacyActionLabelToNoteSignal()` — never display the raw
+  // legacy string.
+  readonly noteSignalKind?: NoteSignalKind | null
+  readonly noteSignalSource?: NoteSignalSource | null
+  readonly upsideChipPct?: number | null
   readonly actionLabel?: string | null
 }
 

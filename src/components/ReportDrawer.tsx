@@ -5,6 +5,8 @@ import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/r
 import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
+import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB } from '../lib/signalVocab'
+import { legacyActionLabelToNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -121,14 +123,32 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
                 className={`w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}
               >{vm.broker.shortName.slice(0, 3).toUpperCase()}</span>
               <span className="text-slate-300 text-[12px]">{vm.broker.name}</span>
-              {vm.actionLabel && (
-                <span className={`ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(vm.actionLabel)]}`}>
-                  {vm.actionLabel}
-                </span>
-              )}
-              <span className={`chip border border-line/10 text-slate-400 ${vm.actionLabel ? '' : 'ml-auto'}`}>
-                {REPORT_TYPE_LABEL[vm.reportType]}
-              </span>
+              {(() => {
+                // Prefer the typed kind; fall back through the legacy mapper.
+                // Renderers never display the raw legacy string.
+                const sig = resolveNoteSignalChip(vm)
+                if (sig === null || sig.noteSignalKind === null) {
+                  return (
+                    <span className="chip border border-line/10 text-slate-400 ml-auto">
+                      {REPORT_TYPE_LABEL[vm.reportType]}
+                    </span>
+                  )
+                }
+                const label = NOTE_SIGNAL_LABEL[sig.noteSignalKind]
+                return (
+                  <>
+                    <span
+                      className={`ml-auto shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(label)]}`}
+                      title={sig.noteSignalSource ? NOTE_SIGNAL_SOURCE_BLURB[sig.noteSignalSource] : undefined}
+                    >
+                      {label}
+                    </span>
+                    <span className="chip border border-line/10 text-slate-400">
+                      {REPORT_TYPE_LABEL[vm.reportType]}
+                    </span>
+                  </>
+                )
+              })()}
             </div>
             <h2 className="text-slate-100 text-[16px] font-semibold leading-snug">{vm.title}</h2>
             <div className="flex items-center gap-3 text-[11px] text-slate-500 num">
@@ -440,7 +460,14 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
   const whyItMatters = vm.thesis?.trim() || null
   const numbers = vm.keyNumbers
   const watch = vm.watchpoints
-  const nothingExtracted = !whyItMatters && numbers.length === 0 && watch.length === 0
+  const noteSignal = resolveNoteSignalChip(vm)
+  const upsideChip = vm.upsideChipPct
+  const nothingExtracted =
+    !whyItMatters
+    && numbers.length === 0
+    && watch.length === 0
+    && (noteSignal === null || noteSignal.noteSignalKind === null)
+    && upsideChip === null
 
   // Nothing mined and no PDF to fall back to — render nothing.
   if (nothingExtracted && !vm.sourceDocument) return null
@@ -453,6 +480,35 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
         </p>
       ) : (
         <div className="flex flex-col gap-4">
+          {/* Note signal — typed chip + plain-language source blurb. The
+              transform already suppressed redundant signals where the
+              formal Call covers them, so anything we render here adds
+              information beyond the Rating column. */}
+          {noteSignal !== null && noteSignal.noteSignalKind !== null && (
+            <div className="flex flex-col gap-1">
+              <div className="section-title">Note signal</div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`shrink-0 text-[10.5px] font-semibold px-2 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
+                >
+                  {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
+                </span>
+                {upsideChip !== null && (
+                  <span
+                    className="shrink-0 num text-[10.5px] font-semibold px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                    title="Extracted from the note body"
+                  >
+                    +{Math.round(upsideChip)}% upside
+                  </span>
+                )}
+                {noteSignal.noteSignalSource && (
+                  <span className="text-[11px] text-slate-500">
+                    {NOTE_SIGNAL_SOURCE_BLURB[noteSignal.noteSignalSource]}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           {whyItMatters && (
             <div className="flex flex-col gap-1.5">
               <div className="section-title">Why it matters</div>
@@ -490,6 +546,16 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
       )}
     </Section>
   )
+}
+
+/** Resolve the Note signal chip for the drawer. Prefers the new typed
+ *  kind; falls back through the legacy mapper. Never returns or renders a
+ *  raw legacy actionLabel string. */
+function resolveNoteSignalChip(vm: ReportDetailViewModel): NoteSignalInput | null {
+  if (vm.noteSignalKind !== null) {
+    return { noteSignalKind: vm.noteSignalKind, noteSignalSource: vm.noteSignalSource }
+  }
+  return legacyActionLabelToNoteSignal(vm.actionLabel)
 }
 
 /** Compact label + value chip for "Numbers that matter". Deliberately not the

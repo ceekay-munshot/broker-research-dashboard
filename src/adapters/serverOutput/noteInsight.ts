@@ -9,6 +9,7 @@
 // null / empty. Every emitted value is a verbatim substring of the email.
 
 import type { Rating, ReportType, ReportKeyNumber } from '../../domain'
+import type { NoteSignalKind, NoteSignalSource } from '../../domain/signal'
 
 export interface NoteInsight {
   readonly thesis: string | null
@@ -16,11 +17,24 @@ export interface NoteInsight {
   readonly keyNumbers: readonly ReportKeyNumber[]
   readonly watchpoints: readonly string[]
   readonly upsidePct: number | null
+  /** Display-only enum the UI renders via signalVocab.NOTE_SIGNAL_LABEL.
+   *  Returned alongside `actionLabel` for one release while consumers
+   *  migrate. */
+  readonly noteSignalKind: NoteSignalKind | null
+  /** Which signal produced the kind — drives the source-blurb in the Report
+   *  drawer ("Inferred from the note's title" / "…body" / "…initiation"). */
+  readonly noteSignalSource: NoteSignalSource | null
+  /** Legacy string ("BUY idea" / "Hold / monitor" / "Big upside" / …) kept
+   *  for one release as back-compat. New renderers prefer `noteSignalKind`
+   *  and route legacy strings through
+   *  `signalPolicy.legacyActionLabelToNoteSignal()` — they NEVER display
+   *  the raw legacy text. Will be removed after the next deploy. */
   readonly actionLabel: string | null
 }
 
 export const EMPTY_NOTE_INSIGHT: NoteInsight = {
-  thesis: null, keyPoints: [], keyNumbers: [], watchpoints: [], upsidePct: null, actionLabel: null,
+  thesis: null, keyPoints: [], keyNumbers: [], watchpoints: [], upsidePct: null,
+  noteSignalKind: null, noteSignalSource: null, actionLabel: null,
 }
 
 export interface NoteInsightInput {
@@ -38,7 +52,13 @@ export function extractNoteInsight(input: NoteInsightInput): NoteInsight {
   const paragraphs = cleanText(input.textBody)
   const body = paragraphs.join(' ')
   if (body.length < 40) {
-    return { ...EMPTY_NOTE_INSIGHT, actionLabel: pickActionLabel(input, '', [], null) }
+    const signal = pickNoteSignal(input, '', [], null)
+    return {
+      ...EMPTY_NOTE_INSIGHT,
+      noteSignalKind: signal?.noteSignalKind ?? null,
+      noteSignalSource: signal?.noteSignalSource ?? null,
+      actionLabel: signalKindToLegacyString(signal?.noteSignalKind ?? null),
+    }
   }
   const keyNumbers = extractKeyNumbers(body)
   const upsidePct = extractUpside(body)
@@ -48,8 +68,13 @@ export function extractNoteInsight(input: NoteInsightInput): NoteInsight {
   const keyPoints = pick.paragraphIndex !== null
     ? paragraphs.slice(pick.paragraphIndex + 1).filter((p) => p.length >= 40)
     : []
-  const actionLabel = pickActionLabel(input, body, keyNumbers, upsidePct)
-  return { thesis, keyPoints, keyNumbers, watchpoints, upsidePct, actionLabel }
+  const signal = pickNoteSignal(input, body, keyNumbers, upsidePct)
+  return {
+    thesis, keyPoints, keyNumbers, watchpoints, upsidePct,
+    noteSignalKind: signal?.noteSignalKind ?? null,
+    noteSignalSource: signal?.noteSignalSource ?? null,
+    actionLabel: signalKindToLegacyString(signal?.noteSignalKind ?? null, upsidePct, keyNumbers.length),
+  }
 }
 
 // ── Cleaning ───────────────────────────────────────────────────────────────
@@ -298,32 +323,52 @@ function extractWatchpoints(body: string): string[] {
   return out
 }
 
-// ── Action label — one tag, first match wins ───────────────────────────────
+// ── Note signal — typed kind + source, one match wins ─────────────────────
+// Display-only enum. Never creates a BrokerStockOpinion — opinions are
+// gated on NER rating/TP at emailApiTransform.ts. Precedence (first match):
+//   1. reportType/title says initiation       → new_coverage
+//   2. body/title says upgrade                → upgrade
+//   3. body/title says downgrade              → downgrade
+//   4. NER rating is Buy/Overweight           → bullish_signal (source: formal_rating)
+//   5. subject ends with standalone BUY-like  → bullish_signal (source: title)
+//   6. subject ends with standalone Hold      → cautious_signal (source: title)
+//   7. subject ends with standalone Sell-like → bearish_signal (source: title)
+//   8. otherwise                              → null
 
-function pickActionLabel(
+interface NoteSignalPick {
+  readonly noteSignalKind: NoteSignalKind
+  readonly noteSignalSource: NoteSignalSource
+}
+
+function pickNoteSignal(
   input: NoteInsightInput,
   body: string,
-  keyNumbers: readonly ReportKeyNumber[],
-  upsidePct: number | null,
-): string | null {
+  _keyNumbers: readonly ReportKeyNumber[],
+  _upsidePct: number | null,
+): NoteSignalPick | null {
   const hay = `${input.subject} ${body}`
   if (input.reportType === 'initiation' || /\binitiat\w*\s+coverage\b|\bcoverage\s*[:,-]?\s*initiat/i.test(hay)) {
-    return 'Initiation'
+    return { noteSignalKind: 'new_coverage', noteSignalSource: 'report_type' }
   }
-  if (/\bupgrad(?:e|ed|ing)\b(?![\s-]*(?:cycle|capex))/i.test(hay)) return 'Upgrade'
-  if (/\bdowngrad(?:e|ed|ing)\b/i.test(hay)) return 'Downgrade'
-  if (input.rating === 'Buy' || input.rating === 'Overweight') return 'BUY idea'
-  // Title-only standalone-rating detector. Display-only — no opinion is
-  // ever created from this. The opinion path is gated independently on NER
-  // rating/TP in emailApiTransform.ts. Subjects like
-  //   "NephroPlus – Underappreciated healthcare play – BUY"
-  //   "PI Industries: Operating miss, recovery some time away - Hold"
-  // carry the broker's call where NER missed it.
+  if (/\bupgrad(?:e|ed|ing)\b(?![\s-]*(?:cycle|capex))/i.test(hay)) {
+    return { noteSignalKind: 'upgrade', noteSignalSource: 'body' }
+  }
+  if (/\bdowngrad(?:e|ed|ing)\b/i.test(hay)) {
+    return { noteSignalKind: 'downgrade', noteSignalSource: 'body' }
+  }
+  if (input.rating === 'Buy' || input.rating === 'Overweight') {
+    return { noteSignalKind: 'bullish_signal', noteSignalSource: 'formal_rating' }
+  }
+  if (input.rating === 'Sell' || input.rating === 'Underweight') {
+    return { noteSignalKind: 'bearish_signal', noteSignalSource: 'formal_rating' }
+  }
   const titleRating = detectStandaloneTitleRating(input.subject)
-  if (titleRating === 'bullish') return 'BUY idea'
-  if (titleRating === 'neutral') return 'Hold / monitor'
-  if (upsidePct !== null && upsidePct >= 15) return 'Big upside'
-  if (keyNumbers.length >= 3) return 'High-signal note'
+  if (titleRating === 'bullish') return { noteSignalKind: 'bullish_signal', noteSignalSource: 'title' }
+  if (titleRating === 'neutral') return { noteSignalKind: 'cautious_signal', noteSignalSource: 'title' }
+  if (titleRating === 'bearish') return { noteSignalKind: 'bearish_signal', noteSignalSource: 'title' }
+  // Big-upside and high-signal-note are NOT note signals in the new
+  // vocabulary. Upside surfaces via the dedicated `upsideChipPct` chip;
+  // a metric-rich note speaks for itself through its key-number chips.
   return null
 }
 
@@ -332,13 +377,42 @@ function pickActionLabel(
  *  We deliberately do NOT scan the body — prose like "we maintain Buy at
  *  current levels" is too common as false-positive bait. */
 const TITLE_RATING_END =
-  /(?:[\s\-–—:|·])(buy|overweight|outperform|add|hold|neutral)\s*[!.]?\s*$/i
+  /(?:[\s\-–—:|·])(buy|overweight|outperform|add|hold|neutral|sell|underweight|underperform|reduce)\s*[!.]?\s*$/i
 
-function detectStandaloneTitleRating(subject: string): 'bullish' | 'neutral' | null {
+function detectStandaloneTitleRating(subject: string): 'bullish' | 'neutral' | 'bearish' | null {
   const m = TITLE_RATING_END.exec(subject)
   if (!m) return null
   const word = m[1].toLowerCase()
-  return (word === 'hold' || word === 'neutral') ? 'neutral' : 'bullish'
+  if (word === 'hold' || word === 'neutral') return 'neutral'
+  if (word === 'sell' || word === 'underweight' || word === 'underperform' || word === 'reduce') return 'bearish'
+  return 'bullish'
+}
+
+/**
+ * Back-compat string for the legacy `actionLabel` field. Renderers must NOT
+ * display this raw — they route through
+ * `signalPolicy.legacyActionLabelToNoteSignal()` and render via
+ * `signalVocab.NOTE_SIGNAL_LABEL`. This is here so old code paths and
+ * persisted summaries still resolve a non-null label for one release.
+ *
+ * `Big upside` and `High-signal note` are intentionally still returned for
+ * the legacy field — the back-compat mapper drops them so they never reach
+ * the new chip UI.
+ */
+function signalKindToLegacyString(
+  kind: NoteSignalKind | null,
+  upsidePct?: number | null,
+  keyNumberCount?: number,
+): string | null {
+  if (kind === 'new_coverage') return 'Initiation'
+  if (kind === 'upgrade') return 'Upgrade'
+  if (kind === 'downgrade') return 'Downgrade'
+  if (kind === 'bullish_signal') return 'BUY idea'
+  if (kind === 'cautious_signal') return 'Hold / monitor'
+  if (kind === 'bearish_signal') return null // no legacy equivalent (added in v2)
+  if (upsidePct !== null && upsidePct !== undefined && upsidePct >= 15) return 'Big upside'
+  if (keyNumberCount !== undefined && keyNumberCount >= 3) return 'High-signal note'
+  return null
 }
 
 // ── Small helpers ──────────────────────────────────────────────────────────
