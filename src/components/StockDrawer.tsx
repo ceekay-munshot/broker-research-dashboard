@@ -11,7 +11,7 @@ import type {
 import { RATING_TEXT_COLOR, STANCE_TEXT_COLOR, formatPrice, formatShortDate } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 import { RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
-import { RESULTANT_STATE_LABEL } from '../lib/signalVocab'
+import { RESULTANT_STATE_LABEL, formatConsensusRating } from '../lib/signalVocab'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -245,25 +245,14 @@ function Stat({ label, value, valueClass, sub }: { label: string; value: string;
 }
 
 function ConsensusLine({ cr }: { cr: ConsensusRating }) {
-  if (cr.kind === 'none') {
-    return <span className="text-[11.5px] text-slate-500">No rating issued</span>
-  }
-  if (cr.kind === 'tie') {
-    const breakdown = cr.leaders.map((l) => `${l.count} ${l.rating}`).join(' / ')
-    return (
-      <span className="text-[11.5px] text-amber-300">
-        Mixed ratings <span className="text-slate-500">· {breakdown}</span>
-      </span>
-    )
-  }
-  const unanimous = cr.agree === cr.total && cr.total > 1
-  return (
-    <span className="text-[11.5px] text-slate-300">
-      {unanimous ? 'Unanimous ' : 'Consensus rating: '}
-      <span className={RATING_TEXT_COLOR[cr.rating]}>{cr.rating}</span>
-      <span className="text-slate-500 num"> · {cr.agree}/{cr.total}</span>
-    </span>
-  )
+  // Text comes from the shared formatConsensusRating so every surface
+  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
+  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
+  // Renderer only owns the tone wrapper.
+  const tone = cr.kind === 'tie' ? 'text-amber-300'
+    : cr.kind === 'none' ? 'text-slate-500'
+    : 'text-slate-300'
+  return <span className={`text-[11.5px] ${tone}`}>{formatConsensusRating(cr)}</span>
 }
 
 function ConsensusRow({ point }: { point: ConsensusPointVM }) {

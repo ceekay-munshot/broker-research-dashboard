@@ -22,7 +22,7 @@ import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../v
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 import { stockIdentityKey } from '../../lib/reportSubject'
 import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL } from '../../lib/signalVocab'
+import { NOTE_SIGNAL_LABEL, formatConsensusRating } from '../../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
 
 interface TodayProps {
@@ -236,19 +236,14 @@ function DisagreeRow({ row, brokerName, onSelect }: {
 }
 
 function ConsensusText({ cr }: { cr: ConsensusRating }) {
-  if (cr.kind === 'none') {
-    return <span className="text-[11px] text-slate-500 shrink-0">No rating</span>
-  }
-  if (cr.kind === 'tie') {
-    return <span className="text-[11px] text-amber-300 shrink-0">Mixed ratings</span>
-  }
-  const unanimous = cr.agree === cr.total && cr.total > 1
-  return (
-    <span className="text-[11px] text-slate-300 shrink-0">
-      {unanimous ? 'Unanimous ' : 'Consensus '}{cr.rating}
-      <span className="text-slate-500 num"> {cr.agree}/{cr.total}</span>
-    </span>
-  )
+  // Text comes from the shared formatConsensusRating so every surface
+  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
+  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
+  // Renderer only owns the tone wrapper.
+  const tone = cr.kind === 'tie' ? 'text-amber-300'
+    : cr.kind === 'none' ? 'text-slate-500'
+    : 'text-slate-300'
+  return <span className={`text-[11px] shrink-0 ${tone}`}>{formatConsensusRating(cr)}</span>
 }
 
 // ── What changed today ──────────────────────────────────────────────────────

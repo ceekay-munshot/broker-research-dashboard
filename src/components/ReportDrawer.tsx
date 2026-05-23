@@ -3,9 +3,9 @@ import type { ReportId, EvidenceSnippet, ReportType, StockTicker, BrokerSource }
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatTargetDelta, formatPrice } from '../viewModels/shared'
-import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
+import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP } from '../viewModels/arb'
 import { TONE_CHIP_CLASS, getActionLabelTone, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB } from '../lib/signalVocab'
+import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 
 interface ReportDrawerProps {
@@ -325,7 +325,7 @@ function StreetContext({ ctx, currency, onOpenStreet }: {
       </div>
 
       <div className="text-[12.5px] text-slate-200">
-        {consensusText(ctx.consensusRating)}
+        {formatConsensusRating(ctx.consensusRating)}
         {ctx.consensusTarget !== null && (
           <span className="text-slate-400"> · median target {formatPrice(ctx.consensusTarget, currency, 0)}</span>
         )}
@@ -372,14 +372,6 @@ function StandingLine({ ctx }: { ctx: ReportStreetContext }) {
     return <div className="text-[11.5px] text-slate-500">This call sits within the Street's range.</div>
   }
   return null
-}
-
-/** Plain-text consensus rating for the Street block. A tie is never a winner. */
-function consensusText(cr: ConsensusRating): string {
-  if (cr.kind === 'none') return 'No Street rating yet'
-  if (cr.kind === 'tie')  return 'Mixed ratings — no clear consensus'
-  const lead = cr.agree === cr.total && cr.total > 1 ? 'Unanimous' : 'Consensus'
-  return `${lead} ${cr.rating} (${cr.agree} of ${cr.total})`
 }
 
 // ── Shared bits ─────────────────────────────────────────────────────────────
@@ -493,20 +485,26 @@ function BrokerNoteSnapshot({ vm }: { vm: ReportDetailViewModel }) {
                 >
                   {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
                 </span>
-                {upsideChip !== null && (
-                  <span
-                    className="shrink-0 num text-[10.5px] font-semibold px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
-                    title="Extracted from the note body"
-                  >
-                    +{Math.round(upsideChip)}% upside
-                  </span>
-                )}
                 {noteSignal.noteSignalSource && (
                   <span className="text-[11px] text-slate-500">
                     {NOTE_SIGNAL_SOURCE_BLURB[noteSignal.noteSignalSource]}
                   </span>
                 )}
               </div>
+            </div>
+          )}
+          {/* Implied upside — independent of Note signal. Renders whenever
+              the body produced a ≥15% upside, even if no note-signal chip
+              fires and no other key-numbers were extracted. */}
+          {upsideChip !== null && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span
+                className="shrink-0 num text-[10.5px] font-semibold px-2 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
+                title="Extracted from the note body"
+              >
+                +{Math.round(upsideChip)}% upside
+              </span>
+              <span className="text-[11px] text-slate-500">Extracted from the note body</span>
             </div>
           )}
           {whyItMatters && (

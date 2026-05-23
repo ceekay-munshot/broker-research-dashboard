@@ -10,7 +10,7 @@ import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
 import CmpCell from '../cells/CmpCell'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
-import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
+import { RESULTANT_STATE_LABEL, formatConsensusRating } from '../../lib/signalVocab'
 import {
   RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
   TONE_TEXT_CLASS, getChangeTone,
@@ -342,20 +342,14 @@ function ArbVerdictCell({ verdict, consensusRating }: {
 }
 
 function ConsensusRatingLine({ cr }: { cr: ConsensusRating }) {
-  if (cr.kind === 'none') {
-    return <span className="text-[10.5px] text-slate-500">No rating issued</span>
-  }
-  if (cr.kind === 'tie') {
-    return <span className="text-[10.5px] text-amber-300">Mixed ratings</span>
-  }
-  const unanimous = cr.agree === cr.total && cr.total > 1
-  return (
-    <span className="text-[10.5px] text-slate-300">
-      {unanimous ? 'Unanimous ' : 'Consensus '}
-      <span className={RATING_TEXT_COLOR[cr.rating]}>{cr.rating}</span>
-      <span className="text-slate-500 num"> · {cr.agree}/{cr.total}</span>
-    </span>
-  )
+  // Text comes from the shared formatConsensusRating so every surface
+  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
+  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
+  // Renderer only owns the tone wrapper.
+  const tone = cr.kind === 'tie' ? 'text-amber-300'
+    : cr.kind === 'none' ? 'text-slate-500'
+    : 'text-slate-300'
+  return <span className={`text-[10.5px] ${tone}`}>{formatConsensusRating(cr)}</span>
 }
 
 // ─── Shared state badge ───────────────────────────────────────────────
