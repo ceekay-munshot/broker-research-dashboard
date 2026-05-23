@@ -126,9 +126,22 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   const calibration = inputs.calibration ?? null
   const postEventReviews = inputs.postEventReviews ?? null
 
+  // Rating filter applies at the per-broker note level: when the sidebar's
+  // "Formal call" chips are selected, drop notes whose summary's rating
+  // isn't in the selection (and drop notes with no rating at all). When
+  // the array is empty, the filter is inactive and every note passes.
+  const ratingFilter = new Set<string>(inputs.filters.ratings as readonly string[])
+  const ratingFilterActive = ratingFilter.size > 0
+
   const cards = brokers.map<BrokerCardViewModel>((broker) => {
     const theirs = reports
       .filter((r) => r.brokerId === broker.id)
+      .filter((r) => {
+        if (!ratingFilterActive) return true
+        const sum = summaryByReport.get(r.id as string)
+        const rating = sum?.rating ?? null
+        return rating !== null && ratingFilter.has(rating)
+      })
       .sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
 
     const tickersCovered = new Set(

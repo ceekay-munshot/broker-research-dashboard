@@ -34,7 +34,17 @@ interface TodayProps {
 
 export default function Today({ filters, onSelectReport, onSelectTicker }: TodayProps) {
   const byStock = useByStockViewModel(filters, 'contested')
-  const worklog = useDailyWorklogViewModel(DEFAULT_WORKLOG_FILTERS)
+  // Project the sidebar's FiltersState into a WorklogFiltersState so
+  // the rating / broker / sector chips actually filter the "What changed
+  // today" feed. Before this, Today.tsx passed DEFAULT_WORKLOG_FILTERS and
+  // the sidebar's rating filter was dead UI.
+  const worklog = useDailyWorklogViewModel({
+    ...DEFAULT_WORKLOG_FILTERS,
+    brokerIds: filters.brokerIds,
+    tickers: filters.tickers,
+    sectorIds: filters.sectorIds,
+    ratings: filters.ratings,
+  })
   const catalysts = useCatalystsViewModel()
 
   const rows = byStock.data?.rows ?? []

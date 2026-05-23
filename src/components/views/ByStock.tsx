@@ -39,9 +39,26 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
   if (loading || !data) return <ViewMessage tone="loading" text="Loading by-stock view…"/>
 
+  // Rating filter — display-only. We apply it at the per-cell render gate
+  // and the row-visibility gate, never at the closure-computation level.
+  // Street View (state badge, ARB, ConsensusRating, Avg target) is always
+  // full-Street: those derivations reflect every broker covering the
+  // stock, not just the selected ratings. A tooltip on the state badge
+  // makes the distinction explicit while a filter is active.
+  const ratingFilter = new Set<string>(filters.ratings as readonly string[])
+  const ratingFilterActive = ratingFilter.size > 0
+
+  const visibleRows = ratingFilterActive
+    ? data.rows.filter((row) =>
+        data.brokers.some((b) => {
+          const cell = row.opinionsByBroker[b.id]
+          return cell && cell.rating !== null && ratingFilter.has(cell.rating)
+        }))
+    : data.rows
+
   // Default the change rail to the first row so the analyst always sees
   // something without extra clicks.
-  const activeTicker = focusTicker ?? data.rows[0]?.ticker ?? null
+  const activeTicker = focusTicker ?? visibleRows[0]?.ticker ?? null
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,13 +98,14 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
             </tr>
           </thead>
           <tbody>
-            {data.rows.map((row, idx) => (
+            {visibleRows.map((row, idx) => (
               <StockRow
                 key={row.ticker}
                 row={row}
                 zebra={idx % 2 === 1}
                 brokerColumnIds={data.brokers.map((b) => b.id)}
                 cmp={prices.get(row.ticker)}
+                ratingFilter={ratingFilterActive ? ratingFilter : null}
                 onSelectReport={onSelectReport}
                 onSelectTicker={(t) => { setFocusTicker(t); onSelectTicker(t) }}
               />
@@ -192,14 +210,18 @@ function ViewSelector({ view, setView, showPortfolio }: {
   )
 }
 
-function StockRow({ row, zebra, brokerColumnIds, cmp, onSelectReport, onSelectTicker }: {
+function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectReport, onSelectTicker }: {
   row: ByStockRowViewModel;
   zebra: boolean;
   brokerColumnIds: readonly BrokerId[];
   cmp: PriceCell | undefined;
+  ratingFilter: ReadonlySet<string> | null;
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
 }) {
+  const filterTooltip = ratingFilter
+    ? 'Street state reflects all brokers covering this stock, not the active rating filter.'
+    : undefined
   return (
     <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
       <td className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10">
@@ -211,7 +233,7 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, onSelectReport, onSelectTi
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
         </button>
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" title={filterTooltip}>
         <div className="flex flex-col gap-1">
           <StateBadge state={row.resultantState} strength={row.resultantStrength}/>
           <span className="text-[10px] text-slate-500 num">
@@ -225,19 +247,27 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, onSelectReport, onSelectTi
       <td className="px-3 py-2 num text-right">
         <CmpCell cell={cmp} avgTarget={row.avgTarget}/>
       </td>
-      <td className="px-3 py-2 num text-right text-slate-100">
+      <td className="px-3 py-2 num text-right text-slate-100" title={filterTooltip}>
         {formatPrice(row.avgTarget, row.currency, 0)}
       </td>
-      <td className="px-3 py-2">
+      <td className="px-3 py-2" title={filterTooltip}>
         <ArbVerdictCell verdict={row.arbVerdict} consensusRating={row.consensusRating}/>
       </td>
-      {brokerColumnIds.map((bid) => (
-        <TargetCell
-          key={bid}
-          cell={row.opinionsByBroker[bid]}
-          onSelectReport={onSelectReport}
-        />
-      ))}
+      {brokerColumnIds.map((bid) => {
+        // Per-cell rating filter — hide cells whose rating isn't selected.
+        // The row stays visible as long as at least one cell matches
+        // (enforced in the parent's `visibleRows` filter).
+        const cell = row.opinionsByBroker[bid]
+        const hidden = ratingFilter !== null
+          && (cell?.rating === null || cell?.rating === undefined || !ratingFilter.has(cell.rating))
+        return (
+          <TargetCell
+            key={bid}
+            cell={hidden ? undefined : cell}
+            onSelectReport={onSelectReport}
+          />
+        )
+      })}
     </tr>
   )
 }

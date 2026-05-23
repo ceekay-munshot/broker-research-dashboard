@@ -1,5 +1,5 @@
 import React from 'react'
-import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating } from '../domain'
+import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating, SectorId } from '../domain'
 import type { FiltersState, DateRangeKey } from '../app/filters'
 import { DATE_RANGE_KEYS } from '../app/filters'
 import { BROKER_DOT_CLASS } from '../lib/semanticColor'
@@ -78,7 +78,7 @@ function toggle<K extends keyof FiltersState>(
   })
 }
 
-export default function Sidebar({ brokers, stocks, filters, setFilters }: SidebarProps) {
+export default function Sidebar({ brokers, sectors, stocks, filters, setFilters }: SidebarProps) {
   const [brokerQuery, setBrokerQuery] = React.useState('')
   const [stockQuery, setStockQuery] = React.useState('')
   const brokerSearch = brokerQuery.trim().toLowerCase()
@@ -93,6 +93,7 @@ export default function Sidebar({ brokers, stocks, filters, setFilters }: Sideba
           s.name.toLowerCase().includes(stockSearch),
       )
     : stocks.slice(0, 10)
+  const sortedSectors = [...sectors].sort((a, b) => a.name.localeCompare(b.name))
   return (
     <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
@@ -152,7 +153,22 @@ export default function Sidebar({ brokers, stocks, filters, setFilters }: Sideba
           </div>
         </FilterSection>
 
-        <FilterSection title="Rating / stance" onReset={() => setFilters((p) => ({ ...p, ratings: [] }))}>
+        {sortedSectors.length > 0 && (
+          <FilterSection title="Sector" onReset={() => setFilters((p) => ({ ...p, sectorIds: [] }))}>
+            <div className="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1">
+              {sortedSectors.map((s) => (
+                <Checkbox
+                  key={s.id}
+                  label={s.name}
+                  checked={filters.sectorIds.includes(s.id)}
+                  onChange={() => toggle<'sectorIds'>(setFilters, 'sectorIds', s.id as SectorId)}
+                />
+              ))}
+            </div>
+          </FilterSection>
+        )}
+
+        <FilterSection title="Formal call" onReset={() => setFilters((p) => ({ ...p, ratings: [] }))}>
           <div className="flex flex-wrap gap-1.5">
             {RATINGS.map((r) => (
               <Pill
