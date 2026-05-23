@@ -27,15 +27,18 @@ const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   other:            'Research note',
 }
 
-// Plain-language labels for how a note's broker was resolved.
-const PROVENANCE_LABEL: Record<BrokerSource, string> = {
-  metadata:                'from broker metadata',
-  forwarded_body_header:   'from a forwarded “From:” header',
-  signature_or_disclaimer: 'from the body / disclaimer',
-  original_sender_domain:  'from the sender’s email domain',
-  subject_prefix:          'from the subject prefix',
-  llm_extraction:          'by extraction',
-  unknown:                 'could not be resolved',
+// Plain-language NOUN labels for how a note's broker was resolved. Used
+// both as a sub-line under "Broker" (`Resolved from {label}`) and as the
+// solo "Resolution detail" line when no broker-sender is available. Noun
+// shape, not preposition shape, so both sentence frames read naturally.
+const PROVENANCE_LABEL_SHORT: Record<BrokerSource, string> = {
+  metadata:                'Broker metadata',
+  forwarded_body_header:   'Forwarded “From:” header',
+  signature_or_disclaimer: 'Body / disclaimer',
+  original_sender_domain:  'Sender email domain',
+  subject_prefix:          'Subject prefix',
+  llm_extraction:          'Extracted from content',
+  unknown:                 'Unknown source',
 }
 
 export default function ReportDrawer({ reportId, onClose, onSelectTicker }: ReportDrawerProps) {
@@ -248,39 +251,28 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
             </Section>
           )}
 
-          {/* Where this note came from — forwarder + broker provenance */}
-          {(vm.receivedVia || vm.brokerProvenance) && (
-            <Section title="Source">
-              <div className="flex flex-col gap-1.5">
-                {vm.receivedVia && (
-                  <div className="flex gap-2 text-[12px]">
-                    <span className="text-slate-500 w-28 shrink-0">Received via</span>
-                    <span className="text-slate-300">{vm.receivedVia}</span>
-                  </div>
-                )}
-                {vm.brokerProvenance && (
-                  <div className="flex gap-2 text-[12px]">
-                    <span className="text-slate-500 w-28 shrink-0">Broker resolved</span>
-                    <span className="text-slate-300">
-                      {PROVENANCE_LABEL[vm.brokerProvenance.source]}
-                      {vm.brokerProvenance.evidence && (
-                        <span className="text-slate-500"> — {vm.brokerProvenance.evidence}</span>
-                      )}
-                    </span>
-                  </div>
-                )}
-                {vm.brokerProvenance?.conflict && (
-                  <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
-                    Conflicting broker signals on this note — needs review.
-                  </div>
-                )}
-                {vm.brokerStockConflict && (
-                  <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
-                    This research house is also a covered company in this note — kept as both.
-                  </div>
-                )}
-              </div>
-            </Section>
+          {/* Source — four customer-facing facts: Broker / Broker sender /
+              Forwarded by / Resolution detail. Each fact gets its own row;
+              the raw From-header markdown that used to leak into the primary
+              line is now parsed into name + organizationHint + email by
+              `parseBrokerSender` (see src/lib/brokerSender.ts) and rendered
+              as separate lines. The warning rows (broker conflict + broker-
+              stock conflict) stay below the fact rows. */}
+          <SourceSection vm={vm}/>
+
+          {(vm.brokerProvenance?.conflict || vm.brokerStockConflict) && (
+            <div className="flex flex-col gap-1.5">
+              {vm.brokerProvenance?.conflict && (
+                <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
+                  Conflicting broker signals on this note — needs review.
+                </div>
+              )}
+              {vm.brokerStockConflict && (
+                <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
+                  This research house is also a covered company in this note — kept as both.
+                </div>
+              )}
+            </div>
           )}
 
           {/* Source document */}
@@ -372,6 +364,116 @@ function StandingLine({ ctx }: { ctx: ReportStreetContext }) {
     return <div className="text-[11.5px] text-slate-500">This call sits within the Street's range.</div>
   }
   return null
+}
+
+// ── Source section — four customer-facing rows ──────────────────────────
+// Broker / Broker sender / Forwarded by / Resolution detail. Each row
+// shows a primary value and (optionally) a muted sub-line. The fact-row
+// layout means raw `*From:* …` evidence text no longer leaks into the
+// primary visible line.
+
+function SourceSection({ vm }: { vm: ReportDetailViewModel }) {
+  // The "Broker" row always renders when we have either a broker name or
+  // a canonical name from the resolver. The remaining rows are conditional.
+  const brokerName = vm.broker.name && vm.broker.name !== '—'
+    ? vm.broker.name
+    : (vm.brokerProvenance?.canonicalName ?? null)
+  const hasBrokerRow = brokerName !== null
+  const hasSenderRow = vm.brokerSender !== null
+    && (vm.brokerSender.name !== null || vm.brokerSender.email !== null
+        || vm.brokerSender.raw !== '')
+  const hasForwarderRow = vm.forwardedBy !== null
+    && (vm.forwardedBy.name !== null || vm.forwardedBy.email !== null)
+  // Resolution detail is shown only when we don't already have a sender
+  // row — the sub-line under "Broker" already names the source there.
+  const provSource = vm.brokerProvenance?.source ?? null
+  const hasResolutionDetailRow = !hasSenderRow && provSource !== null
+
+  if (!hasBrokerRow && !hasSenderRow && !hasForwarderRow && !hasResolutionDetailRow) {
+    return null
+  }
+
+  return (
+    <Section title="Source">
+      <div className="flex flex-col gap-2">
+        {hasBrokerRow && (
+          <SourceRow
+            label="Broker"
+            value={brokerName}
+            sub={provSource ? `Resolved from ${PROVENANCE_LABEL_SHORT[provSource]}` : null}
+          />
+        )}
+        {hasSenderRow && <BrokerSenderRow sender={vm.brokerSender!}/>}
+        {hasForwarderRow && (
+          <SourceRow
+            label="Forwarded by"
+            value={vm.forwardedBy!.name ?? vm.forwardedBy!.email ?? '—'}
+            sub={vm.forwardedBy!.name && vm.forwardedBy!.email ? vm.forwardedBy!.email : null}
+          />
+        )}
+        {hasResolutionDetailRow && (
+          <SourceRow label="Resolution detail" value={PROVENANCE_LABEL_SHORT[provSource!]}/>
+        )}
+      </div>
+    </Section>
+  )
+}
+
+function SourceRow({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
+  return (
+    <div className="flex gap-2 text-[12px]">
+      <span className="text-slate-500 w-28 shrink-0">{label}</span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-slate-200">{value}</span>
+        {sub && <span className="text-[11px] text-slate-500 truncate">{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
+function BrokerSenderRow({ sender }: { sender: NonNullable<ReportDetailViewModel['brokerSender']> }) {
+  // Three modes: clean parse (name present), email-only (no name parsed),
+  // or full failure (raw evidence preserved but no name/email). For
+  // failure we still surface a muted "Could not parse sender cleanly"
+  // line so the user understands why nothing useful renders — instead of
+  // a silent omission.
+  if (sender.name) {
+    return (
+      <div className="flex gap-2 text-[12px]">
+        <span className="text-slate-500 w-28 shrink-0">Broker sender</span>
+        <div className="flex flex-col gap-0.5 min-w-0">
+          <span className="text-slate-200">
+            {sender.name}
+            {sender.organizationHint && (
+              <span className="text-slate-500"> · {sender.organizationHint}</span>
+            )}
+          </span>
+          {sender.email && <span className="text-[11px] text-slate-500 truncate">{sender.email}</span>}
+        </div>
+      </div>
+    )
+  }
+  if (sender.email) {
+    // We have an email but no clean name — surface the email as the
+    // primary value so it's still useful.
+    return (
+      <div className="flex gap-2 text-[12px]">
+        <span className="text-slate-500 w-28 shrink-0">Broker sender</span>
+        <span className="text-slate-200 truncate">{sender.email}</span>
+      </div>
+    )
+  }
+  return (
+    <div className="flex gap-2 text-[12px]">
+      <span className="text-slate-500 w-28 shrink-0">Broker sender</span>
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <span className="text-slate-400 italic">Could not parse sender cleanly</span>
+        <span className="text-[11px] text-slate-500 font-mono truncate" title={sender.raw}>
+          {sender.raw}
+        </span>
+      </div>
+    </div>
+  )
 }
 
 // ── Shared bits ─────────────────────────────────────────────────────────────

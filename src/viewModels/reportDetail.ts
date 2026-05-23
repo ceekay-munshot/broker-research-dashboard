@@ -9,6 +9,7 @@ import type {
 import type { ConflictClosure } from '../engine/types'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { groupBy } from './shared'
+import { parseBrokerSender, type BrokerSenderDisplay } from '../lib/brokerSender'
 import {
   deriveArbVerdict, deriveConsensusRating,
   type ArbVerdict, type ConsensusRating,
@@ -108,8 +109,26 @@ export interface ReportDetailViewModel {
   readonly sourceEmail: {
     readonly subject: string
     readonly senderName: string
+    readonly senderAddress: string
+    /** Raw forwarded-From header lines, in order — the first usually
+     *  carries the original broker sender for forwarded notes. */
+    readonly forwardedFrom: readonly string[]
     readonly receivedAt: string
     readonly status: EmailProcessingStatus
+  } | null
+
+  /** Parsed broker-sender identity for the drawer's "Broker sender" row.
+   *  Populated when `brokerResolution.brokerSource === 'forwarded_body_header'`
+   *  OR when `sourceEmail.forwardedFrom[0]` is header-shaped. Null when
+   *  the resolver landed on a non-header source (subject prefix, sender
+   *  domain, etc.) with no sender info to surface. */
+  readonly brokerSender: BrokerSenderDisplay | null
+
+  /** Who forwarded the note into our system, if any — distinct from the
+   *  broker sender. Null for direct broker-to-org emails (no forwarder). */
+  readonly forwardedBy: {
+    readonly name: string | null
+    readonly email: string | null
   } | null
 
   /** The original research document, when the source feed provided a
@@ -253,9 +272,14 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     sourceEmail: sourceEmail ? {
       subject: sourceEmail.subject,
       senderName: sourceEmail.senderName,
+      senderAddress: sourceEmail.senderAddress,
+      forwardedFrom: sourceEmail.forwardedFrom,
       receivedAt: sourceEmail.receivedAt,
       status: sourceEmail.status,
     } : null,
+
+    brokerSender: deriveBrokerSender(report, sourceEmail),
+    forwardedBy: deriveForwardedBy(sourceEmail),
 
     sourceDocument: sourceAttachment?.sourceUrl
       ? { url: sourceAttachment.sourceUrl, filename: sourceAttachment.filename }
@@ -275,6 +299,49 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     } : null,
     brokerStockConflict: report.brokerStockConflict ?? false,
   }
+}
+
+/** Pick the best broker-sender evidence string to feed into the parser.
+ *  Priority: the resolver's own evidence when it landed on the forwarded
+ *  "From:" header; otherwise the first forwarded-From line on the email
+ *  if it looks header-shaped; otherwise null. Returns null when we
+ *  tried but the parser produced no useful name OR email AND the source
+ *  isn't header-derived — keeps the drawer's "Broker sender" row from
+ *  surfacing garbage for non-header resolver sources. */
+function deriveBrokerSender(
+  report: ResearchReport,
+  sourceEmail: BrokerEmail | undefined | null,
+): BrokerSenderDisplay | null {
+  const res = report.brokerResolution
+  if (res && res.brokerSource === 'forwarded_body_header' && res.brokerEvidence) {
+    const out = parseBrokerSender(res.brokerEvidence)
+    // Surface even a "raw only" result for forwarded_body_header — the
+    // drawer will render a muted "Could not parse sender cleanly" fallback.
+    return out
+  }
+  const firstForwarded = sourceEmail?.forwardedFrom?.[0]
+  if (firstForwarded && /<[^<>]*@[^<>]*>|^\s*\*?(?:from|sent):/i.test(firstForwarded)) {
+    const out = parseBrokerSender(firstForwarded)
+    if (out.name !== null || out.email !== null) return out
+  }
+  return null
+}
+
+/** Forwarder identity from the email's sender fields. Distinct from the
+ *  broker sender — these are the person/system whose mailbox forwarded
+ *  the note INTO our org. Returns null for direct emails (no forwarder). */
+function deriveForwardedBy(
+  sourceEmail: BrokerEmail | undefined | null,
+): { readonly name: string | null; readonly email: string | null } | null {
+  if (!sourceEmail) return null
+  // Hide the row entirely for direct emails — `forwardedFrom` empty
+  // means the sender IS the broker, not a forwarder; surfacing the same
+  // person as both "Broker sender" and "Forwarded by" would be misleading.
+  if ((sourceEmail.forwardedFrom?.length ?? 0) === 0) return null
+  const name = sourceEmail.senderName?.trim() || null
+  const email = sourceEmail.senderAddress?.trim() || null
+  if (name === null && email === null) return null
+  return { name, email }
 }
 
 export function useReportDetailViewModel(reportId: ReportId | null): QueryResult<ReportDetailViewModel> {
