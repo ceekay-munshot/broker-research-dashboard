@@ -42,7 +42,7 @@ import {
 import type { ConflictClosure } from '../../engine/types'
 import { buildConflictClosure } from '../../engine/conflictClosure'
 import type { DashboardServerOutput, FeedStatusPayload } from './types'
-import { extractNoteInsight } from './noteInsight'
+import { extractNoteInsight, EMPTY_NOTE_INSIGHT } from './noteInsight'
 import { parseTp, validateTargetPrices } from './targetPrice'
 import {
   buildEmailBrokerContext, resolveBrokerForNote, stripBrokerPrefixes,
@@ -632,7 +632,40 @@ function buildServerOutputFromEmails(
         ? [asTicker(primary.ticker)]
         : []
 
-    const summaryId = (!isDigest && primary && (primary.rating !== null || primary.tp !== null))
+    // Hoist note enrichment above the summary gate. Cheap regex work; runs
+    // once; the result feeds both the gate decision below and (when the
+    // summary is kept) the push that follows. No double-extract.
+    //
+    // We mine the body for thesis, key numbers, watchpoints, an upside %,
+    // and an action label. rating / TP stay sourced from NER — the
+    // extractor only *adds* fields; it never invents a rating or target.
+    const insight = (!isDigest && primary)
+      ? extractNoteInsight({
+          subject: src.title,
+          textBody: textBodyByEmail.get(src.emailId as unknown as string) ?? '',
+          rating: primary.rating,
+          reportType: src.reportType,
+          companyName: (primary.ticker ? stockNames.get(primary.ticker) : null) ?? primary.name,
+          ticker: primary.ticker ?? '',
+        })
+      : EMPTY_NOTE_INSIGHT
+
+    // A note earns a summary when EITHER the broker issued a concrete call
+    // via NER (rating or TP) OR the body/title produced surfacing-worth
+    // signal. The extractor's 40-char floor keeps `hasExtractedInsight`
+    // false for truly empty / header-only bodies, so the safety boundary
+    // ("no summary for empty notes") still holds.
+    const hasBrokerCall = primary !== null
+      && (primary.rating !== null || primary.tp !== null)
+    const hasExtractedInsight =
+      insight.thesis !== null
+      || insight.keyPoints.length > 0
+      || insight.keyNumbers.length > 0
+      || insight.watchpoints.length > 0
+      || insight.upsidePct !== null
+      || insight.actionLabel !== null
+
+    const summaryId = (!isDigest && primary && (hasBrokerCall || hasExtractedInsight))
       ? asSummaryId(`sum_${src.reportId}`)
       : null
 
@@ -657,17 +690,6 @@ function buildServerOutputFromEmails(
     })
 
     if (summaryId && primary) {
-      // Adapter-level MVP enrichment: mine the forwarded email body for a
-      // thesis, key numbers, watchpoints and an action label. rating / TP
-      // stay sourced from NER — the extractor only *adds* fields.
-      const insight = extractNoteInsight({
-        subject: src.title,
-        textBody: textBodyByEmail.get(src.emailId as unknown as string) ?? '',
-        rating: primary.rating,
-        reportType: src.reportType,
-        companyName: (primary.ticker ? stockNames.get(primary.ticker) : null) ?? primary.name,
-        ticker: primary.ticker ?? '',
-      })
       summaries.push({
         id: summaryId,
         orgId: ORG_ID,

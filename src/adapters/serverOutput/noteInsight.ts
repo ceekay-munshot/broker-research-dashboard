@@ -313,9 +313,32 @@ function pickActionLabel(
   if (/\bupgrad(?:e|ed|ing)\b(?![\s-]*(?:cycle|capex))/i.test(hay)) return 'Upgrade'
   if (/\bdowngrad(?:e|ed|ing)\b/i.test(hay)) return 'Downgrade'
   if (input.rating === 'Buy' || input.rating === 'Overweight') return 'BUY idea'
+  // Title-only standalone-rating detector. Display-only — no opinion is
+  // ever created from this. The opinion path is gated independently on NER
+  // rating/TP in emailApiTransform.ts. Subjects like
+  //   "NephroPlus – Underappreciated healthcare play – BUY"
+  //   "PI Industries: Operating miss, recovery some time away - Hold"
+  // carry the broker's call where NER missed it.
+  const titleRating = detectStandaloneTitleRating(input.subject)
+  if (titleRating === 'bullish') return 'BUY idea'
+  if (titleRating === 'neutral') return 'Hold / monitor'
   if (upsidePct !== null && upsidePct >= 15) return 'Big upside'
   if (keyNumbers.length >= 3) return 'High-signal note'
   return null
+}
+
+/** Subject-only detector for a standalone rating word at the end of the
+ *  title, optionally after a separator and optional trailing punctuation.
+ *  We deliberately do NOT scan the body — prose like "we maintain Buy at
+ *  current levels" is too common as false-positive bait. */
+const TITLE_RATING_END =
+  /(?:[\s\-–—:|·])(buy|overweight|outperform|add|hold|neutral)\s*[!.]?\s*$/i
+
+function detectStandaloneTitleRating(subject: string): 'bullish' | 'neutral' | null {
+  const m = TITLE_RATING_END.exec(subject)
+  if (!m) return null
+  const word = m[1].toLowerCase()
+  return (word === 'hold' || word === 'neutral') ? 'neutral' : 'bullish'
 }
 
 // ── Small helpers ──────────────────────────────────────────────────────────
