@@ -6,8 +6,6 @@ import type { BrokerCardViewModel, BrokerBookActivityItem } from '../../viewMode
 import { useByBrokerViewModel } from '../../viewModels/byBroker'
 import { STANCE_TEXT_COLOR, formatShortDate, type FeedItemViewModel } from '../../viewModels/shared'
 import { BROKER_GLYPH_CLASS } from '../../lib/semanticColor'
-import { useAdapterQuery } from '../../hooks/useAdapterQuery'
-import BrokerRecentChanges from '../broker/BrokerRecentChanges'
 import BookBadge from '../portfolio/BookBadge'
 import RankCompareChip from '../adaptiveRanking/RankCompareChip'
 import { adaptiveRankingFlags } from '../../engine'
@@ -19,8 +17,6 @@ interface ByBrokerProps {
 
 export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
   const { data, loading, error } = useByBrokerViewModel(filters)
-  const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
-  const stocks  = useAdapterQuery((a, s) => a.listStocks(s), [])
   const [popupBroker, setPopupBroker] = useState<BrokerCardViewModel | null>(null)
 
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
@@ -45,14 +41,6 @@ export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
           />
         ))}
       </div>
-
-      {brokers.data && stocks.data && (
-        <BrokerRecentChanges
-          brokers={brokers.data}
-          stocks={stocks.data}
-          onSelectReport={onSelectReport}
-        />
-      )}
 
       <BrokerCardPopup
         broker={popupBroker}
