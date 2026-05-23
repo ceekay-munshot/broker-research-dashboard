@@ -82,15 +82,23 @@ const REASON_LABELS: Readonly<Record<OutlierClassification['reasons'][number], s
   stance_contrary: 'Stance contradicts majority',
 }
 
-// A closure surfaces on the divergence screen when either:
+// A closure surfaces on the Street-view screen when ≥2 brokers cover the
+// stock AND at least one of:
 //  • the Street's target spread is ≥25% (material valuation divergence),
-//  • there is at least one explicit DisagreementPoint, or
-//  • at least one broker qualifies as an outlier.
-function isMaterialDisagreement(c: ConflictClosure): boolean {
+//  • there is at least one explicit DisagreementPoint,
+//  • at least one broker qualifies as an outlier,
+//  • there is at least one extracted ConsensusPoint, or
+//  • the resultant state is a clear consensus call (so an all-Buy / all-Sell
+//    name surfaces even when the server hasn't extracted a structured point).
+// Single-broker stocks are excluded — no Street picture to assemble.
+function isMaterialStreetCase(c: ConflictClosure): boolean {
+  if (c.brokerCount < 2) return false
   const spread = c.targetStats.spreadPct
   if (spread !== null && spread >= 25) return true
   if (c.disagreements.length > 0) return true
   if (c.outliers.length > 0) return true
+  if (c.consensus.length > 0) return true
+  if (c.resultant.state === 'consensus_bullish' || c.resultant.state === 'consensus_bearish') return true
   return false
 }
 
@@ -111,7 +119,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
       const stock = stockByTicker.get(c.ticker as string)
       return stock !== undefined && sectorFilter.has(stock.sectorId as string)
     })
-    .filter(isMaterialDisagreement)
+    .filter(isMaterialStreetCase)
     .sort((a, b) =>
       (b.targetStats.spreadPct ?? 0) - (a.targetStats.spreadPct ?? 0)
       || b.disagreements.length - a.disagreements.length)

@@ -1,12 +1,15 @@
-// Right pane for the "Where they disagree" mode — one company, trimmed
-// to the essentials: the takeaway, the target-price gap, why brokers
-// disagree, and the outliers. Secondary analysis sits behind an expander.
+// Right pane for the "Where they disagree" mode — one company, framed
+// around the Street's agreement AND disagreement at equal weight. The
+// takeaway, the target-price gap, where they agree, where they disagree,
+// and the outliers. Secondary analysis (key drivers, open questions,
+// confidence rationale) sits behind a `MoreDetail` expander.
 
 import type { StockTicker } from '../../domain'
-import type { DivergenceCardViewModel, ConsensusPointVM } from '../../viewModels/divergence'
-import { composeDisagreementInsight, type BrokerTier } from '../../viewModels/disagreementInsight'
-import { VerdictBadge, ConfidenceMeter, StanceMix, OutlierRow, MoreDetail, BrokerChip } from './shared'
+import type { DivergenceCardViewModel } from '../../viewModels/divergence'
+import { composeStreetInsight, type BrokerTier } from '../../viewModels/disagreementInsight'
+import { VerdictBadge, ConfidenceMeter, StanceMix, OutlierRow, MoreDetail } from './shared'
 import TargetPriceScale from './TargetPriceScale'
+import WhereTheyAgree from './WhereTheyAgree'
 import WhyTheyDisagree from './WhyTheyDisagree'
 
 interface Props {
@@ -16,7 +19,7 @@ interface Props {
 }
 
 export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
-  const insight = composeDisagreementInsight(c)
+  const insight = composeStreetInsight(c)
 
   // Order the disagreements for "Why they disagree": the overall bull-vs-
   // bear thesis (stance) first, then thematic splits by debate volume.
@@ -58,6 +61,11 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
 
       <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers}/>
 
+      {/* Agreement and disagreement get equal weight — agreement was
+          previously buried inside MoreDetail. WhereTheyAgree owns its own
+          sort + filter; CompanyDetail just hands in the raw point list. */}
+      <WhereTheyAgree points={c.consensus} tierFor={tierFor}/>
+
       <WhyTheyDisagree points={whyPoints} tierFor={tierFor}/>
 
       {c.outliers.length > 0 && (
@@ -75,16 +83,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
 
       {hasMoreDetail(c) && (
         <MoreDetail>
-          {c.consensus.length > 0 && (
-            <div className="flex flex-col gap-2">
-              <span className="section-title">Where they agree</span>
-              <ul className="flex flex-col gap-1.5">
-                {c.consensus.map((cp, i) => (
-                  <ConsensusRow key={i} point={cp} tierFor={tierFor}/>
-                ))}
-              </ul>
-            </div>
-          )}
           {c.resultant.keyDrivers.length > 0 && (
             <BulletList title="Key drivers" items={c.resultant.keyDrivers}/>
           )}
@@ -112,40 +110,9 @@ function debateVolume(d: DivergenceCardViewModel['disagreements'][number]): numb
 }
 
 function hasMoreDetail(c: DivergenceCardViewModel): boolean {
-  return c.consensus.length > 0
-    || c.resultant.keyDrivers.length > 0
+  return c.resultant.keyDrivers.length > 0
     || c.resultant.openQuestions.length > 0
     || c.confidence.rationale.length > 0
-}
-
-function ConsensusRow({ point, tierFor }: {
-  point: ConsensusPointVM
-  tierFor: (brokerId: string) => BrokerTier
-}) {
-  const tone = point.polarity === 'bullish' ? 'text-emerald-400'
-    : point.polarity === 'bearish' ? 'text-rose-400'
-    : 'text-slate-300'
-  return (
-    <li className="rounded border border-line/5 bg-line/[0.02] p-2.5 flex flex-col gap-1">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10.5px] uppercase tracking-wider text-slate-400">{point.topic}</span>
-        <span className={`chip border border-line/10 ${tone} text-[9px]`}>Agree</span>
-      </div>
-      <span className="text-[12px] text-slate-200 leading-snug">{point.claim}</span>
-      {(point.brokers.length > 0 || point.evidenceCount > 0) && (
-        <div className="flex items-center gap-x-2 gap-y-1 flex-wrap">
-          {point.brokers.slice(0, 5).map((b) => (
-            <BrokerChip key={b.id} name={b.name} tier={tierFor(b.id)}/>
-          ))}
-          {point.evidenceCount > 0 && (
-            <span className="text-[10px] text-slate-500 num">
-              · {point.evidenceCount} citation{point.evidenceCount === 1 ? '' : 's'}
-            </span>
-          )}
-        </div>
-      )}
-    </li>
-  )
 }
 
 function BulletList({ title, items }: { title: string; items: readonly string[] }) {

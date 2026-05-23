@@ -63,6 +63,22 @@ function dominantTopic(c: DivergenceCardViewModel) {
       - (a.bullCitationCount + a.bearCitationCount))[0] ?? null
 }
 
+/** Mirror of `dominantTopic` for the consensus side — the most-backed
+ *  agreement topic, ranked by citation volume + broker support + the
+ *  count of supporting claims. Stance / rating / target_price are
+ *  excluded for the same reason: they're conveyed by the verdict badge
+ *  and target scale, not by a sentence. */
+function dominantConsensusTopic(c: DivergenceCardViewModel) {
+  return [...c.consensus]
+    .filter((p) =>
+      p.dimension !== 'stance'
+      && p.dimension !== 'rating'
+      && p.dimension !== 'target_price')
+    .sort((a, b) =>
+      (b.evidenceCount + b.supportingClaims.length + b.brokers.length)
+      - (a.evidenceCount + a.supportingClaims.length + a.brokers.length))[0] ?? null
+}
+
 // ── Company disagreement insight ──────────────────────────────────────
 
 /**
@@ -122,6 +138,66 @@ export function composeDisagreementInsight(c: DivergenceCardViewModel): string {
   // 6 — A near-consensus stance, but coverage isn't unanimous.
   const call = c.resultant.state === 'consensus_bearish' ? 'cautious' : 'constructive'
   return `${total} brokers are broadly ${call}, but coverage isn't unanimous — at least one broker breaks from the pack.`
+}
+
+// ── Street insight (covers both agreement and disagreement) ──────────
+//
+// `composeStreetInsight` is the dual-aware composer that the Disagreements
+// tab now reads. It picks framing based on what's actually material:
+//   1. If there's a real disagreement (≥1 DisagreementPoint, wide spread,
+//      or an outlier), delegate to `composeDisagreementInsight` — its
+//      five-sentence priority tree already handles every disagreement
+//      shape.
+//   2. If there's only consensus (no disagreement signals), emit a
+//      positive-framing sentence that names the shared thesis.
+//   3. Fall back to the near-consensus / divided-stance copy.
+
+export function composeStreetInsight(c: DivergenceCardViewModel): string {
+  const spread = c.targetStats.spreadPct
+  const isDisagreementHeavy =
+    c.disagreements.length > 0
+    || c.outliers.length > 0
+    || (spread !== null && spread >= 25)
+
+  if (isDisagreementHeavy) return composeDisagreementInsight(c)
+
+  // Consensus-only branch: ≥1 ConsensusPoint OR a clear consensus state.
+  const total = c.brokerCount
+  const ccy = c.currency
+  const topConsensus = dominantConsensusTopic(c)
+
+  if (c.resultant.state === 'consensus_bullish') {
+    const range = c.targetStats.count >= 2
+      ? `${priceOf(c.targetStats.low, ccy)}–${priceOf(c.targetStats.high, ccy)}`
+      : null
+    const thesis = topConsensus
+      ? ` the shared thesis centres on ${topConsensus.topic.toLowerCase()}.`
+      : ' the call is uniform across the desk.'
+    const valuation = range
+      ? ` — targets cluster at ${range};`
+      : ' —'
+    return `All ${total} brokers are constructive${valuation}${thesis}`
+  }
+
+  if (c.resultant.state === 'consensus_bearish') {
+    const range = c.targetStats.count >= 2
+      ? `${priceOf(c.targetStats.low, ccy)}–${priceOf(c.targetStats.high, ccy)}`
+      : null
+    const thesis = topConsensus
+      ? ` the shared concern centres on ${topConsensus.topic.toLowerCase()}.`
+      : ' the cautious view is uniform across the desk.'
+    const valuation = range
+      ? ` — targets cluster at ${range};`
+      : ' —'
+    return `All ${total} brokers are cautious${valuation}${thesis}`
+  }
+
+  if (topConsensus) {
+    return `${total} brokers cover this name and broadly align on ${topConsensus.topic.toLowerCase()} — no material splits yet.`
+  }
+
+  // Fallback — reach the near-consensus copy from `composeDisagreementInsight`.
+  return composeDisagreementInsight(c)
 }
 
 // ── Broker track-record insight ───────────────────────────────────────

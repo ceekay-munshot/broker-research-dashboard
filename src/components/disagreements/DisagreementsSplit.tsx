@@ -46,9 +46,9 @@ export default function DisagreementsSplit({ filters, onSelectTicker }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <header className="flex flex-col gap-1">
-        <h2 className="text-slate-100 font-semibold text-lg">Disagreements</h2>
+        <h2 className="text-slate-100 font-semibold text-lg">Where they agree &amp; where they disagree</h2>
         <p className="text-slate-400 text-[12px]">
-          Where the Street disagrees on a stock — and which brokers have earned the right to be believed.
+          Where the Street agrees, where it splits, and which brokers have earned the right to be believed.
         </p>
       </header>
 
@@ -86,17 +86,17 @@ export default function DisagreementsSplit({ filters, onSelectTicker }: Props) {
     if (cases.length === 0) {
       return (
         <EmptyState
-          title="No material disagreements"
-          body="Every covered name has an aligned Street view, tightly clustered targets, and no outlier brokers for the current filters."
+          title="No Street view yet"
+          body="No covered name has more than one broker on it in the current filters — nothing to compare or contrast."
         />
       )
     }
-    // Most-disagreed company is selected first; selection self-heals if
-    // the filters drop the previously-selected ticker.
+    // The most-contested company is selected first; selection self-heals
+    // if the filters drop the previously-selected ticker.
     const active = cases.find((c) => c.ticker === selectedTicker) ?? cases[0]!
     return (
       <Split
-        meta={`${cases.length} of ${totalStocks} covered name${totalStocks === 1 ? '' : 's'} flagged`}
+        meta={`${cases.length} of ${totalStocks} covered name${totalStocks === 1 ? '' : 's'} with a Street view`}
         list={
           <CompanyList cases={cases} activeTicker={active.ticker} onSelect={setSelectedTicker}/>
         }
