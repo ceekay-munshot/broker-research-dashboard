@@ -37,7 +37,7 @@ export default function CmpCell({ cell, avgTarget }: CmpCellProps) {
       {delta && (
         <span
           className={`num text-[10px] ${TONE_TEXT_CLASS[delta.tone]}`}
-          title="Avg target vs CMP"
+          title={delta.tooltip}
         >
           {delta.label}
         </span>
@@ -56,15 +56,25 @@ const UNAVAILABLE_TOOLTIP: Readonly<Record<'not_found' | 'ambiguous_ticker' | 'u
 function computeDelta(avgTarget: number | null, currentPrice: number): {
   readonly label: string
   readonly tone: 'positive' | 'negative' | 'neutral'
+  readonly tooltip: string
 } | null {
   if (avgTarget === null || currentPrice <= 0) return null
   const pct = (avgTarget / currentPrice - 1) * 100
   if (!Number.isFinite(pct)) return null
   const rounded = Math.round(pct)
-  if (rounded === 0) return { label: '0%', tone: 'neutral' }
+  if (rounded === 0) {
+    return {
+      label: '0%',
+      tone: 'neutral',
+      tooltip: "Brokers' avg target matches the current price",
+    }
+  }
   const sign = rounded > 0 ? '+' : ''
+  const direction = rounded > 0 ? 'above' : 'below'
+  const magnitude = Math.abs(rounded)
   return {
     label: `${sign}${rounded}%`,
     tone: rounded > 0 ? 'positive' : 'negative',
+    tooltip: `Brokers' avg target is ${magnitude}% ${direction} the current price`,
   }
 }
