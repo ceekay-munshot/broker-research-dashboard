@@ -5,7 +5,7 @@
 // reasons, no operator language.
 //
 //   1. Header
-//   2. Four cards — High ARB stocks, Outlier calls, New notes, Stocks touched
+//   2. Four cards — Stocks with wide disagreement, Outlier calls, New notes, Stocks touched
 //   3. Where brokers disagree   → opens Street view
 //   4. What changed today       → opens the report
 //   5. Upcoming catalysts       → only when the feed has events
@@ -67,7 +67,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard label="High ARB stocks" value={highArbStocks}/>
+        <SummaryCard label="Stocks with wide disagreement" value={highArbStocks}/>
         <SummaryCard label="Outlier calls" value={outlierCalls}/>
         <SummaryCard label="New broker notes" value={newBrokerNotes}/>
         <SummaryCard label="Stocks touched" value={stocksTouched}/>

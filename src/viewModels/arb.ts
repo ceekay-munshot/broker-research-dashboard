@@ -8,16 +8,27 @@
 //
 // "ARB" is presented as a BAND — Low / Moderate / High, plus "No broker
 // comparison" for single-broker names — never a fabricated 0–100 score.
+//
+// Note on file layout (post-vocab-unification): the `ArbBand` and
+// `ConsensusRating` *types* now live in `src/domain/signal.ts` so the UI
+// vocab module can format them without depending on viewModels. The
+// `ARB_LABEL` UI strings live in `src/lib/signalVocab.ts`. This file is
+// re-exporting both so existing callers (`import ... from 'viewModels/arb'`)
+// keep working unchanged.
 // ─────────────────────────────────────────────────────────────────────────
 
-import type { Rating, BrokerId } from '../domain'
-import type { ConflictClosure, ResultantState } from '../engine/types'
+import type { Rating, BrokerId, ArbBand, ConsensusRating } from '../domain'
+import type { ConflictClosure } from '../engine/types'
 import { TONE_CHIP_CLASS, getArbTone } from '../lib/semanticColor'
+import { ARB_LABEL, RESULTANT_STATE_LABEL } from '../lib/signalVocab'
+
+// Re-export so existing callers can keep `import { ArbBand, ConsensusRating,
+// ARB_LABEL } from '../viewModels/arb'`. The canonical sources are the
+// domain layer for types and signalVocab for the label strings.
+export type { ArbBand, ConsensusRating }
+export { ARB_LABEL }
 
 // ── ARB band ─────────────────────────────────────────────────────────────
-
-/** `none` = a single broker — nothing to compare, never a disagreement. */
-export type ArbBand = 'none' | 'low' | 'moderate' | 'high'
 
 export interface ArbVerdict {
   readonly band: ArbBand
@@ -25,13 +36,6 @@ export interface ArbVerdict {
   readonly spreadPct: number | null
   /** The finished human line shown under the band chip. */
   readonly subtext: string
-}
-
-export const ARB_LABEL: Readonly<Record<ArbBand, string>> = {
-  none:     'No broker comparison',
-  low:      'Low ARB',
-  moderate: 'Moderate ARB',
-  high:     'High ARB',
 }
 
 // Chip classes per ARB band, projected from the central semantic-tone system.
@@ -49,20 +53,11 @@ export const ARB_RANK: Readonly<Record<ArbBand, number>> = {
   high: 0, moderate: 1, low: 2, none: 3,
 }
 
-/** Verbatim, customer-approved tooltip. */
+/** Verbatim, customer-approved tooltip. Anchored to the new "wide
+ *  disagreement" terminology rather than the internal "ARB" jargon. */
 export const ARB_TOOLTIP =
   'This combines broker rating disagreement and target-price spread. ' +
-  'It is a directional ARB signal, not a precise score.'
-
-/** Short, plain state label for the verdict subtext. */
-const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:  'Bullish consensus',
-  consensus_bearish:  'Bearish consensus',
-  mixed_constructive: 'Mixed views',
-  mixed_cautious:     'Mixed views',
-  unresolved:         'No clear lean',
-  outlier_driven:     'Outlier-driven',
-}
+  'It is a directional disagreement signal, not a precise score.'
 
 /** Engine's own material-spread threshold (mirrors conflictClosure.ts). */
 const MATERIAL_SPREAD_PCT = 25
@@ -105,20 +100,10 @@ export function deriveArbVerdict(
   }
 
   const spreadText = spreadPct !== null ? `${Math.round(spreadPct)}%` : '—'
-  return { band, spreadPct, subtext: `Target spread: ${spreadText} · ${STATE_LABEL[state]}` }
+  return { band, spreadPct, subtext: `Target spread: ${spreadText} · ${RESULTANT_STATE_LABEL[state]}` }
 }
 
 // ── Consensus rating ─────────────────────────────────────────────────────
-
-/** A tie is reported as a tie — never collapsed into a fake winner. */
-export type ConsensusRating =
-  | { readonly kind: 'none' }
-  | { readonly kind: 'clear'; readonly rating: Rating; readonly agree: number; readonly total: number }
-  | {
-      readonly kind: 'tie'
-      readonly total: number
-      readonly leaders: readonly { readonly rating: Rating; readonly count: number }[]
-    }
 
 /** Fixed order — used only to list tied leaders stably, never to break a tie. */
 const RATING_ORDER: readonly Rating[] = [

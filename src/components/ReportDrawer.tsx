@@ -251,7 +251,7 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
                 )}
                 {vm.brokerProvenance?.conflict && (
                   <div className="rounded border border-amber-500/25 bg-amber-500/[0.06] px-2.5 py-1.5 text-[11.5px] text-amber-200">
-                    Conflicting broker signals on this note — flagged for QA.
+                    Conflicting broker signals on this note — needs review.
                   </div>
                 )}
                 {vm.brokerStockConflict && (

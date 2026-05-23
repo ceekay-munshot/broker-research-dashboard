@@ -7,18 +7,14 @@ import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { OutlierVM } from '../../viewModels/divergence'
 import { TIER_LABEL, type BrokerTier } from '../../viewModels/disagreementInsight'
 import { RESULTANT_STATE_CHIP_CLASS } from '../../lib/semanticColor'
+import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
 
 // ── Verdict (resultant state) ─────────────────────────────────────────
-// Plain-language labels — the engine's internal state names are jargon.
+// Labels live in src/lib/signalVocab.ts so the Disagreements tab, By Stock,
+// Stock Drawer and Report Drawer all read the same wording. Re-export the
+// shared map for any disagreements-internal callers that still import it.
 
-export const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:  'Bull consensus',
-  consensus_bearish:  'Bear consensus',
-  mixed_constructive: 'Split · bull tilt',
-  mixed_cautious:     'Split · bear tilt',
-  unresolved:         'No clear view',
-  outlier_driven:     'Outlier-skewed',
-}
+export const STATE_LABEL = RESULTANT_STATE_LABEL
 
 export function VerdictBadge({ state, strength }: {
   state: ResultantState
@@ -26,7 +22,7 @@ export function VerdictBadge({ state, strength }: {
 }) {
   return (
     <span className={`chip border ${RESULTANT_STATE_CHIP_CLASS[state]} inline-flex items-center gap-1 text-[10px]`}>
-      {STATE_LABEL[state]}
+      {RESULTANT_STATE_LABEL[state]}
       <span className="text-slate-500">·</span>
       <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>
     </span>

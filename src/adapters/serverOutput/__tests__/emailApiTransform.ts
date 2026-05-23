@@ -271,7 +271,7 @@ test('NephroPlus-shaped note: rich body + NER rating/TP both null still gets a s
   assert(/nephroplus/i.test(summary!.thesis), 'thesis names the company')
   assert(summary!.keyPoints.length >= 1, 'at least one supporting key-point paragraph')
 
-  const labels = summary!.keyNumbers.map((n) => n.label).join(' || ')
+  const labels = (summary!.keyNumbers ?? []).map((n) => n.label).join(' || ')
   assert(/revenue/i.test(labels), `keyNumbers include Revenue — got: ${labels}`)
   assert(/ebitda/i.test(labels), `keyNumbers include EBITDA — got: ${labels}`)
   assert(/margin/i.test(labels), `keyNumbers include EBITDA margin — got: ${labels}`)

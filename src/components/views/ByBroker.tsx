@@ -128,8 +128,8 @@ function BrokerCard({
         {b.conflictCount > 0 && (
           <span
             className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px] shrink-0"
-            title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
-          >QA {b.conflictCount}</span>
+            title={`${b.conflictCount} note${b.conflictCount === 1 ? '' : 's'} need review — broker conflict or broker/stock overlap`}
+          >{b.conflictCount} need{b.conflictCount === 1 ? 's' : ''} review</span>
         )}
       </div>
 
@@ -254,8 +254,8 @@ function BrokerCardPopup({
             {broker.conflictCount > 0 && (
               <span
                 className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px]"
-                title={`${broker.conflictCount} note${broker.conflictCount === 1 ? '' : 's'} flagged for QA — broker conflict or broker/stock overlap`}
-              >QA {broker.conflictCount}</span>
+                title={`${broker.conflictCount} note${broker.conflictCount === 1 ? '' : 's'} need review — broker conflict or broker/stock overlap`}
+              >{broker.conflictCount} need{broker.conflictCount === 1 ? 's' : ''} review</span>
             )}
             <button
               onClick={onClose}

@@ -10,6 +10,7 @@ import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import StockBrokerChanges from '../stock/StockBrokerChanges'
 import CmpCell from '../cells/CmpCell'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
+import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
 import {
   RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
   TONE_TEXT_CLASS, getChangeTone,
@@ -48,8 +49,8 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <div>
           <h2 className="text-slate-100 font-semibold text-base">By Stock</h2>
           <p className="text-slate-400 text-[12px]">
-            What every broker says on each stock — rating, price target, and an ARB verdict
-            for how much the Street disagrees. Click a stock for the full breakdown.
+            What every broker says on each stock — rating, price target, and how much the Street
+            disagrees. Click a stock for the full breakdown.
           </p>
         </div>
         <ViewSelector view={view} setView={setView} showPortfolio={data.hasPortfolio}/>
@@ -68,7 +69,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
                 </div>
               </th>
               <th className="px-3 py-2 font-medium text-right">Avg target</th>
-              <th className="px-3 py-2 font-medium">ARB verdict</th>
+              <th className="px-3 py-2 font-medium">Disagreement</th>
               {data.brokers.map((b) => (
                 <th key={b.id} className="px-2 py-2 font-medium">
                   <div className="flex items-center gap-1.5">
@@ -156,7 +157,7 @@ const STOCK_VIEWS: readonly {
   },
   {
     id: 'contested',
-    label: 'ARB severity',
+    label: 'Most disagreement',
     tooltip: 'Stocks where brokers most disagree at the top — where the Street is split on rating or price target.',
   },
   {
@@ -328,23 +329,16 @@ function ConsensusRatingLine({ cr }: { cr: ConsensusRating }) {
 }
 
 // ─── Shared state badge ───────────────────────────────────────────────
-
-const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:   'Consensus · Bull',
-  consensus_bearish:   'Consensus · Bear',
-  mixed_constructive:  'Mixed · Bull tilt',
-  mixed_cautious:      'Mixed · Bear tilt',
-  unresolved:          'Unresolved',
-  outlier_driven:      'Outlier-driven',
-}
+// Labels live in src/lib/signalVocab.ts so every surface — By Stock, Stock
+// Drawer, Disagreements, Report Drawer — reads the same wording.
 
 function StateBadge({ state, strength, compact }: { state: ResultantState; strength: StrengthBand; compact?: boolean }) {
   return (
     <span
       className={`chip border ${STATE_COLOR[state]} inline-flex items-center gap-1 ${compact ? 'text-[9px]' : 'text-[10px]'}`}
-      title={`${STATE_LABEL[state]} · ${strength} strength`}
+      title={`${RESULTANT_STATE_LABEL[state]} · ${strength} strength`}
     >
-      <span>{STATE_LABEL[state]}</span>
+      <span>{RESULTANT_STATE_LABEL[state]}</span>
       {!compact && <span className="text-slate-500">·</span>}
       {!compact && <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>}
     </span>

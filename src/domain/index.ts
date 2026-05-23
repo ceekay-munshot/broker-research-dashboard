@@ -33,3 +33,4 @@ export type {
 } from './orgControl'
 export { USER_ROLES, FEATURE_FLAG_KEYS, ROLLOUT_STATES } from './orgControl'
 export type * from './session'
+export type { NoteSignalKind, NoteSignalSource, ArbBand, ConsensusRating } from './signal'

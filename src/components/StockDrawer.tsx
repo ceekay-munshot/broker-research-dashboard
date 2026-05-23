@@ -11,6 +11,7 @@ import type {
 import { RATING_TEXT_COLOR, STANCE_TEXT_COLOR, formatPrice, formatShortDate } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
 import { RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
+import { RESULTANT_STATE_LABEL } from '../lib/signalVocab'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -396,20 +397,12 @@ function ConfidenceBar({ score, band }: { score: number; band: StrengthBand }) {
 }
 
 // ─── State badge ─────────────────────────────────────────────────────
-
-const STATE_LABEL: Readonly<Record<ResultantState, string>> = {
-  consensus_bullish:   'Consensus · Bull',
-  consensus_bearish:   'Consensus · Bear',
-  mixed_constructive:  'Mixed · Bull tilt',
-  mixed_cautious:      'Mixed · Bear tilt',
-  unresolved:          'Unresolved',
-  outlier_driven:      'Outlier-driven',
-}
+// Labels come from src/lib/signalVocab.ts so every surface reads the same.
 
 function StateBadge({ state, strength }: { state: ResultantState; strength: StrengthBand }) {
   return (
     <span className={`chip border ${STATE_COLOR[state]} inline-flex items-center gap-1 text-[11px]`}>
-      <span>{STATE_LABEL[state]}</span>
+      <span>{RESULTANT_STATE_LABEL[state]}</span>
       <span className="text-slate-500">·</span>
       <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>
     </span>
