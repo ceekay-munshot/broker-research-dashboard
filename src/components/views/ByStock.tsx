@@ -66,18 +66,18 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <table className="w-full min-w-[1260px] text-[12px]">
           <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
-              <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-900 border-r border-line/10">Ticker</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-900">Street state</th>
-              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-900">
+              <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10">Ticker</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Street state</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">
                 <div className="flex items-center justify-end gap-1.5">
                   <span>CMP</span>
                   <RefreshCmpButton onClick={refetchCmp} fetchedAt={lastFetchedAt}/>
                 </div>
               </th>
-              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-900">Avg target</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-900">Disagreement</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">Avg target</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Disagreement</th>
               {data.brokers.map((b) => (
-                <th key={b.id} className="px-2 py-2 font-medium sticky top-0 z-20 bg-ink-900">
+                <th key={b.id} className="px-2 py-2 font-medium sticky top-0 z-20 bg-ink-800">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${BROKER_DOT_CLASS}`}/>
                     <span className="uppercase tracking-wider text-[10.5px]">{b.shortName}</span>
@@ -196,7 +196,7 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectRepo
         tabIndex={0}
         onClick={() => onSelectTicker(row.ticker)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectTicker(row.ticker) } }}
-        className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10 cursor-pointer hover:bg-line/[0.04] group transition-colors"
+        className="px-3 py-2 sticky left-0 z-10 bg-ink-800 border-r border-line/10 cursor-pointer hover:bg-line/[0.04] group transition-colors"
       >
         <div className="flex flex-col">
           <span className="text-slate-100 font-semibold group-hover:text-accent transition-colors">{row.ticker}</span>
@@ -265,29 +265,30 @@ function RefreshCmpButton({ onClick, fetchedAt }: { onClick: () => void; fetched
 function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; onSelectReport: (id: ReportId) => void }) {
   if (!cell) return <td className="px-2 py-2 text-[11.5px] text-slate-600">—</td>
   return (
-    <td className={`px-2 py-2 align-top ${cell.outlier ? 'bg-amber-500/[0.06]' : ''}`}>
-      <button
-        onClick={() => onSelectReport(cell.lastReportId)}
-        className="text-left w-full hover:bg-line/[0.02] rounded transition-colors px-1 -mx-1 py-0.5"
-      >
-        <div className="flex items-center gap-1.5">
-          <span className={`num text-[12.5px] font-semibold ${cell.outlier ? 'text-amber-300' : 'text-slate-100'}`}>
-            {formatPrice(cell.targetPrice, cell.targetCurrency, 0)}
+    <td
+      role="button"
+      tabIndex={0}
+      onClick={() => onSelectReport(cell.lastReportId)}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(cell.lastReportId) } }}
+      className={`px-2 py-2 align-top cursor-pointer transition-colors hover:bg-line/[0.04] ${cell.outlier ? 'bg-amber-500/[0.06]' : ''}`}
+    >
+      <div className="flex items-center gap-1.5">
+        <span className={`num text-[12.5px] font-semibold ${cell.outlier ? 'text-amber-300' : 'text-slate-100'}`}>
+          {formatPrice(cell.targetPrice, cell.targetCurrency, 0)}
+        </span>
+        {cell.targetDelta !== null && cell.targetDelta !== 0 && (
+          <span className={`num text-[10px] ${TONE_TEXT_CLASS[getChangeTone(cell.targetDelta)]}`}>
+            {cell.targetDelta > 0 ? '+' : ''}{cell.targetDelta}
           </span>
-          {cell.targetDelta !== null && cell.targetDelta !== 0 && (
-            <span className={`num text-[10px] ${TONE_TEXT_CLASS[getChangeTone(cell.targetDelta)]}`}>
-              {cell.targetDelta > 0 ? '+' : ''}{cell.targetDelta}
-            </span>
-          )}
-          {cell.outlier && <span className="chip text-[9px] border border-amber-500/40 text-amber-300">OUT</span>}
-        </div>
-        <div className="flex items-center gap-1.5">
-          {cell.rating && (
-            <span className={`text-[10.5px] ${RATING_TEXT_COLOR[cell.rating]}`}>{cell.rating}</span>
-          )}
-        </div>
-        <span className="num text-[9.5px] text-slate-500">{cell.lastUpdatedAt.slice(5, 10)}</span>
-      </button>
+        )}
+        {cell.outlier && <span className="chip text-[9px] border border-amber-500/40 text-amber-300">OUT</span>}
+      </div>
+      <div className="flex items-center gap-1.5">
+        {cell.rating && (
+          <span className={`text-[10.5px] ${RATING_TEXT_COLOR[cell.rating]}`}>{cell.rating}</span>
+        )}
+      </div>
+      <span className="num text-[9.5px] text-slate-500">{cell.lastUpdatedAt.slice(5, 10)}</span>
     </td>
   )
 }
