@@ -275,17 +275,28 @@ function Cell({ cell, broker, topic, open, onOpen, onClose }: {
 
   const isInteractive = cell.stance !== 'absent'
 
+  const { kpi, why } = splitKpiWhy(cell.summary)
+
   return (
-    <td className="border-l border-line/15 p-0 align-top min-w-[180px]">
+    <td className="border-l border-line/15 p-0 align-top min-w-[200px]">
       <button
         ref={triggerRef}
         onClick={isInteractive ? onOpen : undefined}
         disabled={!isInteractive}
-        className={`block w-full text-left px-3 py-2.5 text-[12px] leading-snug transition-colors ${cellTone} ${
+        className={`block w-full text-left px-3 py-2.5 transition-colors ${cellTone} ${
           isInteractive ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
-        <span className="line-clamp-2">{cell.summary}</span>
+        {isInteractive ? (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[12px] font-semibold leading-snug line-clamp-2">{kpi}</span>
+            {why && (
+              <span className="text-[11px] leading-snug line-clamp-2 opacity-75">{why}</span>
+            )}
+          </div>
+        ) : (
+          <span className="text-[12px] leading-snug">{cell.summary}</span>
+        )}
       </button>
       {open && (
         <CellPopover
@@ -298,6 +309,31 @@ function Cell({ cell, broker, topic, open, onOpen, onClose }: {
       )}
     </td>
   )
+}
+
+// Anchor tags used by the fixture generator to nudge the classifier when the
+// natural prose doesn't mention a dimension's keyword — strip them from the
+// cell display so the KPI reads cleanly.
+const ANCHOR_TAG_RE = /\s*\((?:margin|growth|demand|order pipeline|management|catalyst)\)\s*/gi
+
+/** Split a cell claim into a tight KPI sentence (first sentence) and the
+ *  "why" clause (rest). The generator deliberately writes paragraphs as
+ *  "<KPI>. <Why>." — falling back to dash/em-dash separators when there's
+ *  no period, and to the whole string as KPI when there's nothing to split. */
+function splitKpiWhy(text: string): { kpi: string; why: string | null } {
+  const t = text.replace(ANCHOR_TAG_RE, ' ').replace(/\s+/g, ' ').trim()
+  // First period followed by a space and an uppercase letter — that's a
+  // sentence boundary, not a decimal or an abbreviation.
+  const periodIdx = t.search(/\.\s+(?=[A-Z(])/)
+  if (periodIdx > 0) {
+    return { kpi: t.slice(0, periodIdx), why: t.slice(periodIdx + 1).trim() }
+  }
+  // Em-dash fallback for one-clause paragraphs like "Margin tailwind from …".
+  const dashIdx = t.indexOf(' — ')
+  if (dashIdx > 0 && dashIdx < 80) {
+    return { kpi: t.slice(0, dashIdx), why: t.slice(dashIdx + 3).trim() }
+  }
+  return { kpi: t, why: null }
 }
 
 function CellPopover({ cell, broker, topic, anchor, onClose }: {
@@ -377,7 +413,7 @@ function CellPopover({ cell, broker, topic, anchor, onClose }: {
         <span className={`chip border ${stanceCls} text-[9.5px] shrink-0`}>{stanceLabel}</span>
       </div>
       <p className="text-[12px] text-slate-200 leading-relaxed line-clamp-5 whitespace-pre-wrap">
-        {cell.excerpt}
+        {cell.excerpt.replace(ANCHOR_TAG_RE, ' ').replace(/\s+/g, ' ').trim()}
       </p>
       <div className="flex items-center justify-end pt-1 border-t border-line/15">
         <button

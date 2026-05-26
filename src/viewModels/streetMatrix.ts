@@ -68,7 +68,9 @@ function shortenClaim(text: string, max = 140): string {
 
 /** Pick the bull/bear-side cell summary: the first non-empty claim, falling
  *  back to a generic "Bullish / Bearish view" when no extracted thesis text
- *  is attached. Keeps the cell scannable — one line is plenty. */
+ *  is attached. The full claim is preserved so the cell can render its KPI
+ *  sentence (bold) and "why" clause (lighter) separately; truncation
+ *  belongs to the cell layout, not the VM. */
 function sideSummary(claims: readonly string[], stance: 'bull' | 'bear'): { summary: string; excerpt: string } {
   const cleaned = claims.map((c) => c.trim()).filter((c) => c.length > 0)
   const first = cleaned[0]
@@ -78,16 +80,20 @@ function sideSummary(claims: readonly string[], stance: 'bull' | 'bear'): { summ
   }
   const top = cleaned.slice(0, 3).join(' · ')
   return {
-    summary: shortenClaim(first, 110),
-    excerpt: shortenClaim(top, 400),
+    summary: first,
+    excerpt: shortenClaim(top, 600),
   }
 }
 
 function consensusSummary(p: ConsensusPointVM): { summary: string; excerpt: string } {
   const claim = p.claim.trim()
   const supporting = p.supportingClaims.map((s) => s.trim()).filter(Boolean).slice(0, 3)
-  const summary = shortenClaim(claim.length > 0 ? claim : 'Agreed', 110)
-  const excerpt = shortenClaim([claim, ...supporting].filter(Boolean).join(' · '), 400)
+  // Prefer the first extracted supporting claim (the KPI-leading sentence
+  // each broker wrote) over the engine's synthesised "N brokers constructive
+  // on …" headline — the supporting claim carries the actual number.
+  const lead = supporting[0] ?? claim
+  const summary = lead.length > 0 ? lead : 'Agreed'
+  const excerpt = shortenClaim([claim, ...supporting].filter(Boolean).join(' · '), 600)
   return { summary, excerpt }
 }
 

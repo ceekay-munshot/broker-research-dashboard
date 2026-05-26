@@ -1,15 +1,19 @@
 // Generates additional forwarded-broker-email entries for the preview
 // fixture so the Agreements & disagreements matrix has rich multi-broker
-// coverage. Run: `node scripts/generate-dummy-emails.mjs`.
+// coverage. Run: `node scripts/generate-dummy-emails.mjs --write`.
 //
-// Output: a JSON array of email entries that can be pasted into
-// src/adapters/serverOutput/previewFixture/emailApiResponse.sample.json's
-// data.emails[]. The script also splices the entries into the fixture in
-// place when called with --write.
+// Each note's body is composed of one bold intro paragraph (the thesis the
+// dashboard picks up) followed by SIX topical paragraphs (one per engine
+// dimension: margin / growth / demand / order_book / management /
+// timing). Every topical paragraph LEADS with a tight KPI sentence — that
+// first sentence is what the matrix cell renders as the bold KPI; the rest
+// is the "why" subtitle and the popover excerpt.
 //
-// The body text deliberately uses topical keywords ("margin", "growth",
-// "demand", "order book", "management") so the dashboard's classifier
-// extracts disagreement dimensions per stock.
+// To extend: add another entry under STOCKS with `ctx` and `brokers`. Each
+// `ctx` carries `<topic>BullKpi / <topic>BullWhy / <topic>BearKpi /
+// <topic>BearWhy / <topic>HoldKpi / <topic>HoldWhy`. Every broker covers
+// every topic, so the matrix has six rows per stock with bull/bear/agree
+// cells coloured by each broker's stance.
 
 import { randomUUID } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
@@ -21,296 +25,437 @@ const FIXTURE = resolve(HERE, '..', 'src/adapters/serverOutput/previewFixture/em
 
 // ── Broker catalog (domain + display name) ──────────────────────────────
 const BROKERS = {
-  KOTAK:     { domain: 'kotak.com',     name: 'Kotak Research',      analyst: 'Alankar Garude' },
-  AMBIT:     { domain: 'ambit.co',      name: 'Ambit Research',      analyst: 'Sumit Jain' },
-  JMFL:      { domain: 'jmfl.com',      name: 'JM Financial',        analyst: 'Nehal Shah' },
-  IIFL:      { domain: 'iiflcap.com',   name: 'IIFL Capital',        analyst: 'Naman Bagrecha' },
-  NUVAMA:    { domain: 'nuvama.com',    name: 'Nuvama Institutional', analyst: 'Prakash Kapadia' },
-  GS:        { domain: 'gs.com',        name: 'Goldman Sachs',       analyst: 'Pulkit Patni' },
-  AVENDUS:   { domain: 'avendus.com',   name: 'Avendus Spark',       analyst: 'Krishnan ASV' },
+  KOTAK:    { domain: 'kotak.com',    name: 'Kotak Research',       analyst: 'Alankar Garude' },
+  AMBIT:    { domain: 'ambit.co',     name: 'Ambit Research',       analyst: 'Sumit Jain' },
+  JMFL:     { domain: 'jmfl.com',     name: 'JM Financial',         analyst: 'Nehal Shah' },
+  IIFL:     { domain: 'iiflcap.com',  name: 'IIFL Capital',         analyst: 'Naman Bagrecha' },
+  NUVAMA:   { domain: 'nuvama.com',   name: 'Nuvama Institutional', analyst: 'Prakash Kapadia' },
+  GS:       { domain: 'gs.com',       name: 'Goldman Sachs',        analyst: 'Pulkit Patni' },
+  AVENDUS:  { domain: 'avendus.com',  name: 'Avendus Spark',        analyst: 'Krishnan ASV' },
 }
 
-// ── Body-paragraph builders ────────────────────────────────────────────
+// ── Topical paragraph builders ─────────────────────────────────────────
 //
-// Each builder takes a stance ("bull" | "bear" | "hold") and returns a
-// 60-180 char paragraph that mentions the topical keyword(s). The
-// dashboard's classifier matches on substring → DisagreementDimension.
+// Each builder returns: "<KPI sentence>. <Why clause.>". The cell render
+// in StreetMatrix.tsx splits at the first sentence boundary so the KPI
+// appears bold on line 1 and the why appears on line 2.
 
-function marginParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Margin tailwind from ${ctx.marginBull}. EBITDA margin expands ${ctx.marginExpBps} bps over the next two years; operating margin compounding from here.`
-  }
-  if (stance === 'bear') {
-    return `Margin compression looks structural — ${ctx.marginBear}. EBITDA margin contracts ${ctx.marginConBps} bps; operating margin won't snap back as cleanly as bulls model.`
-  }
-  return `Margin trajectory range-bound. EBITDA margin trends sideways at ${ctx.marginHold}% as ${ctx.marginNeutral} offsets pricing levers.`
+const TOPICS = ['margin', 'growth', 'demand', 'order_book', 'management', 'timing']
+
+// The engine's classifier (src/engine/classifiers.ts) routes a paragraph to
+// a DisagreementDimension by matching one of these keywords as a substring.
+// If the natural KPI / why text doesn't already mention the dimension's
+// keyword, we splice a parenthesised anchor into the KPI so the classifier
+// routes correctly — without forcing every analyst sentence to mention
+// "margin" or "catalyst" verbatim.
+const ANCHOR = {
+  margin:     'margin',
+  growth:     'growth',
+  demand:     'demand',
+  order_book: 'order pipeline',
+  management: 'management',
+  timing:     'catalyst',
 }
 
-function growthParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Growth runway intact — ${ctx.growthBull}. Revenue trajectory clocks ${ctx.growthBullPct}% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.`
-  }
-  if (stance === 'bear') {
-    return `Growth normalising hard — ${ctx.growthBear}. Revenue trajectory cools to ${ctx.growthBearPct}% CAGR; discretionary spend pullback isn't a quarter problem.`
-  }
-  return `Growth steady but unspectacular at ${ctx.growthHoldPct}% CAGR; we see neither inflection nor breakage.`
+function topicParagraph(topic, stance, ctx) {
+  const key = `${topic}${cap(stance)}`        // e.g. marginBullKpi
+  const kpi = ctx[`${key}Kpi`]
+  const why = ctx[`${key}Why`]
+  if (!kpi || !why) return GENERIC[topic][stance]
+  const combined = `${kpi}. ${why}`
+  if (combined.toLowerCase().includes(ANCHOR[topic])) return combined
+  // Splice the keyword into the KPI so the cell still leads with the
+  // headline number; the classifier picks the dimension up from the
+  // parenthesised anchor.
+  return `${kpi} (${ANCHOR[topic]}). ${why}`
 }
 
-function demandParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Demand environment improving — ${ctx.demandBull}. Pricing power returning; volume and tariff levers both contribute to ${ctx.demandBullPct}% sales growth.`
-  }
-  if (stance === 'bear') {
-    return `Demand softness persists — ${ctx.demandBear}. Pricing pressure intensifies, competitive dynamics worsen; volume won't compensate.`
-  }
-  return `Demand mix neutral — rural recovery offsets urban slowdown; pricing flat. Tariff increases unlikely in the near term.`
-}
+function cap(s) { return s[0].toUpperCase() + s.slice(1) }
 
-function orderBookParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Order book / backlog steady-state at ${ctx.orderBull}; pipeline visibility extends ${ctx.orderBullMonths} months. Execution-led re-rating likely.`
-  }
-  if (stance === 'bear') {
-    return `Order book run-rate cooling — ${ctx.orderBear}. Backlog conversion stretching; revenue book-to-bill below 1.0x for the first time in eight quarters.`
-  }
-  return `Order book flat at ${ctx.orderHold}; book-to-bill ~1.0x. Execution paces are the only meaningful swing factor from here.`
-}
-
-function managementParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Management execution remains the structural moat — ${ctx.mgmtBull}. Capex discipline + capital return signal a high-conviction operator. Governance has improved.`
-  }
-  if (stance === 'bear') {
-    return `Management execution gaps are showing — ${ctx.mgmtBear}. Capex discipline slipping; capital return commentary lacks credibility.`
-  }
-  return `Management track record is steady — execution in line with prior guidance; no material slippage on capex.`
-}
-
-function timingParagraph(stance, ctx) {
-  if (stance === 'bull') {
-    return `Catalyst slate stacks well — ${ctx.catalystBull}. We see the launch / ramp drive a clear earnings inflection in 2QFY27.`
-  }
-  if (stance === 'bear') {
-    return `Catalyst path slipping — ${ctx.catalystBear}. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.`
-  }
-  return `Catalyst calendar light over the next two quarters; we see no near-term inflection.`
+// Generic fallback paragraphs (used only when a stock omits a KPI for a
+// stance — they keep the matrix populated but read as filler).
+const GENERIC = {
+  margin: {
+    bull: 'Margin trajectory improving — EBITDA margin ~50 bps better than peers',
+    bear: 'Margin compression a real risk — EBITDA margin trending below guide',
+    hold: 'Margin range-bound — EBITDA margin steady through the cycle',
+  },
+  growth: {
+    bull: 'Growth runway intact — revenue trajectory at high-teens CAGR',
+    bear: 'Growth normalising — revenue trajectory cools to mid-single-digits',
+    hold: 'Growth steady — revenue trajectory in line with consensus',
+  },
+  demand: {
+    bull: 'Demand environment improving — pricing power returning',
+    bear: 'Demand softness persists — pricing pressure intensifying',
+    hold: 'Demand mix neutral — pricing flat through the year',
+  },
+  order_book: {
+    bull: 'Order book strong — pipeline visibility extends 24 months',
+    bear: 'Order book cooling — backlog conversion stretching',
+    hold: 'Order book steady — book-to-bill at ~1.0x',
+  },
+  management: {
+    bull: 'Management execution exemplary — capex discipline best-in-class',
+    bear: 'Management execution gaps showing — capex discipline slipping',
+    hold: 'Management execution steady — capex discipline in line',
+  },
+  timing: {
+    bull: 'Catalyst slate stacks well — clear inflection within two quarters',
+    bear: 'Catalyst path slipping — rate cut benefit deferred',
+    hold: 'Catalyst calendar light — no near-term inflection',
+  },
 }
 
 // ── Stock contexts ─────────────────────────────────────────────────────
-// Each stock defines context strings used by the paragraph builders, plus
-// the broker views to generate. Stance maps to rating + TP per broker.
+// Each stock defines KPI + why for every (topic, stance) it cares about.
+// Generic fallbacks fill the gaps. Each broker has a stance (bull/bear/
+// hold), a rating string, and a TP — they all cover all six topics.
 
 const STOCKS = [
-  // ── KIMS already has 2 brokers (Kotak Reduce + a fwd of same).
-  // Adding 3 fresh broker views with material disagreement.
+  // ── KIMS — hospital chain; margin + execution are the swing factors.
   {
     ticker: 'KIMS',
     name: 'Krishna Institute of Medical Sciences',
     ctx: {
-      marginBull: 'mature hospitals at ~29% margin and AP/Telangana ramp',
-      marginExpBps: '160',
-      marginBear: 'new-unit losses (Thane, Bengaluru, Nashik) stretch break-even another 6 quarters',
-      marginConBps: '120',
-      marginHold: '20',
-      marginNeutral: 'mix shift',
-      growthBull: 'ARPOB growth at 14% yoy and bed addition plans on track',
-      growthBullPct: '24',
-      growthBear: 'insurance empanelment delays at new units bite into FY27 occupancy',
-      growthBearPct: '13',
-      growthHoldPct: '18',
-      demandBull: 'cash + insurance mix tilting up, new specialties opening realisation ceilings',
-      demandBullPct: '21',
-      demandBear: 'competitive pressure from Apollo and Manipal across South India intensifies',
-      orderBull: 'pipeline of 4 new units (Nashik, Thane, Mahadevapura, Electronic City)',
-      orderBullMonths: '24',
-      orderBear: 'commissioning slipping; insurance empanelment is the binding constraint',
-      orderHold: '4 units in pipeline',
-      mgmtBull: 'QIP of ~₹15bn to deleverage and create headroom for inorganic optionality is disciplined',
-      mgmtBear: 'execution credibility weakening — three commissioning delays in last six months',
-      catalystBull: '24/7 break-even at Electronic City within two quarters; QIP closure',
-      catalystBear: 'insurance empanelment timeline keeps slipping; FV unchanged at ₹695',
+      marginBullKpi:    'EBITDA margin to 22.8% by FY28E (+360 bps)',
+      marginBullWhy:    'Mature hospitals at ~29%; AP/Telangana ramp covers new-unit drag.',
+      marginBearKpi:    'EBITDA margin stuck at 19.2% (-560 bps yoy)',
+      marginBearWhy:    "Thane / Bengaluru / Nashik new units bleed; insurance empanelment slipping.",
+      marginHoldKpi:    'EBITDA margin range-bound at ~20%',
+      marginHoldWhy:    'Mature-unit margin gains offset by new-unit drag through FY27.',
+
+      growthBullKpi:    'Revenue CAGR of 24% over FY26-29E',
+      growthBullWhy:    'ARPOB growth at 14% yoy + 600 new beds across AP/TG/MH.',
+      growthBearKpi:    'Revenue CAGR 13% — half what bulls model',
+      growthBearWhy:    'Occupancy at new units lags; empanelment delays bite into FY27.',
+      growthHoldKpi:    'Revenue CAGR 18% — steady but unspectacular',
+      growthHoldWhy:    'Bed addition on track; ARPOB compounds at low-teens.',
+
+      demandBullKpi:    'ARPOB ↑ 6% CAGR through FY29E',
+      demandBullWhy:    'Cash + insurance mix tilting up; new specialties lift realisation.',
+      demandBearKpi:    'ARPOB growth slows to ~3%',
+      demandBearWhy:    'Competitive pressure from Apollo, Manipal across South India.',
+      demandHoldKpi:    'ARPOB compounds at ~4% — in line with sector',
+      demandHoldWhy:    'Pricing levers limited; volume drives the print.',
+
+      order_bookBullKpi:'Pipeline of 4 new units; +600 beds by FY28',
+      order_bookBullWhy:'Nashik, Thane, Mahadevapura, Electronic City — all in commissioning.',
+      order_bookBearKpi:'Bed addition slipping; commissioning behind plan',
+      order_bookBearWhy:'Insurance empanelment is the binding constraint; ramp-up stretched.',
+      order_bookHoldKpi:'Bed pipeline intact at 4 units',
+      order_bookHoldWhy:'Execution paces are now the only swing factor.',
+
+      managementBullKpi:'QIP of ~₹15bn to deleverage + inorganic optionality',
+      managementBullWhy:'Capital return discipline; ₹10bn debt reduction signalled.',
+      managementBearKpi:'Three commissioning delays in six months',
+      managementBearWhy:'Execution credibility weakening; capex slipping.',
+      managementHoldKpi:'Management execution in line with prior guide',
+      managementHoldWhy:'No material slippage; QIP timing the only watch.',
+
+      timingBullKpi:    'Electronic City break-even within 2 quarters',
+      timingBullWhy:    'QIP closure + insurance empanelment milestones near.',
+      timingBearKpi:    'Insurance empanelment timeline pushed another 2 quarters',
+      timingBearWhy:    'FV unchanged at ₹695; downgrade to REDUCE.',
+      timingHoldKpi:    'Catalyst calendar light through 1HFY27',
+      timingHoldWhy:    'QIP and empanelment are the only near-term triggers.',
     },
     brokers: [
-      { code: 'AMBIT',  stance: 'bull', rating: 'BUY',  tp: 880, focusTopics: ['margin','growth','management'] },
-      { code: 'JMFL',   stance: 'bull', rating: 'ADD',  tp: 820, focusTopics: ['growth','demand','order_book'] },
-      { code: 'NUVAMA', stance: 'bear', rating: 'SELL', tp: 650, focusTopics: ['margin','timing','management'] },
+      { code: 'AMBIT',  stance: 'bull', rating: 'BUY',    tp: 880 },
+      { code: 'JMFL',   stance: 'bull', rating: 'ADD',    tp: 820 },
+      { code: 'NUVAMA', stance: 'bear', rating: 'SELL',   tp: 650 },
     ],
   },
 
-  // ── HDFCLIFE — five-broker matrix to mirror the user's VNB / Bima Sugam screenshot.
+  // ── HDFC Life — five-broker matrix mirroring the user's VNB / Bima Sugam reference.
   {
     ticker: 'HDFCLIFE',
     name: 'HDFC Life Insurance',
     ctx: {
-      marginBull: 'higher non-par share in product mix lifts VNB margin to 28.6% by FY27E',
-      marginExpBps: '180',
-      marginBear: 'IRDAI commission caps compress VNB margin to 27.4%; bancassurance competition won\'t ease',
-      marginConBps: '120',
-      marginHold: '27.8',
-      marginNeutral: 'product mix shift',
-      growthBull: 'APE growth runway at 15%+ on non-par + ULIP traction',
-      growthBullPct: '17',
-      growthBear: 'LTCG alignment on ULIPs puts 5-8% of new business at risk; APE growth de-rates',
-      growthBearPct: '10',
-      growthHoldPct: '13',
-      demandBull: 'tier-2/tier-3 retail demand re-accelerating; agency channel productivity up',
-      demandBullPct: '15',
-      demandBear: 'Bima Sugam structurally disintermediates distributors; pricing power erodes',
-      orderBull: 'embedded value build at 18% CAGR; persistency holding above 87%',
-      orderBullMonths: '36',
-      orderBear: 'persistency may de-rate as Bima Sugam compresses adviser economics',
-      orderHold: 'EV growth at low-teens',
-      mgmtBull: 'capital management exemplary; capex discipline best-in-class among life players',
-      mgmtBear: 'commentary on regulation underplays the structural risk; governance broadly OK',
-      catalystBull: 'Bima Sugam medium-term enlarges TAM; non-par margin expansion is the near-term catalyst',
-      catalystBear: 'LTCG headwind hits APE in 2QFY27; re-rating window pushed out',
+      marginBullKpi:    'VNB margin to 28.6% by FY27E (+180 bps)',
+      marginBullWhy:    'Higher non-par share + bancassurance productivity gains.',
+      marginBearKpi:    'VNB margin compresses to 27.4% (-120 bps)',
+      marginBearWhy:    "IRDAI commission caps + bancassurance pricing pressure won't ease.",
+      marginHoldKpi:    'VNB margin range-bound at ~27.8%',
+      marginHoldWhy:    'Mix shift offsets regulatory drag; net change limited.',
+
+      growthBullKpi:    'APE CAGR 17% over FY26-29E',
+      growthBullWhy:    'Non-par + ULIP traction; tier-2 / tier-3 retail accelerating.',
+      growthBearKpi:    'APE growth cools to 10%',
+      growthBearWhy:    'LTCG alignment puts 5-8% of new business at risk; ULIP de-rates.',
+      growthHoldKpi:    'APE CAGR 13% — steady through the cycle',
+      growthHoldWhy:    'Mix shift offsets regulatory headwinds; no inflection.',
+
+      demandBullKpi:    'Tier-2 / 3 retail demand +15% YoY',
+      demandBullWhy:    'Agency channel productivity up; Bima Sugam expands TAM medium-term.',
+      demandBearKpi:    'Persistency slips to ~85%',
+      demandBearWhy:    'Bima Sugam structurally disintermediates distributors; pricing erodes.',
+      demandHoldKpi:    'Persistency holding at 87%',
+      demandHoldWhy:    'Pricing pressure offset by digital channel productivity.',
+
+      order_bookBullKpi:'Embedded value CAGR 18%',
+      order_bookBullWhy:'Persistency above 87%; new-business volume strong.',
+      order_bookBearKpi:'EV growth slips to low-teens',
+      order_bookBearWhy:'Persistency may de-rate as Bima Sugam compresses adviser economics.',
+      order_bookHoldKpi:'EV growth at ~14% — sector-average',
+      order_bookHoldWhy:'New-business steady; persistency holds.',
+
+      managementBullKpi:'Capital management exemplary — best-in-class',
+      managementBullWhy:'Capex discipline + governance among the strongest in life sector.',
+      managementBearKpi:'Regulation commentary underplays structural risk',
+      managementBearWhy:'Governance broadly OK but strategic response to Bima Sugam unclear.',
+      managementHoldKpi:'Management execution steady',
+      managementHoldWhy:'Capital allocation in line with guide; no slippage.',
+
+      timingBullKpi:    'Non-par margin expansion drives 2QFY27 re-rating',
+      timingBullWhy:    'Bima Sugam tailwind kicks in FY28; TAM expansion priced in.',
+      timingBearKpi:    'LTCG headwind hits APE in 2QFY27',
+      timingBearWhy:    'Re-rating window pushed to FY28; de-rating extends.',
+      timingHoldKpi:    'Catalyst calendar quiet through FY27',
+      timingHoldWhy:    'Regulatory clarity is the only swing factor.',
     },
     brokers: [
-      { code: 'JMFL',   stance: 'bull', rating: 'BUY',  tp: 780, focusTopics: ['margin','growth','management'] },
-      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 760, focusTopics: ['margin','timing','management'] },
-      { code: 'NUVAMA', stance: 'bear', rating: 'SELL', tp: 580, focusTopics: ['margin','demand','timing'] },
-      { code: 'IIFL',   stance: 'hold', rating: 'HOLD', tp: 680, focusTopics: ['growth','timing','order_book'] },
-      { code: 'AMBIT',  stance: 'bull', rating: 'ADD',  tp: 740, focusTopics: ['growth','demand','management'] },
+      { code: 'JMFL',   stance: 'bull', rating: 'BUY',  tp: 780 },
+      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 760 },
+      { code: 'NUVAMA', stance: 'bear', rating: 'SELL', tp: 580 },
+      { code: 'IIFL',   stance: 'hold', rating: 'HOLD', tp: 680 },
+      { code: 'AMBIT',  stance: 'bull', rating: 'ADD',  tp: 740 },
     ],
   },
 
-  // ── MARUTI — auto cycle, four broker mix on demand + margins.
+  // ── Maruti — auto cycle: demand + EV roadmap are the swing factors.
   {
     ticker: 'MARUTI',
     name: 'Maruti Suzuki India',
     ctx: {
-      marginBull: 'mix shift to UVs + cost programme drives 80bps operating margin uplift',
-      marginExpBps: '80',
-      marginBear: 'pricing aggression in entry hatchback drags EBITDA margin 90bps lower',
-      marginConBps: '90',
-      marginHold: '11.5',
-      marginNeutral: 'mix vs discount tug-of-war',
-      growthBull: 'UV penetration and CNG demand drive ~10% volume CAGR; export tailwind underestimated',
-      growthBullPct: '12',
-      growthBear: 'entry hatchback share losses continue; rural recovery isn\'t enough to offset urban slowdown',
-      growthBearPct: '5',
-      growthHoldPct: '8',
-      demandBull: 'rural demand returning; festive bookings up 18% yoy with strong UV mix',
-      demandBullPct: '14',
-      demandBear: 'pricing pressure intensifies in sub-₹6L; competitive launches from Tata, Hyundai squeeze share',
-      orderBull: 'order book pipeline (Brezza, Grand Vitara, Fronx waitlists) sustains 8 weeks of cover',
-      orderBullMonths: '6',
-      orderBear: 'order book waitlist halved over two quarters; cancellations rising',
-      orderHold: '6 weeks of cover',
-      mgmtBull: 'capex discipline through the EV transition; capital return guidance maintained',
-      mgmtBear: 'execution on EV roadmap remains underwhelming; governance fine but pace lags peers',
-      catalystBull: 'new Brezza variant launch and Suzuki Motor EV platform inflection in FY27',
-      catalystBear: 'rural retail trough being pushed out another quarter; festive will be the test',
+      marginBullKpi:    'EBITDA margin ↑ 80 bps to 11.5% by FY27E',
+      marginBullWhy:    'Mix shift to UVs + cost programme drives the uplift.',
+      marginBearKpi:    'EBITDA margin ↓ 90 bps to 10.0%',
+      marginBearWhy:    'Entry-hatchback pricing aggression drags realisation.',
+      marginHoldKpi:    'EBITDA margin steady at 11.0%',
+      marginHoldWhy:    'Mix vs discount tug-of-war keeps margins range-bound.',
+
+      growthBullKpi:    'Volume CAGR 12% over FY26-29E',
+      growthBullWhy:    'UV penetration + CNG demand + export tailwind underestimated.',
+      growthBearKpi:    'Volume CAGR slows to 5%',
+      growthBearWhy:    'Entry-hatchback share losses persist; urban slowdown bites.',
+      growthHoldKpi:    'Volume CAGR 8% — steady',
+      growthHoldWhy:    'UV growth offsets entry-hatchback weakness.',
+
+      demandBullKpi:    'Festive bookings +18% YoY',
+      demandBullWhy:    'Rural demand returning; UV mix strong.',
+      demandBearKpi:    'Sub-₹6L pricing pressure intensifies',
+      demandBearWhy:    'Tata, Hyundai launches squeeze share; volume won\'t compensate.',
+      demandHoldKpi:    'Demand mix balanced — rural up, urban soft',
+      demandHoldWhy:    'Festive will be the test; tariff levers limited.',
+
+      order_bookBullKpi:'Order book at 8 weeks of cover',
+      order_bookBullWhy:'Brezza, Grand Vitara, Fronx waitlists sustaining.',
+      order_bookBearKpi:'Order book halved over two quarters',
+      order_bookBearWhy:'Cancellations rising; waitlists shrinking.',
+      order_bookHoldKpi:'Order book at 6 weeks of cover',
+      order_bookHoldWhy:'Steady but no surprise; execution paces the swing.',
+
+      managementBullKpi:'Capex discipline through EV transition',
+      managementBullWhy:'Capital return guidance maintained; governance solid.',
+      managementBearKpi:'EV roadmap execution underwhelms',
+      managementBearWhy:'Pace lags Tata Motors / Hyundai; capex slipping.',
+      managementHoldKpi:'Management execution in line',
+      managementHoldWhy:'No material slippage; EV pace the watch.',
+
+      timingBullKpi:    'New Brezza launch + Suzuki EV platform in FY27',
+      timingBullWhy:    'Catalyst slate stacks; clear inflection in 2HFY27.',
+      timingBearKpi:    'Rural retail trough pushed another quarter',
+      timingBearWhy:    'Festive will be the test; ramp deferred.',
+      timingHoldKpi:    'Catalyst calendar light through 1HFY27',
+      timingHoldWhy:    'EV transition is the only swing factor.',
     },
     brokers: [
-      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 14500, focusTopics: ['growth','demand','order_book'] },
-      { code: 'JMFL',   stance: 'bear', rating: 'SELL', tp: 11200, focusTopics: ['demand','margin','timing'] },
-      { code: 'GS',     stance: 'hold', rating: 'HOLD', tp: 12800, focusTopics: ['growth','margin','management'] },
-      { code: 'IIFL',   stance: 'bull', rating: 'BUY',  tp: 13900, focusTopics: ['growth','order_book','management'] },
+      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 14500 },
+      { code: 'JMFL',   stance: 'bear', rating: 'SELL', tp: 11200 },
+      { code: 'GS',     stance: 'hold', rating: 'HOLD', tp: 12800 },
+      { code: 'IIFL',   stance: 'bull', rating: 'BUY',  tp: 13900 },
     ],
   },
 
-  // ── TCS — IT services disagreement on BFSI deal TCV and discretionary spend.
+  // ── TCS — BFSI deal TCV + discretionary spend the debate.
   {
     ticker: 'TCS',
     name: 'Tata Consultancy Services',
     ctx: {
-      marginBull: 'pyramid optimisation + utilisation gains push EBIT margin to 25.5% by FY27E',
-      marginExpBps: '100',
-      marginBear: 'wage hike + pricing pressure offset utilisation gains; EBIT margin range-bound',
-      marginConBps: '70',
-      marginHold: '24.6',
-      marginNeutral: 'pricing vs wage offset',
-      growthBull: 'BFSI deal TCV accelerating; GenAI attach drives incremental growth in FY27-28',
-      growthBullPct: '10',
-      growthBear: 'discretionary spend pullback in BFSI and retail verticals lingers through FY27',
-      growthBearPct: '4',
-      growthHoldPct: '7',
-      demandBull: 'pricing power returning in deal renewals; AI-related TAM lifts pricing 3-5%',
-      demandBullPct: '9',
-      demandBear: 'pricing competitive in commoditised verticals; clients pushing back on rate cards',
-      orderBull: 'deal TCV at $13bn quarterly run-rate; mega-deal pipeline 30% bigger yoy',
-      orderBullMonths: '24',
-      orderBear: 'deal ramp slower; book-to-bill below 1.0x for first time since FY23',
-      orderHold: 'deal TCV at $11bn run-rate',
-      mgmtBull: 'capex discipline and capital return commentary signal confident operator',
-      mgmtBear: 'leadership transition pace and execution credibility under watch',
-      catalystBull: 'GenAI attach inflection in FY27; multiple mega-deal closures pending in BFSI',
-      catalystBear: 'BFSI discretionary trough being pushed out another quarter; rate cut benefit deferred',
+      marginBullKpi:    'EBIT margin to 25.5% by FY27E (+100 bps)',
+      marginBullWhy:    'Pyramid optimisation + utilisation gains; offshore mix higher.',
+      marginBearKpi:    'EBIT margin range-bound at 24.6%',
+      marginBearWhy:    'Wage hike + pricing pressure offset utilisation gains.',
+      marginHoldKpi:    'EBIT margin steady at 25.0%',
+      marginHoldWhy:    'Mix vs wage tug-of-war keeps margins flat.',
+
+      growthBullKpi:    'Revenue CAGR 10% in CC terms',
+      growthBullWhy:    'BFSI deal TCV accelerating; GenAI attach drives incremental growth.',
+      growthBearKpi:    'Revenue CAGR slows to 4% CC',
+      growthBearWhy:    'BFSI + retail discretionary pullback lingers through FY27.',
+      growthHoldKpi:    'Revenue CAGR 7% CC — steady through cycle',
+      growthHoldWhy:    'BFSI stabilising; GenAI attach offsets discretionary weakness.',
+
+      demandBullKpi:    'Deal renewal pricing +3-5% YoY',
+      demandBullWhy:    'AI-related TAM lifts pricing; deal mix shifting up.',
+      demandBearKpi:    'Pricing flat in commoditised verticals',
+      demandBearWhy:    'Clients pushing back on rate cards; competitive intensity high.',
+      demandHoldKpi:    'Pricing power neutral',
+      demandHoldWhy:    'Deal mix improving but commoditised verticals drag.',
+
+      order_bookBullKpi:'Deal TCV at $13bn quarterly run-rate',
+      order_bookBullWhy:'Mega-deal pipeline 30% bigger YoY; conversion clean.',
+      order_bookBearKpi:'Book-to-bill below 1.0x for the first time since FY23',
+      order_bookBearWhy:'Deal ramp slower; conversion stretching.',
+      order_bookHoldKpi:'Deal TCV at $11bn run-rate — steady',
+      order_bookHoldWhy:'Mega-deals pipeline OK; smaller deals shrinking.',
+
+      managementBullKpi:'Capex discipline + ₹17k cr buyback signal',
+      managementBullWhy:'Capital return commentary inspires confidence.',
+      managementBearKpi:'Leadership transition pace a question',
+      managementBearWhy:'Execution credibility under watch; succession unclear.',
+      managementHoldKpi:'Management execution steady',
+      managementHoldWhy:'Capex in line with guide; succession proceeding.',
+
+      timingBullKpi:    'GenAI attach inflection in FY27',
+      timingBullWhy:    'Multiple mega-deal closures pending in BFSI; clear ramp.',
+      timingBearKpi:    'BFSI discretionary trough pushed another quarter',
+      timingBearWhy:    'Rate cut benefit deferred; ramp slips to FY28.',
+      timingHoldKpi:    'Catalyst calendar mixed',
+      timingHoldWhy:    'BFSI ramp the only meaningful swing factor.',
     },
     brokers: [
-      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 4500, focusTopics: ['growth','order_book','management'] },
-      { code: 'JMFL',   stance: 'bull', rating: 'BUY',  tp: 4400, focusTopics: ['margin','growth','order_book'] },
-      { code: 'AMBIT',  stance: 'hold', rating: 'HOLD', tp: 4100, focusTopics: ['demand','growth','timing'] },
-      { code: 'AVENDUS', stance: 'bear', rating: 'SELL', tp: 3800, focusTopics: ['demand','margin','timing'] },
+      { code: 'KOTAK',   stance: 'bull', rating: 'BUY',  tp: 4500 },
+      { code: 'JMFL',    stance: 'bull', rating: 'BUY',  tp: 4400 },
+      { code: 'AMBIT',   stance: 'hold', rating: 'HOLD', tp: 4100 },
+      { code: 'AVENDUS', stance: 'bear', rating: 'SELL', tp: 3800 },
     ],
   },
 
-  // ── HDFC Bank — deposit franchise debate, retail credit demand.
+  // ── HDFC Bank — deposit franchise + NIM the debate.
   {
     ticker: 'HDFCBANK',
     name: 'HDFC Bank',
     ctx: {
-      marginBull: 'cost-of-deposits rolling down; NIM expands 20bps over FY26-27 as merger drag fades',
-      marginExpBps: '20',
-      marginBear: 'NIM compression persists as wholesale funding stays sticky; cost-of-deposits won\'t roll',
-      marginConBps: '15',
-      marginHold: '3.45',
-      marginNeutral: 'funding mix shift',
-      growthBull: 'retail credit + SME book growth at 15%; deposits granularising on branch productivity',
-      growthBullPct: '15',
-      growthBear: 'deposit growth lags credit growth; balance sheet won\'t compound the way bulls model',
-      growthBearPct: '9',
-      growthHoldPct: '12',
-      demandBull: 'retail demand resilient — secured retail mix improving and asset quality holding',
-      demandBullPct: '13',
-      demandBear: 'unsecured retail stress visible; credit cost normalisation a real risk',
-      orderBull: 'CASA pipeline strong post-merger; granular deposit franchise rebuilding',
-      orderBullMonths: '36',
-      orderBear: 'CASA ratio not recovering as quickly as guided; wholesale dependence persists',
-      orderHold: 'CASA at 38%',
-      mgmtBull: 'management transition handled cleanly; capex / branch expansion discipline intact',
-      mgmtBear: 'merger-integration commentary still aspirational; governance fine but pace concerns',
-      catalystBull: 'rate cut benefit kicks in 2HFY27; deposit franchise inflects with branch productivity',
-      catalystBear: 'NIM trough timing keeps slipping; rate cut benefit deferred to FY28',
+      marginBullKpi:    'NIM to 3.65% by FY27E (+20 bps)',
+      marginBullWhy:    'Cost-of-deposits rolling down; merger drag fading.',
+      marginBearKpi:    'NIM compresses to 3.30% (-15 bps)',
+      marginBearWhy:    "Wholesale funding sticky; cost-of-deposits won't roll.",
+      marginHoldKpi:    'NIM steady at 3.45%',
+      marginHoldWhy:    'Funding mix shift offsets repricing drag.',
+
+      growthBullKpi:    'Credit growth +15% YoY',
+      growthBullWhy:    'Retail + SME book accelerating; deposits granularising.',
+      growthBearKpi:    'Credit growth slows to 9%',
+      growthBearWhy:    "Deposit growth lags credit; balance sheet won't compound.",
+      growthHoldKpi:    'Credit growth 12% — sector-average',
+      growthHoldWhy:    'Balanced book; no inflection.',
+
+      demandBullKpi:    'Retail demand resilient; asset quality holding',
+      demandBullWhy:    'Secured retail mix improving; credit cost ~50 bps.',
+      demandBearKpi:    'Unsecured retail stress visible',
+      demandBearWhy:    'Credit cost normalisation a real risk into FY27.',
+      demandHoldKpi:    'Demand mix balanced',
+      demandHoldWhy:    'Secured book steady; unsecured stress contained.',
+
+      order_bookBullKpi:'CASA pipeline strong post-merger',
+      order_bookBullWhy:'Granular deposit franchise rebuilding; CASA ratio recovering.',
+      order_bookBearKpi:'CASA ratio recovery slower than guide',
+      order_bookBearWhy:'Wholesale dependence persists; deposit mix sticky.',
+      order_bookHoldKpi:'CASA ratio at 38% — steady',
+      order_bookHoldWhy:'Branch productivity gains offset wholesale drag.',
+
+      managementBullKpi:'Management transition handled cleanly',
+      managementBullWhy:'Capex / branch expansion discipline intact post-merger.',
+      managementBearKpi:'Merger-integration commentary aspirational',
+      managementBearWhy:'Governance fine but pace of integration disappoints.',
+      managementHoldKpi:'Management execution steady',
+      managementHoldWhy:'Integration on track but no surprise upside.',
+
+      timingBullKpi:    'Rate cut benefit kicks in 2HFY27',
+      timingBullWhy:    'Deposit franchise inflects with branch productivity.',
+      timingBearKpi:    'NIM trough timing pushed to FY28',
+      timingBearWhy:    'Rate cut benefit deferred; re-rating slips.',
+      timingHoldKpi:    'Rate cycle benefit timing uncertain',
+      timingHoldWhy:    'Deposit growth pace the swing factor.',
     },
     brokers: [
-      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 2100, focusTopics: ['margin','growth','management'] },
-      { code: 'JMFL',   stance: 'bull', rating: 'BUY',  tp: 2050, focusTopics: ['growth','order_book','management'] },
-      { code: 'NUVAMA', stance: 'hold', rating: 'HOLD', tp: 1820, focusTopics: ['margin','demand','timing'] },
-      { code: 'IIFL',   stance: 'bear', rating: 'SELL', tp: 1550, focusTopics: ['demand','margin','timing'] },
+      { code: 'KOTAK',  stance: 'bull', rating: 'BUY',  tp: 2100 },
+      { code: 'JMFL',   stance: 'bull', rating: 'BUY',  tp: 2050 },
+      { code: 'NUVAMA', stance: 'hold', rating: 'HOLD', tp: 1820 },
+      { code: 'IIFL',   stance: 'bear', rating: 'SELL', tp: 1550 },
+    ],
+  },
+
+  // ── Infosys — pure-play IT services, debate on deal-mix + utilisation.
+  {
+    ticker: 'INFY',
+    name: 'Infosys',
+    ctx: {
+      marginBullKpi:    'EBIT margin to 22.0% by FY27E (+150 bps)',
+      marginBullWhy:    'Utilisation gains + pyramid optimisation drive the uplift.',
+      marginBearKpi:    'EBIT margin range-bound at 20.5%',
+      marginBearWhy:    'Wage hikes + sub-contractor cost offset utilisation gains.',
+      marginHoldKpi:    'EBIT margin steady at 21.2%',
+      marginHoldWhy:    'Cost levers vs wage offset; margin sideways.',
+
+      growthBullKpi:    'Revenue CAGR 9% CC over FY26-29E',
+      growthBullWhy:    'Large-deal TCV at $4.5bn; GenAI attach drives incremental.',
+      growthBearKpi:    'Revenue growth cools to 4% CC',
+      growthBearWhy:    'BFSI + retail spend pullback; smaller deals shrinking.',
+      growthHoldKpi:    'Revenue CAGR 6% CC',
+      growthHoldWhy:    'Large deals offset smaller-deal weakness.',
+
+      demandBullKpi:    'AI-related TAM lifts pricing 4-6%',
+      demandBullWhy:    'Pricing power returning in renewals; deal mix shifting up.',
+      demandBearKpi:    'Pricing flat to down in commoditised verticals',
+      demandBearWhy:    'Clients pushing rate cards lower; competitive intensity high.',
+      demandHoldKpi:    'Pricing neutral — mix offsets pressure',
+      demandHoldWhy:    'AI deals lifting but commoditised IT services drag.',
+
+      order_bookBullKpi:'Large-deal TCV at $4.5bn quarterly',
+      order_bookBullWhy:'Pipeline 25% bigger YoY; mega-deal conversion strong.',
+      order_bookBearKpi:'Book-to-bill ratio slipping below 1.0x',
+      order_bookBearWhy:'Deal ramp slower; small-deal bookings weaken.',
+      order_bookHoldKpi:'Deal TCV steady at $3.8bn',
+      order_bookHoldWhy:'Mega-deals OK; smaller deals the swing.',
+
+      managementBullKpi:'CEO succession proceeding cleanly',
+      managementBullWhy:'Capital return + dividend policy maintained.',
+      managementBearKpi:'CEO transition pace adds execution risk',
+      managementBearWhy:'Capex discipline OK but strategic clarity lacking.',
+      managementHoldKpi:'Management execution steady',
+      managementHoldWhy:'Succession in motion; no material slippage.',
+
+      timingBullKpi:    'BFSI deal ramp + GenAI attach in FY27',
+      timingBullWhy:    'Multiple BFSI mega-deals near closure; clear inflection.',
+      timingBearKpi:    'BFSI discretionary trough deferred to FY28',
+      timingBearWhy:    'Rate cut benefit slips; ramp pushed out.',
+      timingHoldKpi:    'Catalyst calendar mixed',
+      timingHoldWhy:    'BFSI ramp the only meaningful swing.',
+    },
+    brokers: [
+      { code: 'JMFL',    stance: 'bull', rating: 'BUY',  tp: 1900 },
+      { code: 'KOTAK',   stance: 'bull', rating: 'BUY',  tp: 1850 },
+      { code: 'NUVAMA',  stance: 'hold', rating: 'HOLD', tp: 1680 },
+      { code: 'AMBIT',   stance: 'bear', rating: 'SELL', tp: 1450 },
+      { code: 'AVENDUS', stance: 'bull', rating: 'ADD',  tp: 1820 },
     ],
   },
 ]
 
 // ── Email entry builder ────────────────────────────────────────────────
 
-const TOPIC_BUILDERS = {
-  margin:     marginParagraph,
-  growth:     growthParagraph,
-  demand:     demandParagraph,
-  order_book: orderBookParagraph,
-  management: managementParagraph,
-  timing:     timingParagraph,
-}
-
 function ratingFromCall(call) {
-  // Map our internal stance code to a label that the dashboard's regex
-  // picks up. The Rating enum accepts Buy/Add/Hold/Reduce/Sell etc.
   const map = { BUY: 'Buy', ADD: 'Add', HOLD: 'Hold', NEUTRAL: 'Hold', REDUCE: 'Reduce', SELL: 'Sell' }
   return map[call] ?? 'Hold'
 }
 
-function callOf(stance, rating) {
-  // ner_results uses the broker's own verbiage — BUY / SELL / HOLD / REDUCE.
-  return rating
-}
-
-function bodyFor(stock, broker, stance, topics) {
-  const ctx = stock.ctx
+function bodyFor(stock, broker, stance) {
   const intro = stanceIntro(stance, stock, broker)
-  const paras = topics.map((t) => TOPIC_BUILDERS[t](stance, ctx))
-  const close = stanceClose(stance, stock, broker)
+  const paras = TOPICS.map((t) => topicParagraph(t, stance, stock.ctx))
+  const close = stanceClose(stance)
   return [intro, ...paras, close].join('\n\n')
 }
 
@@ -318,23 +463,25 @@ function stanceIntro(stance, stock, broker) {
   const r = ratingFromCall(broker.rating)
   const tp = broker.tp.toLocaleString()
   if (stance === 'bull') {
-    return `*${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${tp}*\nWe initiate / maintain a constructive view on ${stock.ticker}. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate ${r} with a target of ₹${tp}.`
+    return `*${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${tp}*\nWe stay constructive on ${stock.ticker}. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, demand environment is recovering and management execution remains the structural anchor. We rate ${r} with a target of ₹${tp}.`
   }
   if (stance === 'bear') {
-    return `*${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${tp}*\nWe stay cautious on ${stock.ticker}. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate ${r} with a target of ₹${tp}.`
+    return `*${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${tp}*\nWe stay cautious on ${stock.ticker}. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, demand softness persists and the catalyst path keeps slipping. We rate ${r} with a target of ₹${tp}.`
   }
   return `*${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${tp}*\nWe maintain a balanced view on ${stock.ticker}. The fundamentals are steady but the next leg of re-rating needs a sharper catalyst than we see today. We rate ${r} with a target of ₹${tp}.`
 }
 
-function stanceClose(stance, stock, broker) {
+function stanceClose(stance) {
   if (stance === 'bull') {
-    return `Risks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.`
+    return 'Key risks: a sharper-than-expected demand disappointment or a margin surprise.'
   }
   if (stance === 'bear') {
-    return `Risks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.`
+    return 'Key risks: a sharper-than-expected demand recovery or a cost programme overshoot.'
   }
-  return `Risks two-way: either margin or demand surprise positively, and the next leg of re-rating begins; or guidance is cut at 2QFY27 and the de-rating extends.`
+  return 'Key risks two-way: demand or margin surprise positively, or guidance is cut at 2QFY27.'
 }
+
+function slug(s) { return s.toLowerCase().replace(/[^a-z0-9]+/g, '.') }
 
 function buildEmail(stock, broker, receivedAt) {
   const id = randomUUID()
@@ -342,16 +489,11 @@ function buildEmail(stock, broker, receivedAt) {
   const docId = randomUUID()
   const bk = BROKERS[broker.code]
   const stance = broker.stance
-  // Title format: "[Broker] <Company Name> (<TICKER>) — <Rating> PT ₹<n>".
-  // The dashboard's extractSubjectName cuts at the first " — " or "(", so
-  // putting the company name first (and the ticker inside parentheses)
-  // gives a subjectName that matches the NER's longer entityName entry.
   const subjectStem = `[${broker.code}] ${stock.name} (${stock.ticker}) — ${broker.rating}, PT ₹${broker.tp.toLocaleString()}`
   const subject = `Fwd: Fw: ${subjectStem}`
-  const inner = bodyFor(stock, broker, stance, broker.focusTopics)
-  // NOTE: do NOT put a "Regards," line above the actual broker prose — the
-  // extractor's TAIL_MARKER regex would treat that as the sign-off and stop
-  // reading before the topical paragraphs (margin / growth / etc.).
+  const inner = bodyFor(stock, broker, stance)
+  // No "Regards," in the forwarding wrapper — the dashboard's text
+  // extractor treats that as a sign-off and stops reading prose.
   const text_body = [
     `---------- Forwarded message ---------`,
     `From: Simran Thakkar <simran@beascapital.in>`,
@@ -399,8 +541,8 @@ function buildEmail(stock, broker, receivedAt) {
         error: null,
         metadata: {
           ner_results: {
-            [stock.ticker]: { tp: String(broker.tp), rating: callOf(stance, broker.rating), ticker: stock.ticker },
-            [stock.name]:   { tp: String(broker.tp), rating: callOf(stance, broker.rating), ticker: stock.ticker },
+            [stock.ticker]: { tp: String(broker.tp), rating: broker.rating, ticker: stock.ticker },
+            [stock.name]:   { tp: String(broker.tp), rating: broker.rating, ticker: stock.ticker },
             [bk.name]:      { tp: 'N/A', rating: 'N/A', ticker: 'No match' },
           },
         },
@@ -417,15 +559,10 @@ function buildEmail(stock, broker, receivedAt) {
   }
 }
 
-function slug(s) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, '.')
-}
-
 // ── Main: build all entries, write or print ────────────────────────────
 
 function main() {
   const entries = []
-  // Distribute received_at over the last 14 days so the feed feels active.
   const NOW = Date.UTC(2026, 4, 25, 12, 0, 0)
   let cursor = NOW
   for (const stock of STOCKS) {
@@ -442,6 +579,11 @@ function main() {
   if (process.argv.includes('--write')) {
     const raw = readFileSync(FIXTURE, 'utf8')
     const parsed = JSON.parse(raw)
+    // Drop any previously-generated entries (their subjects all use the
+    // signature "[CODE] <Name> (<TICKER>) — <Rating>, PT ₹..." pattern with
+    // an uppercase broker tag) so reruns don't pile up duplicates.
+    const SIG = /^Fwd: Fw: \[(?:KOTAK|AMBIT|JMFL|IIFL|NUVAMA|GS|AVENDUS)\] /
+    parsed.data.emails = parsed.data.emails.filter((e) => !SIG.test(String(e.subject ?? '')))
     parsed.data.emails = [...entries, ...parsed.data.emails]
     parsed.data.total = parsed.data.emails.length
     writeFileSync(FIXTURE, JSON.stringify(parsed, null, 4) + '\n')
