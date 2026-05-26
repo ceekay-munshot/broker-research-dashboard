@@ -1,17 +1,12 @@
 import { useEffect } from 'react'
 import type { ReportId, StockTicker } from '../domain'
-import type { ResultantState, StrengthBand } from '../engine/types'
-import type {
-  StockDetailViewModel, LinkedReportVM,
-} from '../viewModels/stockDetail'
-import { useStockDetailViewModel } from '../viewModels/stockDetail'
-import type {
-  ConsensusPointVM, DisagreementPointVM, OutlierVM,
-} from '../viewModels/divergence'
-import { RATING_TEXT_COLOR, STANCE_TEXT_COLOR, formatPrice, formatShortDate } from '../viewModels/shared'
-import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../viewModels/arb'
-import { RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_GLYPH_CLASS } from '../lib/semanticColor'
-import { RESULTANT_STATE_LABEL, formatConsensusRating } from '../lib/signalVocab'
+import {
+  useStockStreetView,
+  type BrokerDetail, type BrokerSnapshotRow, type ConsensusTarget,
+  type DivergenceCard, type EstimateRow, type RatingCounts, type RevisionEntry,
+  type StockStreetView,
+} from '../viewModels/stockStreetView'
+import { RATING_TEXT_COLOR, formatPrice } from '../viewModels/shared'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -36,7 +31,7 @@ export default function StockDrawer({ ticker, onClose, onSelectReport }: StockDr
         onClick={onClose}
         aria-label="Close"
       />
-      <aside className="absolute top-0 right-0 h-full w-full md:w-[620px] lg:w-[720px] bg-ink-950 border-l border-line/5 shadow-2xl flex flex-col">
+      <aside className="absolute top-0 right-0 h-full w-full md:w-[720px] lg:w-[860px] bg-ink-950 border-l border-line/5 shadow-2xl flex flex-col">
         <Body ticker={ticker} onClose={onClose} onSelectReport={onSelectReport}/>
       </aside>
     </div>
@@ -44,7 +39,7 @@ export default function StockDrawer({ ticker, onClose, onSelectReport }: StockDr
 }
 
 function Body({ ticker, onClose, onSelectReport }: { ticker: StockTicker; onClose: () => void; onSelectReport: (id: ReportId) => void }) {
-  const { data, loading, error } = useStockDetailViewModel(ticker)
+  const { data, loading, error } = useStockStreetView(ticker)
 
   if (loading) return <Message onClose={onClose} tone="loading" text={`Loading ${ticker}…`}/>
   if (error)   return <Message onClose={onClose} tone="error" text={`Error: ${error.message}`}/>
@@ -53,12 +48,9 @@ function Body({ ticker, onClose, onSelectReport }: { ticker: StockTicker; onClos
   return <Content vm={data} onClose={onClose} onSelectReport={onSelectReport}/>
 }
 
-function Header({ title, onClose }: { title: string; onClose: () => void }) {
+function TopBar({ onClose }: { onClose: () => void }) {
   return (
-    <div className="flex items-center justify-between px-5 py-3 border-b border-line/5">
-      <div className="flex items-center gap-2">
-        <span className="section-title">{title}</span>
-      </div>
+    <div className="flex items-center justify-end px-5 py-2 border-b border-line/5">
       <button
         onClick={onClose}
         className="text-slate-400 hover:text-slate-100 w-7 h-7 flex items-center justify-center rounded border border-line/5 hover:border-line/20 transition-colors"
@@ -71,7 +63,7 @@ function Header({ title, onClose }: { title: string; onClose: () => void }) {
 function Message({ onClose, tone, text }: { onClose: () => void; tone: 'loading' | 'error'; text: string }) {
   return (
     <>
-      <Header title="Stock detail" onClose={onClose}/>
+      <TopBar onClose={onClose}/>
       <div className="flex-1 flex items-center justify-center text-sm">
         <span className={tone === 'error' ? 'text-rose-400' : 'text-slate-500 animate-pulse'}>{text}</span>
       </div>
@@ -80,189 +72,417 @@ function Message({ onClose, tone, text }: { onClose: () => void; tone: 'loading'
 }
 
 function Content({ vm, onClose, onSelectReport }: {
-  vm: StockDetailViewModel;
-  onClose: () => void;
-  onSelectReport: (id: ReportId) => void;
+  vm: StockStreetView
+  onClose: () => void
+  onSelectReport: (id: ReportId) => void
 }) {
-  const { closure } = vm
-  const headerTitle = closure
-    ? `${vm.ticker} · Street view`
-    : `${vm.ticker} · Stock view`
   return (
     <>
-      <Header title={headerTitle} onClose={onClose}/>
+      <TopBar onClose={onClose}/>
       <div className="flex-1 overflow-y-auto">
-        <div className="p-5 flex flex-col gap-5">
-          {/* Title row — state badge only when closure exists */}
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-slate-100 text-[18px] font-semibold">{vm.ticker}</h2>
-              {closure && (
-                <StateBadge state={closure.resultant.state} strength={closure.resultant.strength}/>
-              )}
-            </div>
-            <div className="text-[11.5px] text-slate-400">
-              {vm.stockName} · Spot {formatPrice(vm.spotPrice, vm.currency, 2)} · {vm.brokerCount} broker{vm.brokerCount === 1 ? '' : 's'}
-            </div>
-          </div>
-
-          {closure
-            ? <FullStreetView vm={vm} closure={closure}/>
-            : <SingleBrokerView vm={vm}/>}
-
-          {/* Linked reports — always shown, regardless of closure */}
-          {vm.linkedReports.length > 0 && (
-            <Section title={closure ? 'Source reports' : 'Broker notes'}>
-              <ul className="flex flex-col gap-1.5">
-                {vm.linkedReports.map((r) => (
-                  <li key={r.reportId}>
-                    <LinkedReportRow r={r} onClick={() => onSelectReport(r.reportId)}/>
-                  </li>
-                ))}
-              </ul>
-            </Section>
-          )}
+        <div className="px-5 py-4 flex flex-col gap-6">
+          <HeaderSection vm={vm}/>
+          <ConsensusEstimatesSection rows={vm.consensusEstimates}/>
+          <StreetAtAGlanceSection rows={vm.brokerSnapshot}/>
+          <RevisionsSection entries={vm.revisions}/>
+          <DivergencesSection cards={vm.divergences}/>
+          <BrokerDetailsSection details={vm.brokerDetails} onSelectReport={onSelectReport}/>
         </div>
       </div>
     </>
   )
 }
 
-/** Renders all the closure-dependent analytics. Only mounted when the stock
- *  has multi-broker coverage and the engine produced a ConflictClosure. */
-function FullStreetView({ vm, closure }: {
-  vm: StockDetailViewModel;
-  closure: NonNullable<StockDetailViewModel['closure']>;
-}) {
-  // Closure-dependent fields are guaranteed non-null when closure is set
-  // (the viewmodel builder populates them together).
-  const arb = vm.arb!
-  const consensusRating = vm.consensusRating!
+// ── A · Header ───────────────────────────────────────────────────────────
+
+function HeaderSection({ vm }: { vm: StockStreetView }) {
   return (
-    <>
-      {/* Narrative */}
-      <div className="rounded border border-accent/30 bg-accent/[0.04] p-3 text-[13px] text-slate-100 leading-relaxed">
-        {closure.resultant.narrative}
+    <section className="flex flex-col gap-3">
+      <div>
+        <h2 className="text-slate-100 font-semibold text-[20px] leading-tight">
+          {vm.stockName ?? vm.ticker}
+        </h2>
+        <div className="text-[11.5px] text-slate-500 mt-0.5">
+          {vm.ticker}
+          {vm.contextLine && <> · {vm.contextLine}</>}
+        </div>
       </div>
 
-      {/* ARB verdict + consensus rating */}
-      <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`chip border ${ARB_COLOR[arb.band]} text-[11px] ${arb.band === 'none' ? '' : 'cursor-help'}`}
-          title={arb.band === 'none' ? undefined : ARB_TOOLTIP}
-        >{ARB_LABEL[arb.band]}</span>
-        <span className="text-[11px] text-slate-500">{arb.subtext}</span>
-        <span className="ml-auto"><ConsensusLine cr={consensusRating}/></span>
+      <div className="flex items-end justify-between gap-6 flex-wrap">
+        <RatingDistribution counts={vm.ratingCounts}/>
+        <ConsensusTargetBlock target={vm.consensusTarget}/>
       </div>
-
-      {/* Target stats grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-        <Stat label="Mean" value={formatPrice(closure.targetStats.mean, vm.currency, 0)}/>
-        <Stat label="Median" value={formatPrice(closure.targetStats.median, vm.currency, 0)}/>
-        <Stat label="High" value={formatPrice(closure.targetStats.high, vm.currency, 0)} valueClass="text-emerald-400"
-          sub={vm.highTargetBroker ? vm.highTargetBroker.name + (vm.highTargetTieCount > 0 ? ` +${vm.highTargetTieCount}` : '') : undefined}/>
-        <Stat label="Low" value={formatPrice(closure.targetStats.low, vm.currency, 0)} valueClass="text-rose-400"
-          sub={vm.lowTargetBroker ? vm.lowTargetBroker.name + (vm.lowTargetTieCount > 0 ? ` +${vm.lowTargetTieCount}` : '') : undefined}/>
-      </div>
-
-      <div className="flex items-center gap-2 text-[11px]">
-        <span className="text-slate-500 uppercase tracking-widest">Spread</span>
-        <span className={`num ${closure.targetStats.spreadPct !== null && closure.targetStats.spreadPct >= 25 ? 'text-amber-300' : 'text-slate-300'}`}>
-          {closure.targetStats.spreadPct !== null ? `${closure.targetStats.spreadPct.toFixed(1)}%` : '—'}
-        </span>
-        <span className="mx-2 text-slate-700">·</span>
-        <span className="text-slate-500 uppercase tracking-widest">Stdev</span>
-        <span className="num text-slate-300">
-          {closure.targetStats.stdev !== null ? `±${closure.targetStats.stdev.toFixed(1)}` : '—'}
-        </span>
-        <span className="ml-auto flex items-center gap-2">
-          <span className="text-slate-500 uppercase tracking-widest">Confidence</span>
-          <ConfidenceBar score={closure.confidence.score} band={closure.confidence.band}/>
-        </span>
-      </div>
-
-      {/* Stance distribution */}
-      <div className="flex items-center gap-3 text-[11.5px]">
-        <span className="text-slate-500 uppercase tracking-widest text-[10px]">Stance</span>
-        <StanceBar dist={closure.stanceDistribution}/>
-        <span className="num"><span className="text-emerald-400">{closure.stanceDistribution.bullish}</span> bull</span>
-        <span className="num"><span className="text-slate-400">{closure.stanceDistribution.neutral}</span> neutral</span>
-        <span className="num"><span className="text-rose-400">{closure.stanceDistribution.bearish}</span> bear</span>
-      </div>
-
-      {/* Consensus */}
-      {vm.consensus.length > 0 && (
-        <Section title={`Where they agree (${vm.consensus.length})`}>
-          <ul className="flex flex-col gap-1.5">
-            {vm.consensus.map((c, idx) => <ConsensusRow key={idx} point={c}/>)}
-          </ul>
-        </Section>
-      )}
-
-      {/* Disagreements */}
-      {vm.disagreements.length > 0 && (
-        <Section title={`Where they disagree (${vm.disagreements.length})`}>
-          <ul className="flex flex-col gap-2">
-            {vm.disagreements.map((d, idx) => <DisagreementRow key={idx} point={d}/>)}
-          </ul>
-        </Section>
-      )}
-
-      {/* Why missing — honest when ARB exists but no reason was extracted */}
-      {vm.whyMissing && (
-        <Section title="Why they disagree">
-          <div className="rounded border border-amber-500/20 bg-amber-500/[0.04] p-3 text-[12px] text-slate-300 leading-snug">
-            Reason not extracted yet — source reports available.
-          </div>
-        </Section>
-      )}
-
-      {/* Outliers */}
-      {vm.outliers.length > 0 && (
-        <Section title={`Outliers (${vm.outliers.length})`}>
-          <ul className="flex flex-col gap-2">
-            {vm.outliers.map((o, idx) => <OutlierRow key={idx} out={o}/>)}
-          </ul>
-        </Section>
-      )}
-
-      {/* Key drivers */}
-      {closure.resultant.keyDrivers.length > 0 && (
-        <Section title="Key drivers">
-          <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
-            {closure.resultant.keyDrivers.map((k, idx) => (
-              <li key={idx} className="leading-snug">{k}</li>
-            ))}
-          </ul>
-        </Section>
-      )}
-
-      {/* Open questions */}
-      {closure.resultant.openQuestions.length > 0 && (
-        <Section title="Open questions">
-          <ul className="flex flex-col gap-1 text-[12.5px] text-slate-300">
-            {closure.resultant.openQuestions.map((q, idx) => (
-              <li key={idx} className="leading-snug">{q}</li>
-            ))}
-          </ul>
-        </Section>
-      )}
-    </>
+    </section>
   )
 }
 
-/** Renders when only one broker covers the stock — there is no closure to
- *  derive a Street view from, but the broker's note(s) are still useful.
- *  Honest "no comparison" message + linked reports section (rendered by
- *  parent) keep the drawer useful instead of hanging on a loading state. */
-function SingleBrokerView({ vm }: { vm: StockDetailViewModel }) {
+function RatingDistribution({ counts }: { counts: RatingCounts }) {
+  const total = counts.buy + counts.hold + counts.sell + counts.notRated
+  if (total === 0) {
+    return <div className="text-[11.5px] text-slate-500">No ratings yet.</div>
+  }
+  const pct = (n: number) => total === 0 ? 0 : (100 * n / total)
   return (
-    <div className="rounded border border-line/10 bg-line/[0.02] p-3 text-[12.5px] text-slate-300 leading-snug">
-      Only 1 broker covers {vm.ticker} in this feed — no Street comparison available.
-      Open the broker note below to see the full analysis.
+    <div className="flex flex-col gap-1.5 min-w-[200px]">
+      <div className="flex h-1.5 rounded overflow-hidden bg-line/5">
+        <div className="bg-emerald-500/80" style={{ width: `${pct(counts.buy)}%` }}/>
+        <div className="bg-slate-500/60"   style={{ width: `${pct(counts.hold)}%` }}/>
+        <div className="bg-rose-500/80"    style={{ width: `${pct(counts.sell)}%` }}/>
+      </div>
+      <div className="flex gap-2 text-[11px]">
+        {counts.buy > 0 && (
+          <span className="chip border border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-300 text-[10px]">{counts.buy} Buy</span>
+        )}
+        {counts.hold > 0 && (
+          <span className="chip border border-slate-500/30 bg-line/[0.04] text-slate-300 text-[10px]">{counts.hold} Hold</span>
+        )}
+        {counts.sell > 0 && (
+          <span className="chip border border-rose-500/30 bg-rose-500/[0.06] text-rose-300 text-[10px]">{counts.sell} Sell</span>
+        )}
+        {counts.notRated > 0 && (
+          <span className="chip border border-line/10 text-slate-500 text-[10px]">{counts.notRated} N/R</span>
+        )}
+      </div>
     </div>
   )
 }
+
+function ConsensusTargetBlock({ target }: { target: ConsensusTarget }) {
+  if (target.median == null && target.min == null && target.max == null) {
+    return (
+      <div className="flex flex-col items-end gap-0.5">
+        <span className="section-title">Consensus target price</span>
+        <span className="text-slate-500 text-[12px]">No target issued</span>
+      </div>
+    )
+  }
+  const hasRange = target.min !== null && target.max !== null && target.min !== target.max
+  const pos = (() => {
+    if (!hasRange || target.median == null) return null
+    const span = target.max! - target.min!
+    return span === 0 ? 0.5 : (target.median - target.min!) / span
+  })()
+  return (
+    <div className="flex flex-col gap-1 items-end">
+      <span className="section-title">Consensus target price</span>
+      <span className="text-slate-100 font-semibold num text-[20px] leading-tight">
+        {formatPrice(target.median, target.currency, 0)}
+      </span>
+      {hasRange && (
+        <div className="flex items-center gap-2 text-[10.5px] text-slate-500 num">
+          <span>{formatPrice(target.min, target.currency, 0)}</span>
+          <span className="relative w-32 h-1 rounded-full bg-line/10">
+            {pos !== null && (
+              <span
+                className="absolute -top-1 w-1 h-3 rounded-sm bg-slate-100"
+                style={{ left: `calc(${(pos * 100).toFixed(1)}% - 2px)` }}
+              />
+            )}
+          </span>
+          <span>{formatPrice(target.max, target.currency, 0)}</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── B · Consensus estimates ─────────────────────────────────────────────
+
+function ConsensusEstimatesSection({ rows }: { rows: readonly EstimateRow[] }) {
+  return (
+    <Section title="Consensus estimates">
+      {rows.length === 0 ? (
+        <Placeholder>Not enough data yet — consensus financial estimates aren't extracted for this stock.</Placeholder>
+      ) : (
+        <EstimateTable rows={rows}/>
+      )}
+    </Section>
+  )
+}
+
+function EstimateTable({ rows }: { rows: readonly EstimateRow[] }) {
+  const periods = Array.from(new Set(rows.flatMap((r) => r.values.map((v) => v.period))))
+  const showCagr = rows.some((r) => r.cagr2yr !== null)
+  return (
+    <div className="overflow-x-auto rounded border border-line/5">
+      <table className="w-full text-[12px]">
+        <thead className="bg-line/[0.02]">
+          <tr className="text-left text-slate-400 text-[10.5px] uppercase tracking-wider">
+            <th className="px-3 py-2 font-medium">Metric</th>
+            {periods.map((p) => <th key={p} className="px-3 py-2 font-medium text-right">{p}</th>)}
+            {showCagr && <th className="px-3 py-2 font-medium text-right">2-yr CAGR</th>}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.metric} className="border-t border-line/5">
+              <td className="px-3 py-2 text-slate-200">{r.metric}</td>
+              {periods.map((p) => {
+                const v = r.values.find((x) => x.period === p)
+                return (
+                  <td key={p} className="px-3 py-2 text-right num">
+                    {v?.point != null ? (
+                      <div className="flex flex-col items-end">
+                        <span className="text-slate-100">{v.point.toLocaleString()}</span>
+                        {v.rangeLow != null && v.rangeHigh != null && (
+                          <span className="text-[10px] text-slate-500">{v.rangeLow.toLocaleString()}–{v.rangeHigh.toLocaleString()}</span>
+                        )}
+                      </div>
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                )
+              })}
+              {showCagr && (
+                <td className="px-3 py-2 text-right num">
+                  {r.cagr2yr != null ? (
+                    <span className={r.cagr2yr > 0 ? 'text-emerald-400' : r.cagr2yr < 0 ? 'text-rose-400' : 'text-slate-400'}>
+                      {r.cagr2yr.toFixed(1)}%
+                    </span>
+                  ) : <span className="text-slate-600">—</span>}
+                </td>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// ── C · Street views at a glance ────────────────────────────────────────
+
+const QUARTER_VIEW_LABEL = { positive: 'Positive', mixed: 'Mixed', negative: 'Negative', in_line: 'In-line' } as const
+const QUARTER_VIEW_TONE  = { positive: 'text-emerald-300', mixed: 'text-amber-300', negative: 'text-rose-300', in_line: 'text-slate-400' } as const
+const FORWARD_LABEL = { bullish: 'Bullish', cautiously_optimistic: 'Caut. optimistic', neutral: 'Neutral', cautious: 'Cautious', bearish: 'Bearish' } as const
+const FORWARD_TONE  = { bullish: 'text-emerald-300', cautiously_optimistic: 'text-emerald-400/80', neutral: 'text-slate-400', cautious: 'text-amber-300', bearish: 'text-rose-300' } as const
+
+function StreetAtAGlanceSection({ rows }: { rows: readonly BrokerSnapshotRow[] }) {
+  return (
+    <Section title="Street views at a glance">
+      {rows.length === 0 ? (
+        <Placeholder>No broker coverage in this window.</Placeholder>
+      ) : (
+        <div className="overflow-x-auto rounded border border-line/5">
+          <table className="w-full text-[12px]">
+            <thead className="bg-line/[0.02]">
+              <tr className="text-left text-slate-400 text-[10.5px] uppercase tracking-wider">
+                <th className="px-3 py-2 font-medium">Broker</th>
+                <th className="px-3 py-2 font-medium">Rating</th>
+                <th className="px-3 py-2 font-medium text-right">TP</th>
+                <th className="px-3 py-2 font-medium">Quarter view</th>
+                <th className="px-3 py-2 font-medium">Forward outlook</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.brokerId as unknown as string} className="border-t border-line/5">
+                  <td className="px-3 py-2 text-slate-200">
+                    <span className="inline-flex items-center gap-2">
+                      <span
+                        className="w-4 h-4 rounded-sm flex items-center justify-center text-[8.5px] font-bold text-ink-950"
+                        style={{ background: r.brokerColor ?? '#94a3b8' }}
+                      >{r.brokerShortName.slice(0, 3).toUpperCase()}</span>
+                      {r.brokerShortName}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.rating ? (
+                      <span className={`chip border border-line/10 bg-line/[0.04] ${RATING_TEXT_COLOR[r.rating]} text-[10px]`}>{r.rating}</span>
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-3 py-2 text-right num text-slate-100">
+                    {r.targetPrice != null ? formatPrice(r.targetPrice, r.targetCurrency, 0) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.quarterView ? (
+                      <span className={`inline-flex items-center gap-1.5 text-[11.5px] ${QUARTER_VIEW_TONE[r.quarterView]}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"/>
+                        {QUARTER_VIEW_LABEL[r.quarterView]}
+                      </span>
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                  <td className="px-3 py-2">
+                    {r.forwardOutlook ? (
+                      <span className={`inline-flex items-center gap-1.5 text-[11.5px] ${FORWARD_TONE[r.forwardOutlook]}`}>
+                        <span className="w-1.5 h-1.5 rounded-full bg-current"/>
+                        {FORWARD_LABEL[r.forwardOutlook]}
+                      </span>
+                    ) : <span className="text-slate-600">—</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Section>
+  )
+}
+
+// ── D · Estimate revisions ──────────────────────────────────────────────
+
+function RevisionsSection({ entries }: { entries: readonly RevisionEntry[] }) {
+  return (
+    <Section title="Estimate revisions vs previous">
+      {entries.length === 0 ? (
+        <Placeholder>No comparable revisions yet — most brokers don't have a prior comparable note to diff against.</Placeholder>
+      ) : (
+        <ul className="flex flex-col divide-y divide-line/5 rounded border border-line/5">
+          {entries.map((e) => (
+            <li key={e.brokerId as unknown as string} className="flex items-center gap-3 px-3 py-2">
+              <span className="text-slate-200 text-[12.5px] font-medium min-w-[110px]">{e.brokerShortName}</span>
+              <div className="flex flex-wrap gap-1.5 flex-1">
+                {e.deltas.map((d, i) => (
+                  <DeltaChip key={i} delta={d}/>
+                ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Section>
+  )
+}
+
+function DeltaChip({ delta }: { delta: RevisionEntry['deltas'][number] }) {
+  const cls = delta.direction === 'up'
+    ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-300'
+    : delta.direction === 'down'
+      ? 'border-rose-500/30 bg-rose-500/[0.06] text-rose-300'
+      : 'border-line/10 bg-line/[0.04] text-slate-400'
+  return (
+    <span className={`chip border ${cls} text-[10px]`}>
+      {delta.pctText ? `${delta.metric} ${delta.pctText}` : `${delta.metric} unch`}
+    </span>
+  )
+}
+
+// ── E · Key divergences ─────────────────────────────────────────────────
+
+function DivergencesSection({ cards }: { cards: readonly DivergenceCard[] }) {
+  return (
+    <Section title="Key divergences">
+      {cards.length === 0 ? (
+        <Placeholder>No material divergences in the current window.</Placeholder>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {cards.map((c, i) => <DivergenceItem key={i} card={c}/>)}
+        </ul>
+      )}
+    </Section>
+  )
+}
+
+function DivergenceItem({ card }: { card: DivergenceCard }) {
+  return (
+    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-1.5">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-slate-100 text-[12.5px] font-semibold">{card.title}</span>
+        {card.spreadText && (
+          <span className="text-[10.5px] text-amber-300 num">{card.spreadText}</span>
+        )}
+      </div>
+      <p className="text-[12px] text-slate-300 leading-snug line-clamp-3">{card.summary}</p>
+      {(card.bullBrokers.length > 0 || card.bearBrokers.length > 0) && (
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
+          {card.bullBrokers.length > 0 && (
+            <span><span className="text-emerald-400">Bulls:</span> {card.bullBrokers.join(' · ')}</span>
+          )}
+          {card.bearBrokers.length > 0 && (
+            <span><span className="text-rose-400">Bears:</span> {card.bearBrokers.join(' · ')}</span>
+          )}
+        </div>
+      )}
+    </li>
+  )
+}
+
+// ── F · Detailed broker views ───────────────────────────────────────────
+
+function BrokerDetailsSection({ details, onSelectReport }: {
+  details: readonly BrokerDetail[]
+  onSelectReport: (id: ReportId) => void
+}) {
+  return (
+    <Section title="Detailed broker views">
+      {details.length === 0 ? (
+        <Placeholder>No broker coverage in this window.</Placeholder>
+      ) : (
+        <ul className="flex flex-col gap-2.5">
+          {details.map((d) => <BrokerDetailCard key={d.reportId as unknown as string} detail={d} onSelectReport={onSelectReport}/>)}
+        </ul>
+      )}
+    </Section>
+  )
+}
+
+function BrokerDetailCard({ detail, onSelectReport }: {
+  detail: BrokerDetail
+  onSelectReport: (id: ReportId) => void
+}) {
+  const targetMoved = detail.priorTargetPrice != null
+    && detail.targetPrice != null
+    && detail.priorTargetPrice !== detail.targetPrice
+  return (
+    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold text-ink-950 shrink-0"
+            style={{ background: detail.brokerColor ?? '#94a3b8' }}
+          >{detail.brokerShortName.slice(0, 3).toUpperCase()}</span>
+          <div className="flex flex-col min-w-0">
+            <span className="text-slate-100 text-[12.5px] font-semibold truncate">{detail.brokerShortName}</span>
+            {detail.author && <span className="text-[10.5px] text-slate-500 truncate">{detail.author}</span>}
+          </div>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 text-[11.5px]">
+          {detail.rating && (
+            <span className={`chip border border-line/10 bg-line/[0.04] ${RATING_TEXT_COLOR[detail.rating]} text-[10px]`}>{detail.rating}</span>
+          )}
+          {detail.targetPrice != null && (
+            <span className="num text-slate-100">
+              {formatPrice(detail.targetPrice, detail.targetCurrency, 0)}
+              {targetMoved && detail.priorTargetPrice != null && (
+                <span className="text-slate-500 text-[10px] ml-1">
+                  (from {formatPrice(detail.priorTargetPrice, detail.targetCurrency, 0)})
+                </span>
+              )}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {detail.bullets.length > 0 && (
+        <ul className="flex flex-col gap-1 text-[12px] text-slate-300">
+          {detail.bullets.map((b, i) => (
+            <li key={i} className="flex gap-1.5 leading-snug">
+              <span className="text-slate-600 shrink-0">•</span>
+              <span className="line-clamp-2">{b}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {detail.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {detail.tags.map((t) => (
+            <span key={t} className="chip border border-line/10 bg-line/[0.04] text-slate-400 text-[9.5px]">{t}</span>
+          ))}
+        </div>
+      )}
+
+      <div className="flex items-center justify-end pt-1 border-t border-line/5">
+        <button
+          onClick={() => onSelectReport(detail.reportId)}
+          className="text-accent text-[11px] hover:underline"
+        >View report →</button>
+      </div>
+    </li>
+  )
+}
+
+// ── Shared bits ─────────────────────────────────────────────────────────
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -273,166 +493,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   )
 }
 
-function Stat({ label, value, valueClass, sub }: { label: string; value: string; valueClass?: string; sub?: string }) {
+function Placeholder({ children }: { children: React.ReactNode }) {
   return (
-    <div className="panel p-3 flex flex-col gap-1">
-      <div className="section-title">{label}</div>
-      <div className={`text-[14px] font-semibold num ${valueClass ?? 'text-slate-100'}`}>{value}</div>
-      {sub && <div className="text-[10px] text-slate-500 truncate" title={sub}>{sub}</div>}
+    <div className="rounded border border-dashed border-line/10 bg-line/[0.01] px-3 py-3 text-[11.5px] text-slate-500">
+      {children}
     </div>
-  )
-}
-
-function ConsensusLine({ cr }: { cr: ConsensusRating }) {
-  // Text comes from the shared formatConsensusRating so every surface
-  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
-  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
-  // Renderer only owns the tone wrapper.
-  const tone = cr.kind === 'tie' ? 'text-amber-300'
-    : cr.kind === 'none' ? 'text-slate-500'
-    : 'text-slate-300'
-  return <span className={`text-[11.5px] ${tone}`}>{formatConsensusRating(cr)}</span>
-}
-
-function ConsensusRow({ point }: { point: ConsensusPointVM }) {
-  const tone = point.polarity === 'bullish' ? 'text-emerald-400'
-    : point.polarity === 'bearish' ? 'text-rose-400' : 'text-slate-300'
-  return (
-    <li className="flex flex-col gap-0.5 rounded border border-line/5 bg-line/[0.02] p-2.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</span>
-        <span className={`chip border border-line/10 ${tone} text-[9.5px]`}>Consensus</span>
-      </div>
-      <span className="text-[12.5px] text-slate-200 leading-snug">{point.claim}</span>
-      {point.supportingClaims.length > 0 && (
-        <div className="flex flex-wrap gap-1 mt-1">
-          {point.supportingClaims.slice(0, 5).map((c, idx) => (
-            <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-400 text-[10px]">{c}</span>
-          ))}
-        </div>
-      )}
-      <div className="text-[10px] text-slate-500 mt-1">
-        {point.brokers.map((b) => b.name).join(' · ')}
-        {point.evidenceCount > 0 && <span className="num ml-2">· {point.evidenceCount} citation{point.evidenceCount === 1 ? '' : 's'}</span>}
-      </div>
-    </li>
-  )
-}
-
-function DisagreementRow({ point }: { point: DisagreementPointVM }) {
-  return (
-    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
-      <div className="text-[11px] uppercase tracking-widest text-slate-400">{point.topic}</div>
-      <div className="flex gap-2 text-[12.5px]">
-        <span className="chip border border-emerald-500/30 text-emerald-400 shrink-0">Bull</span>
-        <div className="flex flex-col gap-0.5 min-w-0">
-          {point.bullClaims.slice(0, 3).map((c, idx) => (
-            <span key={idx} className="text-slate-200 leading-snug">{c}</span>
-          ))}
-          <span className="text-[10.5px] text-slate-500">
-            {point.bullBrokers.map((b) => b.name).join(' · ') || '—'}
-            {point.bullCitationCount > 0 && <span className="ml-2 num">· {point.bullCitationCount} citations</span>}
-          </span>
-        </div>
-      </div>
-      <div className="flex gap-2 text-[12.5px]">
-        <span className="chip border border-rose-500/30 text-rose-400 shrink-0">Bear</span>
-        <div className="flex flex-col gap-0.5 min-w-0">
-          {point.bearClaims.slice(0, 3).map((c, idx) => (
-            <span key={idx} className="text-slate-200 leading-snug">{c}</span>
-          ))}
-          <span className="text-[10.5px] text-slate-500">
-            {point.bearBrokers.map((b) => b.name).join(' · ') || '—'}
-            {point.bearCitationCount > 0 && <span className="ml-2 num">· {point.bearCitationCount} citations</span>}
-          </span>
-        </div>
-      </div>
-    </li>
-  )
-}
-
-function OutlierRow({ out }: { out: OutlierVM }) {
-  const tone = out.direction === 'bullish' ? 'text-emerald-400' : 'text-rose-400'
-  return (
-    <li className="rounded border border-amber-500/20 bg-amber-500/[0.04] p-3 flex flex-col gap-1">
-      <div className="flex items-center gap-2 text-[12.5px]">
-        <span className="chip border border-amber-500/40 text-amber-300">Outlier</span>
-        <span className="text-slate-100 font-semibold">{out.brokerName}</span>
-        <span className={`${tone} uppercase text-[10px] tracking-widest`}>{out.direction}</span>
-      </div>
-      <div className="flex flex-wrap gap-1">
-        {out.reasons.map((r, idx) => (
-          <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-300 text-[10px]">{r}</span>
-        ))}
-      </div>
-    </li>
-  )
-}
-
-function LinkedReportRow({ r, onClick }: { r: LinkedReportVM; onClick: () => void }) {
-  return (
-    <button
-      onClick={onClick}
-      className="w-full text-left rounded border border-line/5 bg-line/[0.02] hover:bg-line/[0.04] transition-colors p-2.5 flex flex-col gap-1"
-    >
-      <div className="flex items-center gap-2">
-        <span
-          className={`w-5 h-5 rounded-sm flex items-center justify-center text-[9px] font-bold ${BROKER_GLYPH_CLASS}`}
-        >{r.brokerShortName.slice(0, 3).toUpperCase()}</span>
-        <span className="text-slate-300 text-[11.5px]">{r.brokerShortName}</span>
-        <span className={`chip border border-line/10 ${STANCE_TEXT_COLOR[r.stance]} text-[9.5px]`}>{r.stance}</span>
-        {r.rating && (
-          <span className={`text-[10.5px] ${RATING_TEXT_COLOR[r.rating]}`}>{r.rating}</span>
-        )}
-        <span className="num text-[10.5px] text-slate-500 ml-auto">{formatShortDate(r.publishedAt)}</span>
-      </div>
-      <div className="text-[12.5px] text-slate-100 leading-snug">{r.title}</div>
-      {r.targetPrice !== null && (
-        <div className="text-[10.5px] text-slate-500 num">
-          Target {r.targetPrice.toLocaleString()}
-          {r.priorTargetPrice !== null && r.priorTargetPrice !== r.targetPrice && (
-            <span className="ml-1 text-slate-600">(from {r.priorTargetPrice.toLocaleString()})</span>
-          )}
-        </div>
-      )}
-    </button>
-  )
-}
-
-function StanceBar({ dist }: { dist: Readonly<Record<'bullish' | 'neutral' | 'bearish', number>> }) {
-  const total = Math.max(1, dist.bullish + dist.neutral + dist.bearish)
-  const pct = (n: number) => (100 * n / total).toFixed(0)
-  return (
-    <div className="flex-1 flex h-1.5 rounded overflow-hidden bg-line/5">
-      <div className="bg-emerald-500/80" style={{ width: `${pct(dist.bullish)}%` }}/>
-      <div className="bg-slate-500/60"   style={{ width: `${pct(dist.neutral)}%` }}/>
-      <div className="bg-rose-500/80"    style={{ width: `${pct(dist.bearish)}%` }}/>
-    </div>
-  )
-}
-
-function ConfidenceBar({ score, band }: { score: number; band: StrengthBand }) {
-  const pct = Math.round(score * 100)
-  const color = band === 'strong' ? 'bg-emerald-400' : band === 'moderate' ? 'bg-amber-400' : 'bg-slate-500'
-  return (
-    <span className="flex items-center gap-1.5">
-      <span className="w-20 h-1 rounded-full bg-line/5 overflow-hidden">
-        <span className={`block h-full ${color}`} style={{ width: `${pct}%` }}/>
-      </span>
-      <span className="num text-slate-300">{pct}%</span>
-    </span>
-  )
-}
-
-// ─── State badge ─────────────────────────────────────────────────────
-// Labels come from src/lib/signalVocab.ts so every surface reads the same.
-
-function StateBadge({ state, strength }: { state: ResultantState; strength: StrengthBand }) {
-  return (
-    <span className={`chip border ${STATE_COLOR[state]} inline-flex items-center gap-1 text-[11px]`}>
-      <span>{RESULTANT_STATE_LABEL[state]}</span>
-      <span className="text-slate-500">·</span>
-      <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>
-    </span>
   )
 }
