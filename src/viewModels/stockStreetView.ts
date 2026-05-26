@@ -17,6 +17,7 @@ import type {
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import { useStockDetailViewModel } from './stockDetail'
+import { CONSENSUS_ESTIMATES_BY_TICKER, REVISIONS_BY_TICKER } from '../mocks/consensusEstimates'
 
 export interface ConsensusTarget {
   readonly median: number | null
@@ -223,9 +224,11 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
       }
     : { median: null, min: null, max: null, currency }
 
-  // Section B — consensus estimates. Backend doesn't extract a structured
-  // FYxxA/E table yet, so leave empty; the UI renders a placeholder.
-  const consensusEstimates: readonly EstimateRow[] = []
+  // Section B — consensus estimates. Sourced from a per-ticker fixture
+  // today; when the backend starts emitting the same shape, the import
+  // can be swapped for an adapter call without touching the renderer.
+  const consensusEstimates: readonly EstimateRow[] =
+    CONSENSUS_ESTIMATES_BY_TICKER[ticker as unknown as string] ?? []
 
   // Section C — Street views at a glance
   const brokerSnapshot: BrokerSnapshotRow[] = [...latestByBroker.values()].map((r) => {
@@ -247,25 +250,32 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
     }
   }).sort((a, b) => a.brokerShortName.localeCompare(b.brokerShortName))
 
-  // Section D — revisions. We have target-price prior, not per-KPI deltas;
-  // emit a single "TP" delta where a meaningful change exists.
-  const revisions: RevisionEntry[] = []
-  for (const r of latestByBroker.values()) {
-    const sum = summaryByReport.get(r.id as string)
-    if (!sum || sum.targetPrice == null || sum.priorTargetPrice == null || sum.priorTargetPrice === 0) continue
-    const pct = ((sum.targetPrice - sum.priorTargetPrice) / sum.priorTargetPrice) * 100
-    if (Math.abs(pct) < 0.5) continue
-    const broker = brokerById.get(r.brokerId as unknown as string)
-    revisions.push({
-      brokerId: r.brokerId,
-      brokerShortName: broker?.shortName ?? '—',
-      deltas: [{
-        metric: 'TP',
-        direction: pct > 0 ? 'up' : 'down',
-        pctText: formatPctDelta(pct),
-      }],
-    })
-  }
+  // Section D — revisions. Prefer the structured per-broker fixture when
+  // available (same shape the backend will emit). Fall back to a single
+  // "TP" delta derived from priorTargetPrice on the summary.
+  const fixtureRevisions = REVISIONS_BY_TICKER[ticker as unknown as string]
+  const revisions: RevisionEntry[] = fixtureRevisions
+    ? [...fixtureRevisions]
+    : (() => {
+        const derived: RevisionEntry[] = []
+        for (const r of latestByBroker.values()) {
+          const sum = summaryByReport.get(r.id as string)
+          if (!sum || sum.targetPrice == null || sum.priorTargetPrice == null || sum.priorTargetPrice === 0) continue
+          const pct = ((sum.targetPrice - sum.priorTargetPrice) / sum.priorTargetPrice) * 100
+          if (Math.abs(pct) < 0.5) continue
+          const broker = brokerById.get(r.brokerId as unknown as string)
+          derived.push({
+            brokerId: r.brokerId,
+            brokerShortName: broker?.shortName ?? '—',
+            deltas: [{
+              metric: 'TP',
+              direction: pct > 0 ? 'up' : 'down',
+              pctText: formatPctDelta(pct),
+            }],
+          })
+        }
+        return derived
+      })()
 
   // Section E — divergences (mapped from existing stockDetail output)
   const divergences: DivergenceCard[] = (inp.divergences ?? [])
