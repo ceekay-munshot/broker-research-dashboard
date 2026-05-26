@@ -44,13 +44,16 @@ export const TONE_TEXT_CLASS: Readonly<Record<SemanticTone, string>> = {
   brand:    'text-accent',
 }
 
-/** Border + text + fill for a chip / badge / pill. */
+/** Border + text + fill for a chip / badge / pill.
+ *  Text uses a dark shade for light mode (so it sits readably on the
+ *  light tint) and the brighter -300 shade for dark mode (where the
+ *  background is dark and the chip background tint is also dark). */
 export const TONE_CHIP_CLASS: Readonly<Record<SemanticTone, string>> = {
-  positive: 'border-emerald-500/40 text-emerald-300 bg-emerald-500/10',
-  negative: 'border-rose-500/40 text-rose-300 bg-rose-500/10',
-  neutral:  'border-line/15 text-slate-300 bg-line/[0.03]',
-  caution:  'border-amber-500/40 text-amber-300 bg-amber-500/10',
-  info:     'border-sky-500/40 text-sky-300 bg-sky-500/10',
+  positive: 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10',
+  negative: 'border-rose-500/40 text-rose-700 dark:text-rose-300 bg-rose-500/10',
+  neutral:  'border-line/15 text-slate-700 dark:text-slate-300 bg-line/[0.03]',
+  caution:  'border-amber-500/40 text-amber-700 dark:text-amber-300 bg-amber-500/10',
+  info:     'border-sky-500/40 text-sky-700 dark:text-sky-300 bg-sky-500/10',
   brand:    'border-accent/40 text-accent bg-accent/10',
 }
 

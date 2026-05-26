@@ -276,10 +276,10 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
        : cell.stance === 'bearish' ? 'bg-rose-500/[0.05]'
        : '')
   const outChipCls = cell.stance === 'bullish'
-    ? 'border-emerald-500/50 text-emerald-300 bg-emerald-500/10'
+    ? 'border-emerald-500/50 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10'
     : cell.stance === 'bearish'
-    ? 'border-amber-500/50 text-amber-300 bg-amber-500/10'
-    : 'border-line/20 text-slate-400 bg-line/5'
+    ? 'border-amber-600/60 text-amber-700 dark:text-amber-300 bg-amber-500/10'
+    : 'border-line/20 text-slate-700 dark:text-slate-400 bg-line/5'
   return (
     <td
       role="button"
