@@ -89,16 +89,16 @@ function Legend({ side }: { side: MatrixSide }) {
   if (side === 'disagree') {
     return (
       <div className="flex items-center gap-3 text-[10.5px] text-slate-500">
-        <LegendChip cls="bg-emerald-500/15 text-emerald-300 border-emerald-500/30" label="Bullish"/>
-        <LegendChip cls="bg-rose-500/15 text-rose-300 border-rose-500/30" label="Bearish"/>
-        <LegendChip cls="bg-line/[0.04] text-slate-500 border-line/10" label="No view"/>
+        <LegendChip cls="bg-emerald-500/25 border-emerald-500/50 dark:bg-emerald-500/15 dark:border-emerald-500/30" label="Bullish"/>
+        <LegendChip cls="bg-rose-500/25 border-rose-500/50 dark:bg-rose-500/15 dark:border-rose-500/30" label="Bearish"/>
+        <LegendChip cls="bg-line/[0.04] border-line/15" label="No view"/>
       </div>
     )
   }
   return (
     <div className="flex items-center gap-3 text-[10.5px] text-slate-500">
-      <LegendChip cls="bg-accent/10 text-accent border-accent/30" label="Agreed view"/>
-      <LegendChip cls="bg-line/[0.04] text-slate-500 border-line/10" label="No view"/>
+      <LegendChip cls="bg-accent/25 border-accent/50 dark:bg-accent/15 dark:border-accent/30" label="Agreed view"/>
+      <LegendChip cls="bg-line/[0.04] border-line/15" label="No view"/>
     </div>
   )
 }
@@ -133,15 +133,15 @@ function MatrixTable({ matrix, tierFor }: {
   }, [matrix.rows])
 
   return (
-    <div className="rounded-md border border-line/10 bg-line/[0.02] overflow-x-auto">
+    <div className="rounded-md border border-line/20 bg-line/[0.02] overflow-x-auto">
       <table className="w-full border-collapse text-[12px]">
         <colgroup>
           <col style={{ width: '220px' }}/>
           {matrix.brokers.map((b) => <col key={b.id}/>)}
         </colgroup>
         <thead>
-          <tr className="border-b border-line/10">
-            <th className="text-left px-3 py-2 font-medium text-slate-400 text-[10.5px] uppercase tracking-[0.12em] sticky left-0 bg-line/[0.02] z-[1]">
+          <tr className="border-b border-line/20">
+            <th className="text-left px-3 py-2.5 font-medium text-slate-500 text-[10.5px] uppercase tracking-[0.12em] sticky left-0 bg-ink-900 z-[1]">
               Topic
             </th>
             {matrix.brokers.map((b) => (
@@ -180,7 +180,7 @@ function CategoryGroup({ category, rows, brokers, open, onOpen, onClose }: {
       <tr>
         <td
           colSpan={brokers.length + 1}
-          className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-slate-500"
+          className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-slate-500 bg-line/[0.04] border-t border-line/15"
         >
           {category}
         </td>
@@ -202,7 +202,7 @@ function CategoryGroup({ category, rows, brokers, open, onOpen, onClose }: {
 function BrokerHeader({ broker, tier }: { broker: BrokerRef; tier: BrokerTier }) {
   return (
     <th
-      className="text-left px-3 py-2 font-medium text-slate-200 text-[12px] border-l border-line/5 whitespace-nowrap"
+      className="text-left px-3 py-2 font-medium text-slate-200 text-[12px] border-l border-line/15 whitespace-nowrap"
       title={broker.name}
     >
       <span className="inline-flex items-center gap-1.5">
@@ -221,10 +221,10 @@ function Row({ row, brokers, openBrokerId, onOpen, onClose }: {
   onClose: () => void
 }) {
   return (
-    <tr className="border-t border-line/5 align-top">
-      <td className="px-3 py-2.5 sticky left-0 bg-line/[0.02] z-[1]">
+    <tr className="border-t border-line/15 align-top">
+      <td className="px-3 py-2.5 sticky left-0 bg-ink-900 z-[1] border-r border-line/15">
         <div className="flex flex-col gap-0.5 max-w-[200px]">
-          <span className="text-slate-100 font-medium text-[12.5px] leading-snug">{row.topic}</span>
+          <span className="text-slate-100 font-semibold text-[12.5px] leading-snug">{row.topic}</span>
           {row.spread !== null && (
             <span className="text-[10px] text-slate-500 num">{row.spread}</span>
           )}
@@ -261,16 +261,22 @@ function Cell({ cell, broker, topic, open, onOpen, onClose }: {
   onClose: () => void
 }) {
   const triggerRef = useRef<HTMLButtonElement | null>(null)
+  // Tailwind's emerald/rose/accent palettes don't auto-invert with the theme
+  // (only the slate scale does — see tailwind.config.js). Use dark-on-tint in
+  // light mode and light-on-tint in dark so the text reads either way.
   const cellTone =
-    cell.stance === 'bull'   ? 'bg-emerald-500/[0.06] hover:bg-emerald-500/[0.12] text-emerald-200'
-    : cell.stance === 'bear' ? 'bg-rose-500/[0.06] hover:bg-rose-500/[0.12] text-rose-200'
-    : cell.stance === 'agree' ? 'bg-accent/[0.06] hover:bg-accent/[0.12] text-accent'
-    : 'text-slate-600'
+    cell.stance === 'bull'
+      ? 'bg-emerald-500/15 text-emerald-800 hover:bg-emerald-500/25 dark:bg-emerald-500/[0.10] dark:text-emerald-200 dark:hover:bg-emerald-500/20'
+      : cell.stance === 'bear'
+      ? 'bg-rose-500/15 text-rose-800 hover:bg-rose-500/25 dark:bg-rose-500/[0.10] dark:text-rose-200 dark:hover:bg-rose-500/20'
+      : cell.stance === 'agree'
+      ? 'bg-accent/15 text-accent hover:bg-accent/25 dark:bg-accent/[0.10] dark:hover:bg-accent/20'
+      : 'text-slate-500'
 
   const isInteractive = cell.stance !== 'absent'
 
   return (
-    <td className="border-l border-line/5 p-0 align-top min-w-[180px]">
+    <td className="border-l border-line/15 p-0 align-top min-w-[180px]">
       <button
         ref={triggerRef}
         onClick={isInteractive ? onOpen : undefined}
@@ -351,8 +357,8 @@ function CellPopover({ cell, broker, topic, anchor, onClose }: {
     : cell.stance === 'agree' ? 'Agreed view'
     : 'No view'
   const stanceCls =
-    cell.stance === 'bull'   ? 'border-emerald-500/40 text-emerald-300'
-    : cell.stance === 'bear' ? 'border-rose-500/40 text-rose-300'
+    cell.stance === 'bull'   ? 'border-emerald-500/40 text-emerald-700 dark:text-emerald-300'
+    : cell.stance === 'bear' ? 'border-rose-500/40 text-rose-700 dark:text-rose-300'
     : cell.stance === 'agree' ? 'border-accent/40 text-accent'
     : 'border-line/10 text-slate-500'
 
@@ -373,7 +379,7 @@ function CellPopover({ cell, broker, topic, anchor, onClose }: {
       <p className="text-[12px] text-slate-200 leading-relaxed line-clamp-5 whitespace-pre-wrap">
         {cell.excerpt}
       </p>
-      <div className="flex items-center justify-end pt-1 border-t border-line/5">
+      <div className="flex items-center justify-end pt-1 border-t border-line/15">
         <button
           onClick={onClose}
           className="text-[11px] text-slate-500 hover:text-slate-300"
