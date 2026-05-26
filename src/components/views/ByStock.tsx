@@ -264,16 +264,32 @@ function RefreshCmpButton({ onClick, fetchedAt }: { onClick: () => void; fetched
 
 function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; onSelectReport: (id: ReportId) => void }) {
   if (!cell) return <td className="px-2 py-2 text-[11.5px] text-slate-600">—</td>
+  // Every cell carries a directional tint so the column scans as a wash of
+  // colour at a glance. Outlier cells use a louder shade of the same colour
+  // plus the OUT pill, so the call still stands out without breaking the
+  // colour language.
+  const stanceBg = cell.outlier
+    ? (cell.stance === 'bullish' ? 'bg-emerald-500/[0.12]'
+       : cell.stance === 'bearish' ? 'bg-amber-500/[0.12]'
+       : 'bg-line/[0.06]')
+    : (cell.stance === 'bullish' ? 'bg-emerald-500/[0.05]'
+       : cell.stance === 'bearish' ? 'bg-rose-500/[0.05]'
+       : '')
+  const outChipCls = cell.stance === 'bullish'
+    ? 'border-emerald-500/50 text-emerald-300 bg-emerald-500/10'
+    : cell.stance === 'bearish'
+    ? 'border-amber-500/50 text-amber-300 bg-amber-500/10'
+    : 'border-line/20 text-slate-400 bg-line/5'
   return (
     <td
       role="button"
       tabIndex={0}
       onClick={() => onSelectReport(cell.lastReportId)}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(cell.lastReportId) } }}
-      className={`px-2 py-2 align-top cursor-pointer transition-colors hover:bg-line/[0.04] ${cell.outlier ? 'bg-amber-500/[0.06]' : ''}`}
+      className={`px-2 py-2 align-top cursor-pointer transition-colors hover:bg-line/[0.04] ${stanceBg}`}
     >
       <div className="flex items-center gap-1.5">
-        <span className={`num text-[12.5px] font-semibold ${cell.outlier ? 'text-amber-300' : 'text-slate-100'}`}>
+        <span className="num text-[12.5px] font-semibold text-slate-100">
           {formatPrice(cell.targetPrice, cell.targetCurrency, 0)}
         </span>
         {cell.targetDelta !== null && cell.targetDelta !== 0 && (
@@ -281,7 +297,7 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
             {cell.targetDelta > 0 ? '+' : ''}{cell.targetDelta}
           </span>
         )}
-        {cell.outlier && <span className="chip text-[9px] border border-amber-500/40 text-amber-300">OUT</span>}
+        {cell.outlier && <span className={`chip text-[9px] border ${outChipCls}`}>OUT</span>}
       </div>
       <div className="flex items-center gap-1.5">
         {cell.rating && (

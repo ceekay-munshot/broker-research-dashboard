@@ -174,11 +174,26 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
   rows.sort((a, b) => compareRows(a, b, inputs.view))
 
   // Column set: brokers with at least one opinion on screen.
-  const shownBrokerIds = new Set<string>()
+  // Order by coverage density (descending) so brokers with the most data
+  // sit just after the Disagreement column — sparse / mostly-empty
+  // brokers slide to the right and don't dominate the user's first scan.
+  const opinionCountByBroker = new Map<string, number>()
   for (const row of rows) {
-    for (const bid of Object.keys(row.opinionsByBroker)) shownBrokerIds.add(bid)
+    for (const bid of Object.keys(row.opinionsByBroker)) {
+      if (row.opinionsByBroker[bid as unknown as BrokerId] === undefined) continue
+      opinionCountByBroker.set(bid, (opinionCountByBroker.get(bid) ?? 0) + 1)
+    }
   }
-  const shownBrokers = inputs.brokers.filter((b) => shownBrokerIds.has(b.id as string))
+  const shownBrokers = inputs.brokers
+    .filter((b) => opinionCountByBroker.has(b.id as string))
+    .sort((a, b) => {
+      const ca = opinionCountByBroker.get(a.id as string) ?? 0
+      const cb = opinionCountByBroker.get(b.id as string) ?? 0
+      if (ca !== cb) return cb - ca
+      // Tie-break by name so the column order is stable across reloads
+      // when two brokers have identical coverage counts.
+      return a.shortName.localeCompare(b.shortName)
+    })
 
   return { rows, brokers: shownBrokers, hasPortfolio }
 }
