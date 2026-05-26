@@ -19,6 +19,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:upstream"],
       "port": 5173
+    },
+    {
+      "name": "fixture",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_PREVIEW_FIXTURE=1 npx vite --port 5174 --strictPort"],
+      "port": 5174
     }
   ]
 }

@@ -27,9 +27,13 @@ export interface BrokerCardViewModel {
   /** publishedAt of this broker's most recent report; null if none. */
   readonly latestReportAt: string | null
   readonly stanceCounts: Readonly<Record<Stance, number>>
-  readonly topThemes: readonly { readonly theme: string; readonly count: number }[]
+  /** Number of notes in the last 30 days where rating, stance, or target moved
+   *  vs the broker's prior comparable note on the same stock. */
+  readonly viewChangesLast30d: number
+  /** Most recent rating/stance/target change across the broker's coverage. */
+  readonly lastMove: BrokerLastMove | null
   /** Every note this broker published in range, newest first — the card shows
-   *  the first three and expands to reveal the rest. */
+   *  the first three; the drawer drills in for the full per-stock timeline. */
   readonly notes: readonly FeedItemViewModel[]
   /** Module 18: items this broker published on book / watchlist names. */
   readonly bookActivity: BrokerBookActivity
@@ -37,6 +41,12 @@ export interface BrokerCardViewModel {
   readonly resolutionClass: ResolutionClass | null
   /** Reports flagged for QA (broker conflict or broker/stock overlap). */
   readonly conflictCount: number
+}
+
+export interface BrokerLastMove {
+  readonly ticker: string
+  readonly publishedAt: string
+  readonly kind: 'rating' | 'target' | 'stance'
 }
 
 export interface BrokerBookActivity {
@@ -80,6 +90,56 @@ interface Inputs {
   readonly postEventReviews?: readonly PostEventReview[] | null
 }
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+
+/** Per-broker move statistics — counts notes in the last 30d where rating,
+ *  stance, or target changed vs the broker's prior comparable note on the
+ *  same ticker, and surfaces the most recent move for the card "last move"
+ *  line. Walks each (broker, ticker) bucket in publish order so the prior
+ *  comparable is the immediate predecessor on the same stock. */
+function computeMoveStats(
+  reports: readonly ResearchReport[],
+  summaryByReport: ReadonlyMap<string, ReportSummary>,
+): { viewChangesLast30d: number; lastMove: BrokerLastMove | null } {
+  const byTicker = new Map<string, ResearchReport[]>()
+  for (const r of reports) {
+    for (const t of r.tickers) {
+      const k = t as unknown as string
+      const arr = byTicker.get(k) ?? []
+      arr.push(r)
+      byTicker.set(k, arr)
+    }
+  }
+
+  const nowMs = Date.now()
+  let viewChangesLast30d = 0
+  let lastMove: BrokerLastMove | null = null
+
+  for (const [ticker, bucket] of byTicker) {
+    bucket.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
+    for (let i = 1; i < bucket.length; i++) {
+      const prev = summaryByReport.get(bucket[i - 1]!.id as string)
+      const cur = summaryByReport.get(bucket[i]!.id as string)
+      if (!cur) continue
+      const ratingChanged = !!prev && prev.rating !== cur.rating
+      const stanceChanged = !!prev && prev.stance !== cur.stance
+      const priorTp = prev?.targetPrice ?? cur.priorTargetPrice ?? null
+      const targetChanged = priorTp !== null && cur.targetPrice !== null && priorTp !== cur.targetPrice
+      if (!ratingChanged && !stanceChanged && !targetChanged) continue
+      const publishedAt = bucket[i]!.publishedAt
+      if (nowMs - Date.parse(publishedAt) <= THIRTY_DAYS_MS) viewChangesLast30d += 1
+      if (!lastMove || publishedAt > lastMove.publishedAt) {
+        lastMove = {
+          ticker,
+          publishedAt,
+          kind: ratingChanged ? 'rating' : targetChanged ? 'target' : 'stance',
+        }
+      }
+    }
+  }
+  return { viewChangesLast30d, lastMove }
+}
+
 /** Numeric baseline for relevance buckets so the engine has a scalar to nudge. */
 function bucketBaseline(b: 'critical' | 'high' | 'medium' | 'low' | 'none'): number {
   switch (b) {
@@ -102,8 +162,8 @@ const CLASS_RANK: Record<ResolutionClass, number> = {
 
 export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   // Collapse re-forwarded duplicates once, up front, so every card-level
-  // number — note count, stance mix, themes, latest notes — counts each
-  // distinct note exactly once.
+  // number — note count, stance mix, latest notes — counts each distinct
+  // note exactly once.
   const reports = dedupeReports(inputs.reports)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
   const brokerFilter = new Set<string>(inputs.filters.brokerIds as readonly string[])
@@ -150,21 +210,14 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
     const latestReportAt = theirs[0]?.publishedAt ?? null
 
     const stanceCounts: Record<Stance, number> = { bullish: 0, neutral: 0, bearish: 0 }
-    const themeTally = new Map<string, number>()
 
     for (const r of theirs) {
       const sum = summaryByReport.get(r.id as string)
       if (!sum) continue
       stanceCounts[sum.stance] += 1
-      for (const theme of sum.themes) {
-        themeTally.set(theme, (themeTally.get(theme) ?? 0) + 1)
-      }
     }
 
-    const topThemes = Array.from(themeTally.entries())
-      .map(([theme, count]) => ({ theme, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 4)
+    const { viewChangesLast30d, lastMove } = computeMoveStats(theirs, summaryByReport)
 
     const notes = theirs.map((r) => buildFeedItem(
       r, summaryByReport.get(r.id as string) ?? null, broker,
@@ -275,7 +328,8 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       tickersCovered,
       latestReportAt,
       stanceCounts,
-      topThemes,
+      viewChangesLast30d,
+      lastMove,
       notes,
       bookActivity,
       resolutionClass,

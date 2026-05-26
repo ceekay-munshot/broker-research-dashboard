@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import type { ReportId, StockTicker } from './domain'
+import type { BrokerId, ReportId, StockTicker } from './domain'
 import { useAdapterQuery } from './hooks/useAdapterQuery'
 import type { FiltersState } from './app/filters'
 import { DEFAULT_FILTERS } from './app/filters'
@@ -10,6 +10,7 @@ import Sidebar from './components/Sidebar'
 import Tabs from './components/Tabs'
 import ReportDrawer from './components/ReportDrawer'
 import StockDrawer from './components/StockDrawer'
+import BrokerDetailDrawer from './components/BrokerDetailDrawer'
 
 import Today from './components/views/Today'
 import ByBroker from './components/views/ByBroker'
@@ -44,6 +45,11 @@ export default function App() {
   const [filters, setFilters] = useState<FiltersState>(DEFAULT_FILTERS)
   const [selectedReportId, setSelectedReportId] = useState<ReportId | null>(null)
   const [selectedTicker, setSelectedTicker] = useState<StockTicker | null>(null)
+  // BrokerDetailDrawer state. Lives at the app root so the fixed overlay
+  // escapes the scroll/transform context of <main>. Opening a report from
+  // inside this drawer is allowed to layer on top — the user wants to
+  // return to the timeline after viewing the report.
+  const [selectedBrokerId, setSelectedBrokerId] = useState<BrokerId | null>(null)
 
   // Sidebar + header depend on tenant-catalog data. Fetch once per scope.
   const org = useAdapterQuery((a, s) => a.getOrganization(s), [])
@@ -87,6 +93,12 @@ export default function App() {
   const onSelectTicker = (t: StockTicker) => {
     setSelectedReportId(null)
     setSelectedTicker(t)
+    setSelectedBrokerId(null)
+  }
+  const onSelectBroker = (b: BrokerId) => {
+    setSelectedReportId(null)
+    setSelectedTicker(null)
+    setSelectedBrokerId(b)
   }
 
   return (
@@ -118,6 +130,7 @@ export default function App() {
                   filters={filters}
                   onSelectReport={onSelectReport}
                   onSelectTicker={onSelectTicker}
+                  onSelectBroker={onSelectBroker}
                   setActiveTab={setActiveTab}
                 />
               </div>
@@ -126,32 +139,38 @@ export default function App() {
         </main>
       </div>
 
-      <ReportDrawer
-        reportId={selectedReportId}
-        onClose={() => setSelectedReportId(null)}
-        onSelectTicker={onSelectTicker}
+      <BrokerDetailDrawer
+        brokerId={selectedBrokerId}
+        onClose={() => setSelectedBrokerId(null)}
+        onSelectReport={(id) => setSelectedReportId(id)}
       />
       <StockDrawer
         ticker={selectedTicker}
         onClose={() => setSelectedTicker(null)}
         onSelectReport={onSelectReport}
       />
+      <ReportDrawer
+        reportId={selectedReportId}
+        onClose={() => setSelectedReportId(null)}
+        onSelectTicker={onSelectTicker}
+      />
     </div>
   )
 }
 
-function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, setActiveTab }: {
+function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, onSelectBroker, setActiveTab }: {
   tab: TabId;
   filters: FiltersState;
   onSelectReport: (id: ReportId) => void;
   onSelectTicker: (t: StockTicker) => void;
+  onSelectBroker: (b: BrokerId) => void;
   setActiveTab: (t: TabId) => void;
 }) {
   switch (tab) {
     // Customer-facing tabs (visible in main nav)
     case 'today':         return <Today         filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} setActiveTab={setActiveTab}/>
     case 'stocks':        return <ByStock       filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
-    case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport}/>
+    case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport} onSelectBroker={onSelectBroker}/>
     case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker}/>
 
     // Admin/operator tabs (reachable only via the AdminMenu in the header)

@@ -1,6 +1,4 @@
-import { useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
-import type { ReportId } from '../../domain'
+import type { BrokerId, ReportId } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import type { BrokerCardViewModel, BrokerBookActivityItem } from '../../viewModels/byBroker'
 import { useByBrokerViewModel } from '../../viewModels/byBroker'
@@ -13,11 +11,11 @@ import { adaptiveRankingFlags } from '../../engine'
 interface ByBrokerProps {
   readonly filters: FiltersState
   readonly onSelectReport: (id: ReportId) => void
+  readonly onSelectBroker: (id: BrokerId) => void
 }
 
-export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
+export default function ByBroker({ filters, onSelectReport, onSelectBroker }: ByBrokerProps) {
   const { data, loading, error } = useByBrokerViewModel(filters)
-  const [popupBroker, setPopupBroker] = useState<BrokerCardViewModel | null>(null)
 
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
   if (loading || !data) return <ViewMessage tone="loading" text="Loading by-broker view…"/>
@@ -27,7 +25,7 @@ export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-slate-100 font-semibold text-base">By Broker / Research House</h2>
-          <p className="text-slate-400 text-[12px]">Stance mix, latest notes, and top themes per research house.</p>
+          <p className="text-slate-400 text-[12px]">Open a card to see how the broker's view on each stock has evolved over time.</p>
         </div>
       </div>
 
@@ -37,16 +35,10 @@ export default function ByBroker({ filters, onSelectReport }: ByBrokerProps) {
             key={b.brokerId}
             b={b}
             onSelectReport={onSelectReport}
-            onOpenBroker={setPopupBroker}
+            onOpenBroker={onSelectBroker}
           />
         ))}
       </div>
-
-      <BrokerCardPopup
-        broker={popupBroker}
-        onClose={() => setPopupBroker(null)}
-        onSelectReport={onSelectReport}
-      />
     </div>
   )
 }
@@ -82,15 +74,15 @@ function BrokerCard({
 }: {
   b: BrokerCardViewModel
   onSelectReport: (id: ReportId) => void
-  onOpenBroker: (b: BrokerCardViewModel) => void
+  onOpenBroker: (id: BrokerId) => void
 }) {
   const preview = b.notes.slice(0, 3)
   const hasMore = b.notes.length > 3
-  const open = () => onOpenBroker(b)
+  const open = () => onOpenBroker(b.brokerId)
 
   return (
     <div
-      className="panel panel-hover p-4 flex flex-col gap-3 cursor-pointer"
+      className="panel panel-hover p-4 flex flex-col gap-3 cursor-pointer focus:outline-none focus:border-accent/40"
       role="button"
       tabIndex={0}
       onClick={open}
@@ -123,6 +115,8 @@ function BrokerCard({
 
       <StanceRow counts={b.stanceCounts}/>
 
+      <ActivityRow b={b}/>
+
       <div>
         <div className="section-title mb-1.5">
           Latest notes
@@ -142,20 +136,34 @@ function BrokerCard({
         </ul>
       </div>
 
-      <div>
-        <div className="section-title mb-1.5">Top themes</div>
-        <div className="flex flex-wrap gap-1.5">
-          {b.topThemes.length === 0 && <span className="text-[11.5px] text-slate-500">No themes identified.</span>}
-          {b.topThemes.map((t) => (
-            <span key={t.theme} className="chip bg-line/[0.04] border border-line/5 text-slate-300">
-              {t.theme}<span className="text-slate-500 num">·{t.count}</span>
-            </span>
-          ))}
-        </div>
-      </div>
-
       {b.bookActivity.hasPortfolio && (
         <BookActivitySection activity={b.bookActivity} onSelectReport={onSelectReport}/>
+      )}
+
+      <div className="flex items-center justify-end text-[11px] pt-1 border-t border-line/5">
+        <span className="text-accent">View timeline →</span>
+      </div>
+    </div>
+  )
+}
+
+function ActivityRow({ b }: { b: BrokerCardViewModel }) {
+  return (
+    <div className="flex items-baseline flex-wrap gap-x-3 gap-y-1 text-[11px]">
+      <span className="text-slate-300">
+        <span className="num text-slate-100 font-semibold">{b.tickersCovered}</span>
+        <span className="text-slate-500 ml-1">stocks covered</span>
+      </span>
+      <span className="text-slate-300">
+        <span className={`num font-semibold ${b.viewChangesLast30d > 0 ? 'text-amber-300' : 'text-slate-400'}`}>{b.viewChangesLast30d}</span>
+        <span className="text-slate-500 ml-1">view change{b.viewChangesLast30d === 1 ? '' : 's'} in 30d</span>
+      </span>
+      {b.lastMove && (
+        <span className="text-slate-500">
+          last move:{' '}
+          <span className="text-slate-200 num">{b.lastMove.ticker}</span>
+          <span className="text-slate-500 num ml-1">· {formatShortDate(b.lastMove.publishedAt)}</span>
+        </span>
       )}
     </div>
   )
@@ -181,114 +189,6 @@ function NoteRow({
       )}
       <span className={`flex-1 truncate ${STANCE_TEXT_COLOR[item.stance]}`} title={item.headline}>{item.headline}</span>
     </button>
-  )
-}
-
-function BrokerCardPopup({
-  broker, onClose, onSelectReport,
-}: {
-  broker: BrokerCardViewModel | null
-  onClose: () => void
-  onSelectReport: (id: ReportId) => void
-}) {
-  useEffect(() => {
-    if (!broker) return
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [broker, onClose])
-
-  if (!broker) return null
-
-  // Clicking a note closes the popup and lets the global ReportDrawer take
-  // over. One overlay at a time matches how the rest of the app's drawers
-  // behave, and avoids a stacked-dialog Escape conflict.
-  const handleNoteClick = (id: ReportId) => {
-    onClose()
-    onSelectReport(id)
-  }
-
-  // Portal to <body> so the popup escapes ancestor `.panel` backdrop-blur,
-  // which creates a containing block for `position: fixed` and was anchoring
-  // the modal inside the main panel instead of the viewport.
-  return createPortal(
-    <div
-      className="fixed inset-0 z-40 flex items-center justify-center p-4"
-      role="dialog"
-      aria-modal="true"
-    >
-      <button
-        className="absolute inset-0 bg-ink-950/60 backdrop-blur-sm"
-        onClick={onClose}
-        aria-label="Close"
-      />
-      <div className="relative bg-ink-950 border border-line/5 rounded-lg shadow-2xl w-[min(92vw,640px)] max-h-[85vh] flex flex-col">
-        <div className="flex items-start justify-between gap-3 p-4 border-b border-line/5">
-          <div className="flex items-center gap-2.5">
-            <div
-              className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-bold ${BROKER_GLYPH_CLASS}`}
-            >
-              {broker.shortName.slice(0, 3).toUpperCase()}
-            </div>
-            <div className="flex flex-col">
-              <span className="text-slate-100 text-[13px] font-semibold">{broker.name}</span>
-              <span className="text-[10.5px] uppercase tracking-widest text-slate-500">
-                {broker.reportCount} {broker.reportCount === 1 ? 'note' : 'notes'} · {broker.tickersCovered} {broker.tickersCovered === 1 ? 'stock' : 'stocks'}
-                {broker.latestReportAt && <> · latest {formatShortDate(broker.latestReportAt)}</>}
-              </span>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {broker.conflictCount > 0 && (
-              <span
-                className="chip border border-amber-500/40 text-amber-300 bg-amber-500/10 text-[9.5px]"
-                title={`${broker.conflictCount} note${broker.conflictCount === 1 ? '' : 's'} need review — broker conflict or broker/stock overlap`}
-              >{broker.conflictCount} need{broker.conflictCount === 1 ? 's' : ''} review</span>
-            )}
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              className="text-slate-500 hover:text-slate-200 text-[18px] leading-none p-1"
-            >×</button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
-          <StanceRow counts={broker.stanceCounts}/>
-
-          <div>
-            <div className="section-title mb-1.5">Latest notes</div>
-            <ul className="flex flex-col gap-1.5">
-              {broker.notes.length === 0 && (
-                <li className="text-[11.5px] text-slate-500">No recent notes in the selected range.</li>
-              )}
-              {broker.notes.map((r) => (
-                <li key={r.reportId}>
-                  <NoteRow item={r} onClick={handleNoteClick}/>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <div className="section-title mb-1.5">Top themes</div>
-            <div className="flex flex-wrap gap-1.5">
-              {broker.topThemes.length === 0 && <span className="text-[11.5px] text-slate-500">No themes identified.</span>}
-              {broker.topThemes.map((t) => (
-                <span key={t.theme} className="chip bg-line/[0.04] border border-line/5 text-slate-300">
-                  {t.theme}<span className="text-slate-500 num">·{t.count}</span>
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {broker.bookActivity.hasPortfolio && (
-            <BookActivitySection activity={broker.bookActivity} onSelectReport={handleNoteClick}/>
-          )}
-        </div>
-      </div>
-    </div>,
-    document.body,
   )
 }
 
