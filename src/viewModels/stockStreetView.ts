@@ -17,7 +17,8 @@ import type {
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import { useStockDetailViewModel } from './stockDetail'
-import { CONSENSUS_ESTIMATES_BY_TICKER, REVISIONS_BY_TICKER } from '../mocks/consensusEstimates'
+import { REVISIONS_BY_TICKER } from '../mocks/consensusEstimates'
+import { BROKER_ESTIMATES_BY_BROKER_TICKER, type BrokerKpiEstimate } from '../mocks/brokerEstimates'
 
 export interface ConsensusTarget {
   readonly median: number | null
@@ -121,6 +122,13 @@ export interface StockStreetViewInputs {
   readonly brokers: readonly { readonly id: BrokerId; readonly shortName: string; readonly brandColor: string | null }[]
   /** Optional pre-computed divergences from the existing stockDetail VM. */
   readonly divergences?: readonly { readonly topic: string; readonly bullClaims: readonly string[]; readonly bearClaims: readonly string[]; readonly bullBrokers: readonly { readonly name: string }[]; readonly bearBrokers: readonly { readonly name: string }[] }[]
+  /** ISO date used as the anchor for FY label resolution. Typically the
+   *  stock's latest note `publishedAt`. Falls back to `now`, then real
+   *  wall-clock when both are absent. */
+  readonly asOfDate?: string
+  /** Test/storybook override for the anchor date. Used only when
+   *  `asOfDate` is absent. */
+  readonly now?: Date
 }
 
 // ── Mapping helpers ─────────────────────────────────────────────────────
@@ -165,6 +173,89 @@ function formatPctDelta(pct: number): string {
   const arrow = pct > 0 ? '↑' : pct < 0 ? '↓' : ''
   const abs = Math.abs(pct).toFixed(0)
   return `${arrow} ${pct > 0 ? '+' : pct < 0 ? '−' : ''}${abs}%`.trim()
+}
+
+/** Mid-May cutover for treating an Indian FY as "reported actual".
+ *  Demo heuristic — Indian companies typically file Q4/annual results
+ *  through April and into mid-May; a single month threshold is good
+ *  enough for label rendering. Tighten later if real cutover matters. */
+const DEMO_FY_RESULTS_REPORTED_FROM_MONTH = 5 // May
+
+/** Latest reported Indian FY as a 2-digit number relative to `now`.
+ *  Local-time getters so the user's clock (e.g. IST) doesn't flip the
+ *  result when new Date() lands the day before/after in UTC. */
+function currentBaseFY(now: Date): number {
+  const y = now.getFullYear() % 100
+  const m = now.getMonth() + 1 // 1-12
+  return m >= DEMO_FY_RESULTS_REPORTED_FROM_MONTH ? y : y - 1
+}
+
+function periodLabel(baseFY: number, yearOffset: number): string {
+  const fy = baseFY + yearOffset
+  const kind = yearOffset <= 0 ? 'A' : 'E'
+  const fy2 = ((fy % 100) + 100) % 100  // handle negative offsets too
+  return `FY${fy2.toString().padStart(2, '0')}${kind}`
+}
+
+/** Percentage / ratio metrics where CAGR is meaningless (you don't take a
+ *  CAGR over a margin). Pattern is loose on purpose so the demo data
+ *  doesn't need to declare its metric kind explicitly. */
+function isPercentageMetric(metric: string): boolean {
+  return /\(%\)|margin|ratio|\bbps\b/i.test(metric)
+}
+
+/** Aggregate per-broker KPI estimates into consensus rows. For every
+ *  (metric, yearOffset) tuple any covering broker mentioned, compute
+ *  median (point) plus min/max (range when ≥ 2 brokers agree on the
+ *  same metric/period). Metric ordering reflects insertion order of
+ *  the brokers we touch — typically a P&L-ish flow. */
+function aggregateBrokerEstimates(
+  brokerIds: readonly BrokerId[],
+  ticker: string,
+  baseFY: number,
+): readonly EstimateRow[] {
+  // Preserve insertion order across both metric and yearOffset.
+  const byMetric = new Map<string, Map<number, number[]>>()
+  for (const bId of brokerIds) {
+    const key = `${bId as unknown as string}|${ticker}`
+    const items: readonly BrokerKpiEstimate[] = BROKER_ESTIMATES_BY_BROKER_TICKER[key] ?? []
+    for (const e of items) {
+      let yearMap = byMetric.get(e.metric)
+      if (!yearMap) {
+        yearMap = new Map<number, number[]>()
+        byMetric.set(e.metric, yearMap)
+      }
+      const arr = yearMap.get(e.yearOffset) ?? []
+      arr.push(e.value)
+      yearMap.set(e.yearOffset, arr)
+    }
+  }
+
+  const rows: EstimateRow[] = []
+  for (const [metric, yearMap] of byMetric) {
+    const offsets = [...yearMap.keys()].sort((a, b) => a - b)
+    const values: EstimateValue[] = offsets.map((yo) => {
+      const xs = yearMap.get(yo)!
+      const point = median(xs)
+      const hasSpread = xs.length > 1
+      return {
+        period: periodLabel(baseFY, yo),
+        point,
+        rangeLow: hasSpread ? Math.min(...xs) : null,
+        rangeHigh: hasSpread ? Math.max(...xs) : null,
+      }
+    })
+    let cagr2yr: number | null = null
+    if (!isPercentageMetric(metric)) {
+      const m0 = median(yearMap.get(0) ?? [])
+      const m2 = median(yearMap.get(2) ?? [])
+      if (m0 != null && m2 != null && m0 > 0) {
+        cagr2yr = (Math.pow(m2 / m0, 1 / 2) - 1) * 100
+      }
+    }
+    rows.push({ metric, values, cagr2yr })
+  }
+  return rows
 }
 
 // ── Builder ─────────────────────────────────────────────────────────────
@@ -224,11 +315,18 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
       }
     : { median: null, min: null, max: null, currency }
 
-  // Section B — consensus estimates. Sourced from a per-ticker fixture
-  // today; when the backend starts emitting the same shape, the import
-  // can be swapped for an adapter call without touching the renderer.
-  const consensusEstimates: readonly EstimateRow[] =
-    CONSENSUS_ESTIMATES_BY_TICKER[ticker as unknown as string] ?? []
+  // Section B — consensus estimates. Built by aggregating each covering
+  // broker's KPI estimates: union all metrics they mention, compute
+  // median (point) + min/max (range) per (metric, yearOffset). FY column
+  // labels resolve from the stock's latest note date so an older note
+  // still reads correctly.
+  const anchor = inp.asOfDate ? new Date(inp.asOfDate) : (inp.now ?? new Date())
+  const baseFY = currentBaseFY(anchor)
+  const consensusEstimates = aggregateBrokerEstimates(
+    [...latestByBroker.values()].map((r) => r.brokerId),
+    ticker,
+    baseFY,
+  )
 
   // Section C — Street views at a glance
   const brokerSnapshot: BrokerSnapshotRow[] = [...latestByBroker.values()].map((r) => {
@@ -365,6 +463,12 @@ export function useStockStreetView(ticker: StockTicker | null): QueryResult<Stoc
   const data = useMemo<StockStreetView | null>(() => {
     if (!ticker) return null
     if (!brokers.data || !reports.data || !summaries.data) return null
+    // Anchor FY label resolution to the stock's latest note — so a note
+    // from 2025 reads "FY25A/26E/27E" even when opened in 2027.
+    const latestPublishedAt = reports.data.items
+      .map((r) => r.publishedAt)
+      .sort()
+      .at(-1)
     return buildStockStreetView({
       ticker,
       stockName: stockDetail.data?.stockName ?? null,
@@ -373,6 +477,7 @@ export function useStockStreetView(ticker: StockTicker | null): QueryResult<Stoc
       summaries: summaries.data,
       brokers: brokers.data.map((b) => ({ id: b.id, shortName: b.shortName, brandColor: b.brandColor })),
       divergences: stockDetail.data?.disagreements,
+      asOfDate: latestPublishedAt,
     })
   }, [ticker, brokers.data, reports.data, summaries.data, stockDetail.data])
 
