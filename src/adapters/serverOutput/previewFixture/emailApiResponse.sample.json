@@ -1,10 +1,1010 @@
 {
     "data": {
-        "total": 24,
+        "total": 44,
         "page": 1,
         "limit": 100,
         "totalPages": 1,
         "emails": [
+            {
+                "id": "446149bc-a506-4b78-a71c-fd2473ac4ed1",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [AMBIT] Krishna Institute of Medical Sciences (KIMS) — BUY, PT ₹880",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Mon, 25 May 2026 04:00:00 GMT\nSubject: Fw: [AMBIT] Krishna Institute of Medical Sciences (KIMS) — BUY, PT ₹880\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Sumit Jain, Ambit Research <sumit.jain@ambit.co>\n*Sent:* Mon, 25 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [AMBIT] Krishna Institute of Medical Sciences (KIMS) — BUY, PT ₹880\n\n* ------------------------------ *\n\n*Krishna Institute of Medical Sciences (KIMS) — BUY, PT ₹880*\nWe initiate / maintain a constructive view on KIMS. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹880.\n\nMargin tailwind from mature hospitals at ~29% margin and AP/Telangana ramp. EBITDA margin expands 160 bps over the next two years; operating margin compounding from here.\n\nGrowth runway intact — ARPOB growth at 14% yoy and bed addition plans on track. Revenue trajectory clocks 24% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nManagement execution remains the structural moat — QIP of ~₹15bn to deleverage and create headroom for inorganic optionality is disciplined. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Sumit Jain*\n*Institutional Equities*\n*Ambit Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-25T04:00:00.000Z",
+                "created_at": "2026-05-25T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "c7c39205-c627-4a6b-b78f-0d17d580303e",
+                        "type": "BODY",
+                        "filename": "-AMBIT-Krishna-Institute-of-Medical-Sciences-KIMS-BUY-PT-880 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1682,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "KIMS": {
+                                    "tp": "880",
+                                    "rating": "BUY",
+                                    "ticker": "KIMS"
+                                },
+                                "Krishna Institute of Medical Sciences": {
+                                    "tp": "880",
+                                    "rating": "BUY",
+                                    "ticker": "KIMS"
+                                },
+                                "Ambit Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "99b2de82-76be-4a98-b22d-a7cac6f54589",
+                            "title": "Email body - Fwd: Fw: [AMBIT] Krishna Institute of Medical Sciences (KIMS",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "8cc28847-2e6e-4717-8e3a-9989dadeef06",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [JMFL] Krishna Institute of Medical Sciences (KIMS) — ADD, PT ₹820",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sun, 24 May 2026 20:00:00 GMT\nSubject: Fw: [JMFL] Krishna Institute of Medical Sciences (KIMS) — ADD, PT ₹820\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Nehal Shah, JM Financial <nehal.shah@jmfl.com>\n*Sent:* Sun, 24 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [JMFL] Krishna Institute of Medical Sciences (KIMS) — ADD, PT ₹820\n\n* ------------------------------ *\n\n*Krishna Institute of Medical Sciences (KIMS) — ADD, PT ₹820*\nWe initiate / maintain a constructive view on KIMS. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Add with a target of ₹820.\n\nGrowth runway intact — ARPOB growth at 14% yoy and bed addition plans on track. Revenue trajectory clocks 24% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nDemand environment improving — cash + insurance mix tilting up, new specialties opening realisation ceilings. Pricing power returning; volume and tariff levers both contribute to 21% sales growth.\n\nOrder book / backlog steady-state at pipeline of 4 new units (Nashik, Thane, Mahadevapura, Electronic City); pipeline visibility extends 24 months. Execution-led re-rating likely.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Nehal Shah*\n*Institutional Equities*\n*JM Financial*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-24T20:00:00.000Z",
+                "created_at": "2026-05-24T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "4f6223d6-46e1-4b51-baf9-92d7838f6f01",
+                        "type": "BODY",
+                        "filename": "-JMFL-Krishna-Institute-of-Medical-Sciences-KIMS-ADD-PT-820 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1647,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "KIMS": {
+                                    "tp": "820",
+                                    "rating": "ADD",
+                                    "ticker": "KIMS"
+                                },
+                                "Krishna Institute of Medical Sciences": {
+                                    "tp": "820",
+                                    "rating": "ADD",
+                                    "ticker": "KIMS"
+                                },
+                                "JM Financial": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "48832e22-7304-4ce5-aca8-33535a7cdb96",
+                            "title": "Email body - Fwd: Fw: [JMFL] Krishna Institute of Medical Sciences (KIMS)",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "bbc07f3c-ddc4-415f-9353-3042a8039402",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [NUVAMA] Krishna Institute of Medical Sciences (KIMS) — SELL, PT ₹650",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sun, 24 May 2026 12:00:00 GMT\nSubject: Fw: [NUVAMA] Krishna Institute of Medical Sciences (KIMS) — SELL, PT ₹650\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Prakash Kapadia, Nuvama Institutional <prakash.kapadia@nuvama.com>\n*Sent:* Sun, 24 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [NUVAMA] Krishna Institute of Medical Sciences (KIMS) — SELL, PT ₹650\n\n* ------------------------------ *\n\n*Krishna Institute of Medical Sciences (KIMS) — SELL, PT ₹650*\nWe stay cautious on KIMS. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate Sell with a target of ₹650.\n\nMargin compression looks structural — new-unit losses (Thane, Bengaluru, Nashik) stretch break-even another 6 quarters. EBITDA margin contracts 120 bps; operating margin won't snap back as cleanly as bulls model.\n\nCatalyst path slipping — insurance empanelment timeline keeps slipping; FV unchanged at ₹695. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.\n\nManagement execution gaps are showing — execution credibility weakening — three commissioning delays in last six months. Capex discipline slipping; capital return commentary lacks credibility.\n\nRisks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.\n\nBest regards,\n*Prakash Kapadia*\n*Institutional Equities*\n*Nuvama Institutional*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-24T12:00:00.000Z",
+                "created_at": "2026-05-24T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "48e0593b-88d2-4ced-865a-19d6bb2a6a9c",
+                        "type": "BODY",
+                        "filename": "-NUVAMA-Krishna-Institute-of-Medical-Sciences-KIMS-SELL-PT-650 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1716,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "KIMS": {
+                                    "tp": "650",
+                                    "rating": "SELL",
+                                    "ticker": "KIMS"
+                                },
+                                "Krishna Institute of Medical Sciences": {
+                                    "tp": "650",
+                                    "rating": "SELL",
+                                    "ticker": "KIMS"
+                                },
+                                "Nuvama Institutional": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "2a66fbde-27a1-4cd6-ac09-619a1745903a",
+                            "title": "Email body - Fwd: Fw: [NUVAMA] Krishna Institute of Medical Sciences (KIM",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "b264e915-e88f-4444-a2bf-15c8833e8870",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [JMFL] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹780",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sun, 24 May 2026 04:00:00 GMT\nSubject: Fw: [JMFL] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹780\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Nehal Shah, JM Financial <nehal.shah@jmfl.com>\n*Sent:* Sun, 24 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [JMFL] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹780\n\n* ------------------------------ *\n\n*HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹780*\nWe initiate / maintain a constructive view on HDFCLIFE. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹780.\n\nMargin tailwind from higher non-par share in product mix lifts VNB margin to 28.6% by FY27E. EBITDA margin expands 180 bps over the next two years; operating margin compounding from here.\n\nGrowth runway intact — APE growth runway at 15%+ on non-par + ULIP traction. Revenue trajectory clocks 17% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nManagement execution remains the structural moat — capital management exemplary; capex discipline best-in-class among life players. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Nehal Shah*\n*Institutional Equities*\n*JM Financial*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-24T04:00:00.000Z",
+                "created_at": "2026-05-24T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "85726702-a99f-45ff-a8a4-4255a52e8d49",
+                        "type": "BODY",
+                        "filename": "-JMFL-HDFC-Life-Insurance-HDFCLIFE-BUY-PT-780 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1643,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCLIFE": {
+                                    "tp": "780",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "HDFC Life Insurance": {
+                                    "tp": "780",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "JM Financial": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "53e79377-8501-4ffa-9122-a1c8f2fcf38b",
+                            "title": "Email body - Fwd: Fw: [JMFL] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹78",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "211fc043-6ee6-416a-862d-9ab23f9fa848",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [KOTAK] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹760",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sat, 23 May 2026 20:00:00 GMT\nSubject: Fw: [KOTAK] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹760\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Alankar Garude, Kotak Research <alankar.garude@kotak.com>\n*Sent:* Sat, 23 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [KOTAK] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹760\n\n* ------------------------------ *\n\n*HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹760*\nWe initiate / maintain a constructive view on HDFCLIFE. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹760.\n\nMargin tailwind from higher non-par share in product mix lifts VNB margin to 28.6% by FY27E. EBITDA margin expands 180 bps over the next two years; operating margin compounding from here.\n\nCatalyst slate stacks well — Bima Sugam medium-term enlarges TAM; non-par margin expansion is the near-term catalyst. We see the launch / ramp drive a clear earnings inflection in 2QFY27.\n\nManagement execution remains the structural moat — capital management exemplary; capex discipline best-in-class among life players. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Alankar Garude*\n*Institutional Equities*\n*Kotak Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-23T20:00:00.000Z",
+                "created_at": "2026-05-23T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "80b769ee-1680-4622-b4dc-e80e422cbb29",
+                        "type": "BODY",
+                        "filename": "-KOTAK-HDFC-Life-Insurance-HDFCLIFE-BUY-PT-760 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1677,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCLIFE": {
+                                    "tp": "760",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "HDFC Life Insurance": {
+                                    "tp": "760",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "Kotak Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "15c6d108-c1e0-4d9c-984d-344fd4b04961",
+                            "title": "Email body - Fwd: Fw: [KOTAK] HDFC Life Insurance (HDFCLIFE) — BUY, PT ₹7",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "343a299a-f37b-4709-b21a-2c525a977aeb",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [NUVAMA] HDFC Life Insurance (HDFCLIFE) — SELL, PT ₹580",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sat, 23 May 2026 12:00:00 GMT\nSubject: Fw: [NUVAMA] HDFC Life Insurance (HDFCLIFE) — SELL, PT ₹580\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Prakash Kapadia, Nuvama Institutional <prakash.kapadia@nuvama.com>\n*Sent:* Sat, 23 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [NUVAMA] HDFC Life Insurance (HDFCLIFE) — SELL, PT ₹580\n\n* ------------------------------ *\n\n*HDFC Life Insurance (HDFCLIFE) — SELL, PT ₹580*\nWe stay cautious on HDFCLIFE. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate Sell with a target of ₹580.\n\nMargin compression looks structural — IRDAI commission caps compress VNB margin to 27.4%; bancassurance competition won't ease. EBITDA margin contracts 120 bps; operating margin won't snap back as cleanly as bulls model.\n\nDemand softness persists — Bima Sugam structurally disintermediates distributors; pricing power erodes. Pricing pressure intensifies, competitive dynamics worsen; volume won't compensate.\n\nCatalyst path slipping — LTCG headwind hits APE in 2QFY27; re-rating window pushed out. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.\n\nRisks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.\n\nBest regards,\n*Prakash Kapadia*\n*Institutional Equities*\n*Nuvama Institutional*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-23T12:00:00.000Z",
+                "created_at": "2026-05-23T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "c6d60cfb-caa8-4369-b4fb-9d38ecdc34d9",
+                        "type": "BODY",
+                        "filename": "-NUVAMA-HDFC-Life-Insurance-HDFCLIFE-SELL-PT-580 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1675,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCLIFE": {
+                                    "tp": "580",
+                                    "rating": "SELL",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "HDFC Life Insurance": {
+                                    "tp": "580",
+                                    "rating": "SELL",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "Nuvama Institutional": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "828b80fa-f064-469a-83e2-22fe3c9fb697",
+                            "title": "Email body - Fwd: Fw: [NUVAMA] HDFC Life Insurance (HDFCLIFE) — SELL, PT ",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "60ec9020-dcd2-41c4-a46e-3b23287e3b71",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [IIFL] HDFC Life Insurance (HDFCLIFE) — HOLD, PT ₹680",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Sat, 23 May 2026 04:00:00 GMT\nSubject: Fw: [IIFL] HDFC Life Insurance (HDFCLIFE) — HOLD, PT ₹680\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Naman Bagrecha, IIFL Capital <naman.bagrecha@iiflcap.com>\n*Sent:* Sat, 23 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [IIFL] HDFC Life Insurance (HDFCLIFE) — HOLD, PT ₹680\n\n* ------------------------------ *\n\n*HDFC Life Insurance (HDFCLIFE) — HOLD, PT ₹680*\nWe maintain a balanced view on HDFCLIFE. The fundamentals are steady but the next leg of re-rating needs a sharper catalyst than we see today. We rate Hold with a target of ₹680.\n\nGrowth steady but unspectacular at 13% CAGR; we see neither inflection nor breakage.\n\nCatalyst calendar light over the next two quarters; we see no near-term inflection.\n\nOrder book flat at EV growth at low-teens; book-to-bill ~1.0x. Execution paces are the only meaningful swing factor from here.\n\nRisks two-way: either margin or demand surprise positively, and the next leg of re-rating begins; or guidance is cut at 2QFY27 and the de-rating extends.\n\nBest regards,\n*Naman Bagrecha*\n*Institutional Equities*\n*IIFL Capital*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-23T04:00:00.000Z",
+                "created_at": "2026-05-23T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "bd58da0c-c57a-409d-8627-d9376dd97cf2",
+                        "type": "BODY",
+                        "filename": "-IIFL-HDFC-Life-Insurance-HDFCLIFE-HOLD-PT-680 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1308,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCLIFE": {
+                                    "tp": "680",
+                                    "rating": "HOLD",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "HDFC Life Insurance": {
+                                    "tp": "680",
+                                    "rating": "HOLD",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "IIFL Capital": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "1bb9b630-674e-474c-8271-d8c2bd33f54b",
+                            "title": "Email body - Fwd: Fw: [IIFL] HDFC Life Insurance (HDFCLIFE) — HOLD, PT ₹6",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "04f355a0-2964-42e2-b7c0-c49b231d98a8",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [AMBIT] HDFC Life Insurance (HDFCLIFE) — ADD, PT ₹740",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Fri, 22 May 2026 20:00:00 GMT\nSubject: Fw: [AMBIT] HDFC Life Insurance (HDFCLIFE) — ADD, PT ₹740\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Sumit Jain, Ambit Research <sumit.jain@ambit.co>\n*Sent:* Fri, 22 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [AMBIT] HDFC Life Insurance (HDFCLIFE) — ADD, PT ₹740\n\n* ------------------------------ *\n\n*HDFC Life Insurance (HDFCLIFE) — ADD, PT ₹740*\nWe initiate / maintain a constructive view on HDFCLIFE. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Add with a target of ₹740.\n\nGrowth runway intact — APE growth runway at 15%+ on non-par + ULIP traction. Revenue trajectory clocks 17% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nDemand environment improving — tier-2/tier-3 retail demand re-accelerating; agency channel productivity up. Pricing power returning; volume and tariff levers both contribute to 15% sales growth.\n\nManagement execution remains the structural moat — capital management exemplary; capex discipline best-in-class among life players. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Sumit Jain*\n*Institutional Equities*\n*Ambit Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-22T20:00:00.000Z",
+                "created_at": "2026-05-22T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "8e95119b-3126-4786-b2a0-d0c8c6965a99",
+                        "type": "BODY",
+                        "filename": "-AMBIT-HDFC-Life-Insurance-HDFCLIFE-ADD-PT-740 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1656,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCLIFE": {
+                                    "tp": "740",
+                                    "rating": "ADD",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "HDFC Life Insurance": {
+                                    "tp": "740",
+                                    "rating": "ADD",
+                                    "ticker": "HDFCLIFE"
+                                },
+                                "Ambit Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "47e50624-7e9c-4033-87a1-cce724616028",
+                            "title": "Email body - Fwd: Fw: [AMBIT] HDFC Life Insurance (HDFCLIFE) — ADD, PT ₹7",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "7ebd4c6c-dd94-4356-b83b-d1da81bc3795",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [KOTAK] Maruti Suzuki India (MARUTI) — BUY, PT ₹14,500",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Fri, 22 May 2026 12:00:00 GMT\nSubject: Fw: [KOTAK] Maruti Suzuki India (MARUTI) — BUY, PT ₹14,500\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Alankar Garude, Kotak Research <alankar.garude@kotak.com>\n*Sent:* Fri, 22 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [KOTAK] Maruti Suzuki India (MARUTI) — BUY, PT ₹14,500\n\n* ------------------------------ *\n\n*Maruti Suzuki India (MARUTI) — BUY, PT ₹14,500*\nWe initiate / maintain a constructive view on MARUTI. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹14,500.\n\nGrowth runway intact — UV penetration and CNG demand drive ~10% volume CAGR; export tailwind underestimated. Revenue trajectory clocks 12% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nDemand environment improving — rural demand returning; festive bookings up 18% yoy with strong UV mix. Pricing power returning; volume and tariff levers both contribute to 14% sales growth.\n\nOrder book / backlog steady-state at order book pipeline (Brezza, Grand Vitara, Fronx waitlists) sustains 8 weeks of cover; pipeline visibility extends 6 months. Execution-led re-rating likely.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Alankar Garude*\n*Institutional Equities*\n*Kotak Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-22T12:00:00.000Z",
+                "created_at": "2026-05-22T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "63950199-73d3-47aa-9289-e2f457aba8c7",
+                        "type": "BODY",
+                        "filename": "-KOTAK-Maruti-Suzuki-India-MARUTI-BUY-PT-14-500 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1668,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "MARUTI": {
+                                    "tp": "14500",
+                                    "rating": "BUY",
+                                    "ticker": "MARUTI"
+                                },
+                                "Maruti Suzuki India": {
+                                    "tp": "14500",
+                                    "rating": "BUY",
+                                    "ticker": "MARUTI"
+                                },
+                                "Kotak Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "86216615-9b18-4852-a080-ee665ba37798",
+                            "title": "Email body - Fwd: Fw: [KOTAK] Maruti Suzuki India (MARUTI) — BUY, PT ₹14,",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "884bc650-f14e-42a7-a843-1cf26dc37607",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [JMFL] Maruti Suzuki India (MARUTI) — SELL, PT ₹11,200",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Fri, 22 May 2026 04:00:00 GMT\nSubject: Fw: [JMFL] Maruti Suzuki India (MARUTI) — SELL, PT ₹11,200\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Nehal Shah, JM Financial <nehal.shah@jmfl.com>\n*Sent:* Fri, 22 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [JMFL] Maruti Suzuki India (MARUTI) — SELL, PT ₹11,200\n\n* ------------------------------ *\n\n*Maruti Suzuki India (MARUTI) — SELL, PT ₹11,200*\nWe stay cautious on MARUTI. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate Sell with a target of ₹11,200.\n\nDemand softness persists — pricing pressure intensifies in sub-₹6L; competitive launches from Tata, Hyundai squeeze share. Pricing pressure intensifies, competitive dynamics worsen; volume won't compensate.\n\nMargin compression looks structural — pricing aggression in entry hatchback drags EBITDA margin 90bps lower. EBITDA margin contracts 90 bps; operating margin won't snap back as cleanly as bulls model.\n\nCatalyst path slipping — rural retail trough being pushed out another quarter; festive will be the test. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.\n\nRisks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.\n\nBest regards,\n*Nehal Shah*\n*Institutional Equities*\n*JM Financial*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-22T04:00:00.000Z",
+                "created_at": "2026-05-22T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "4d0fc4bf-8c12-43d4-bddf-99bb320ecaa0",
+                        "type": "BODY",
+                        "filename": "-JMFL-Maruti-Suzuki-India-MARUTI-SELL-PT-11-200 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1658,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "MARUTI": {
+                                    "tp": "11200",
+                                    "rating": "SELL",
+                                    "ticker": "MARUTI"
+                                },
+                                "Maruti Suzuki India": {
+                                    "tp": "11200",
+                                    "rating": "SELL",
+                                    "ticker": "MARUTI"
+                                },
+                                "JM Financial": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "94cf6f89-7650-4785-b136-9cb91e103807",
+                            "title": "Email body - Fwd: Fw: [JMFL] Maruti Suzuki India (MARUTI) — SELL, PT ₹11,",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "c22e4016-a4d5-4e8e-9a3b-58b72fad2c53",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [GS] Maruti Suzuki India (MARUTI) — HOLD, PT ₹12,800",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Thu, 21 May 2026 20:00:00 GMT\nSubject: Fw: [GS] Maruti Suzuki India (MARUTI) — HOLD, PT ₹12,800\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Pulkit Patni, Goldman Sachs <pulkit.patni@gs.com>\n*Sent:* Thu, 21 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [GS] Maruti Suzuki India (MARUTI) — HOLD, PT ₹12,800\n\n* ------------------------------ *\n\n*Maruti Suzuki India (MARUTI) — HOLD, PT ₹12,800*\nWe maintain a balanced view on MARUTI. The fundamentals are steady but the next leg of re-rating needs a sharper catalyst than we see today. We rate Hold with a target of ₹12,800.\n\nGrowth steady but unspectacular at 8% CAGR; we see neither inflection nor breakage.\n\nMargin trajectory range-bound. EBITDA margin trends sideways at 11.5% as mix vs discount tug-of-war offsets pricing levers.\n\nManagement track record is steady — execution in line with prior guidance; no material slippage on capex.\n\nRisks two-way: either margin or demand surprise positively, and the next leg of re-rating begins; or guidance is cut at 2QFY27 and the de-rating extends.\n\nBest regards,\n*Pulkit Patni*\n*Institutional Equities*\n*Goldman Sachs*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-21T20:00:00.000Z",
+                "created_at": "2026-05-21T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "e773637c-055e-464f-a2b8-7f8ef208108b",
+                        "type": "BODY",
+                        "filename": "-GS-Maruti-Suzuki-India-MARUTI-HOLD-PT-12-800 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1317,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "MARUTI": {
+                                    "tp": "12800",
+                                    "rating": "HOLD",
+                                    "ticker": "MARUTI"
+                                },
+                                "Maruti Suzuki India": {
+                                    "tp": "12800",
+                                    "rating": "HOLD",
+                                    "ticker": "MARUTI"
+                                },
+                                "Goldman Sachs": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "988167a4-0579-4623-8edf-3fd36cdccaeb",
+                            "title": "Email body - Fwd: Fw: [GS] Maruti Suzuki India (MARUTI) — HOLD, PT ₹12,80",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "1a13121d-191e-4d03-993f-c5159c56a28e",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [IIFL] Maruti Suzuki India (MARUTI) — BUY, PT ₹13,900",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Thu, 21 May 2026 12:00:00 GMT\nSubject: Fw: [IIFL] Maruti Suzuki India (MARUTI) — BUY, PT ₹13,900\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Naman Bagrecha, IIFL Capital <naman.bagrecha@iiflcap.com>\n*Sent:* Thu, 21 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [IIFL] Maruti Suzuki India (MARUTI) — BUY, PT ₹13,900\n\n* ------------------------------ *\n\n*Maruti Suzuki India (MARUTI) — BUY, PT ₹13,900*\nWe initiate / maintain a constructive view on MARUTI. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹13,900.\n\nGrowth runway intact — UV penetration and CNG demand drive ~10% volume CAGR; export tailwind underestimated. Revenue trajectory clocks 12% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nOrder book / backlog steady-state at order book pipeline (Brezza, Grand Vitara, Fronx waitlists) sustains 8 weeks of cover; pipeline visibility extends 6 months. Execution-led re-rating likely.\n\nManagement execution remains the structural moat — capex discipline through the EV transition; capital return guidance maintained. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Naman Bagrecha*\n*Institutional Equities*\n*IIFL Capital*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-21T12:00:00.000Z",
+                "created_at": "2026-05-21T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "fdec4684-7a6c-4c92-a136-d232dd00e77e",
+                        "type": "BODY",
+                        "filename": "-IIFL-Maruti-Suzuki-India-MARUTI-BUY-PT-13-900 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1699,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "MARUTI": {
+                                    "tp": "13900",
+                                    "rating": "BUY",
+                                    "ticker": "MARUTI"
+                                },
+                                "Maruti Suzuki India": {
+                                    "tp": "13900",
+                                    "rating": "BUY",
+                                    "ticker": "MARUTI"
+                                },
+                                "IIFL Capital": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "34bddce1-0e04-4be9-8aaf-b3bef2fdf0cb",
+                            "title": "Email body - Fwd: Fw: [IIFL] Maruti Suzuki India (MARUTI) — BUY, PT ₹13,9",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "f16fe9f6-6712-4196-b930-f199194835b0",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [KOTAK] Tata Consultancy Services (TCS) — BUY, PT ₹4,500",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Thu, 21 May 2026 04:00:00 GMT\nSubject: Fw: [KOTAK] Tata Consultancy Services (TCS) — BUY, PT ₹4,500\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Alankar Garude, Kotak Research <alankar.garude@kotak.com>\n*Sent:* Thu, 21 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [KOTAK] Tata Consultancy Services (TCS) — BUY, PT ₹4,500\n\n* ------------------------------ *\n\n*Tata Consultancy Services (TCS) — BUY, PT ₹4,500*\nWe initiate / maintain a constructive view on TCS. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹4,500.\n\nGrowth runway intact — BFSI deal TCV accelerating; GenAI attach drives incremental growth in FY27-28. Revenue trajectory clocks 10% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nOrder book / backlog steady-state at deal TCV at $13bn quarterly run-rate; mega-deal pipeline 30% bigger yoy; pipeline visibility extends 24 months. Execution-led re-rating likely.\n\nManagement execution remains the structural moat — capex discipline and capital return commentary signal confident operator. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Alankar Garude*\n*Institutional Equities*\n*Kotak Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-21T04:00:00.000Z",
+                "created_at": "2026-05-21T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "bc6e0f45-9234-4f79-b96a-1b98efc507f6",
+                        "type": "BODY",
+                        "filename": "-KOTAK-Tata-Consultancy-Services-TCS-BUY-PT-4-500 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1679,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "TCS": {
+                                    "tp": "4500",
+                                    "rating": "BUY",
+                                    "ticker": "TCS"
+                                },
+                                "Tata Consultancy Services": {
+                                    "tp": "4500",
+                                    "rating": "BUY",
+                                    "ticker": "TCS"
+                                },
+                                "Kotak Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "719efb9c-0f34-483d-97ca-a2674560a7db",
+                            "title": "Email body - Fwd: Fw: [KOTAK] Tata Consultancy Services (TCS) — BUY, PT ₹",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "52cce87f-661d-485e-98f3-a8a666b6ce88",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [JMFL] Tata Consultancy Services (TCS) — BUY, PT ₹4,400",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Wed, 20 May 2026 20:00:00 GMT\nSubject: Fw: [JMFL] Tata Consultancy Services (TCS) — BUY, PT ₹4,400\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Nehal Shah, JM Financial <nehal.shah@jmfl.com>\n*Sent:* Wed, 20 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [JMFL] Tata Consultancy Services (TCS) — BUY, PT ₹4,400\n\n* ------------------------------ *\n\n*Tata Consultancy Services (TCS) — BUY, PT ₹4,400*\nWe initiate / maintain a constructive view on TCS. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹4,400.\n\nMargin tailwind from pyramid optimisation + utilisation gains push EBIT margin to 25.5% by FY27E. EBITDA margin expands 100 bps over the next two years; operating margin compounding from here.\n\nGrowth runway intact — BFSI deal TCV accelerating; GenAI attach drives incremental growth in FY27-28. Revenue trajectory clocks 10% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nOrder book / backlog steady-state at deal TCV at $13bn quarterly run-rate; mega-deal pipeline 30% bigger yoy; pipeline visibility extends 24 months. Execution-led re-rating likely.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Nehal Shah*\n*Institutional Equities*\n*JM Financial*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-20T20:00:00.000Z",
+                "created_at": "2026-05-20T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "697fa628-8569-4d20-b89d-b0a3db66b936",
+                        "type": "BODY",
+                        "filename": "-JMFL-Tata-Consultancy-Services-TCS-BUY-PT-4-400 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1634,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "TCS": {
+                                    "tp": "4400",
+                                    "rating": "BUY",
+                                    "ticker": "TCS"
+                                },
+                                "Tata Consultancy Services": {
+                                    "tp": "4400",
+                                    "rating": "BUY",
+                                    "ticker": "TCS"
+                                },
+                                "JM Financial": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "32fb4cbf-2366-45d3-88ef-9ee85ec75c5b",
+                            "title": "Email body - Fwd: Fw: [JMFL] Tata Consultancy Services (TCS) — BUY, PT ₹4",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "94e1da98-2916-4e21-8c6c-cfb9d5efa01e",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [AMBIT] Tata Consultancy Services (TCS) — HOLD, PT ₹4,100",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Wed, 20 May 2026 12:00:00 GMT\nSubject: Fw: [AMBIT] Tata Consultancy Services (TCS) — HOLD, PT ₹4,100\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Sumit Jain, Ambit Research <sumit.jain@ambit.co>\n*Sent:* Wed, 20 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [AMBIT] Tata Consultancy Services (TCS) — HOLD, PT ₹4,100\n\n* ------------------------------ *\n\n*Tata Consultancy Services (TCS) — HOLD, PT ₹4,100*\nWe maintain a balanced view on TCS. The fundamentals are steady but the next leg of re-rating needs a sharper catalyst than we see today. We rate Hold with a target of ₹4,100.\n\nDemand mix neutral — rural recovery offsets urban slowdown; pricing flat. Tariff increases unlikely in the near term.\n\nGrowth steady but unspectacular at 7% CAGR; we see neither inflection nor breakage.\n\nCatalyst calendar light over the next two quarters; we see no near-term inflection.\n\nRisks two-way: either margin or demand surprise positively, and the next leg of re-rating begins; or guidance is cut at 2QFY27 and the de-rating extends.\n\nBest regards,\n*Sumit Jain*\n*Institutional Equities*\n*Ambit Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-20T12:00:00.000Z",
+                "created_at": "2026-05-20T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "52e332f9-11d7-4f80-b5e9-907eb45ba21c",
+                        "type": "BODY",
+                        "filename": "-AMBIT-Tata-Consultancy-Services-TCS-HOLD-PT-4-100 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1295,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "TCS": {
+                                    "tp": "4100",
+                                    "rating": "HOLD",
+                                    "ticker": "TCS"
+                                },
+                                "Tata Consultancy Services": {
+                                    "tp": "4100",
+                                    "rating": "HOLD",
+                                    "ticker": "TCS"
+                                },
+                                "Ambit Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "cc3fefdf-0619-4ba4-82b1-da30c043f7d1",
+                            "title": "Email body - Fwd: Fw: [AMBIT] Tata Consultancy Services (TCS) — HOLD, PT ",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "9f21767d-7e2e-48cc-bd22-a8300259f58e",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [AVENDUS] Tata Consultancy Services (TCS) — SELL, PT ₹3,800",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Wed, 20 May 2026 04:00:00 GMT\nSubject: Fw: [AVENDUS] Tata Consultancy Services (TCS) — SELL, PT ₹3,800\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Krishnan ASV, Avendus Spark <krishnan.asv@avendus.com>\n*Sent:* Wed, 20 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [AVENDUS] Tata Consultancy Services (TCS) — SELL, PT ₹3,800\n\n* ------------------------------ *\n\n*Tata Consultancy Services (TCS) — SELL, PT ₹3,800*\nWe stay cautious on TCS. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate Sell with a target of ₹3,800.\n\nDemand softness persists — pricing competitive in commoditised verticals; clients pushing back on rate cards. Pricing pressure intensifies, competitive dynamics worsen; volume won't compensate.\n\nMargin compression looks structural — wage hike + pricing pressure offset utilisation gains; EBIT margin range-bound. EBITDA margin contracts 70 bps; operating margin won't snap back as cleanly as bulls model.\n\nCatalyst path slipping — BFSI discretionary trough being pushed out another quarter; rate cut benefit deferred. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.\n\nRisks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.\n\nBest regards,\n*Krishnan ASV*\n*Institutional Equities*\n*Avendus Spark*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-20T04:00:00.000Z",
+                "created_at": "2026-05-20T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "dc1bf684-bb71-482e-9752-9a8b9121d302",
+                        "type": "BODY",
+                        "filename": "-AVENDUS-Tata-Consultancy-Services-TCS-SELL-PT-3-800 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1680,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "TCS": {
+                                    "tp": "3800",
+                                    "rating": "SELL",
+                                    "ticker": "TCS"
+                                },
+                                "Tata Consultancy Services": {
+                                    "tp": "3800",
+                                    "rating": "SELL",
+                                    "ticker": "TCS"
+                                },
+                                "Avendus Spark": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "84c47d41-c894-4d6d-9d11-982da81ac6c4",
+                            "title": "Email body - Fwd: Fw: [AVENDUS] Tata Consultancy Services (TCS) — SELL, P",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "06e7b172-528d-487e-9d77-4e9e66b5cb10",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [KOTAK] HDFC Bank (HDFCBANK) — BUY, PT ₹2,100",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Tue, 19 May 2026 20:00:00 GMT\nSubject: Fw: [KOTAK] HDFC Bank (HDFCBANK) — BUY, PT ₹2,100\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Alankar Garude, Kotak Research <alankar.garude@kotak.com>\n*Sent:* Tue, 19 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [KOTAK] HDFC Bank (HDFCBANK) — BUY, PT ₹2,100\n\n* ------------------------------ *\n\n*HDFC Bank (HDFCBANK) — BUY, PT ₹2,100*\nWe initiate / maintain a constructive view on HDFCBANK. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹2,100.\n\nMargin tailwind from cost-of-deposits rolling down; NIM expands 20bps over FY26-27 as merger drag fades. EBITDA margin expands 20 bps over the next two years; operating margin compounding from here.\n\nGrowth runway intact — retail credit + SME book growth at 15%; deposits granularising on branch productivity. Revenue trajectory clocks 15% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nManagement execution remains the structural moat — management transition handled cleanly; capex / branch expansion discipline intact. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Alankar Garude*\n*Institutional Equities*\n*Kotak Research*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-19T20:00:00.000Z",
+                "created_at": "2026-05-19T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "7e22f85a-9f6f-42d8-b858-0b96049c1879",
+                        "type": "BODY",
+                        "filename": "-KOTAK-HDFC-Bank-HDFCBANK-BUY-PT-2-100 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1686,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCBANK": {
+                                    "tp": "2100",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "HDFC Bank": {
+                                    "tp": "2100",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "Kotak Research": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "a0fbb92f-48a3-4243-b936-dbc682dd217e",
+                            "title": "Email body - Fwd: Fw: [KOTAK] HDFC Bank (HDFCBANK) — BUY, PT ₹2,100",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "f3ba8c47-05db-46cd-89d0-7547fd750a53",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [JMFL] HDFC Bank (HDFCBANK) — BUY, PT ₹2,050",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Tue, 19 May 2026 12:00:00 GMT\nSubject: Fw: [JMFL] HDFC Bank (HDFCBANK) — BUY, PT ₹2,050\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Nehal Shah, JM Financial <nehal.shah@jmfl.com>\n*Sent:* Tue, 19 May 2026 12:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [JMFL] HDFC Bank (HDFCBANK) — BUY, PT ₹2,050\n\n* ------------------------------ *\n\n*HDFC Bank (HDFCBANK) — BUY, PT ₹2,050*\nWe initiate / maintain a constructive view on HDFCBANK. The set-up is favourable: margin trajectory is improving, growth pipeline is intact, and management execution remains the structural anchor. We rate Buy with a target of ₹2,050.\n\nGrowth runway intact — retail credit + SME book growth at 15%; deposits granularising on branch productivity. Revenue trajectory clocks 15% CAGR over FY26-29E; deal TCV / order pipeline still accelerating.\n\nOrder book / backlog steady-state at CASA pipeline strong post-merger; granular deposit franchise rebuilding; pipeline visibility extends 36 months. Execution-led re-rating likely.\n\nManagement execution remains the structural moat — management transition handled cleanly; capex / branch expansion discipline intact. Capex discipline + capital return signal a high-conviction operator. Governance has improved.\n\nRisks to our call: a sharper-than-expected margin disappointment or a regulatory shock. We see the risk-reward favouring the long side over the next 4-6 quarters.\n\nBest regards,\n*Nehal Shah*\n*Institutional Equities*\n*JM Financial*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-19T12:00:00.000Z",
+                "created_at": "2026-05-19T12:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "71c51621-7ba1-410f-8594-6f0ea8284ac3",
+                        "type": "BODY",
+                        "filename": "-JMFL-HDFC-Bank-HDFCBANK-BUY-PT-2-050 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1649,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCBANK": {
+                                    "tp": "2050",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "HDFC Bank": {
+                                    "tp": "2050",
+                                    "rating": "BUY",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "JM Financial": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "e2838209-4ff7-41dd-bf65-3064c73918ea",
+                            "title": "Email body - Fwd: Fw: [JMFL] HDFC Bank (HDFCBANK) — BUY, PT ₹2,050",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "340d807c-779c-4bc7-89e9-a0e5c0233773",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [NUVAMA] HDFC Bank (HDFCBANK) — HOLD, PT ₹1,820",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Tue, 19 May 2026 04:00:00 GMT\nSubject: Fw: [NUVAMA] HDFC Bank (HDFCBANK) — HOLD, PT ₹1,820\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Prakash Kapadia, Nuvama Institutional <prakash.kapadia@nuvama.com>\n*Sent:* Tue, 19 May 2026 04:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [NUVAMA] HDFC Bank (HDFCBANK) — HOLD, PT ₹1,820\n\n* ------------------------------ *\n\n*HDFC Bank (HDFCBANK) — HOLD, PT ₹1,820*\nWe maintain a balanced view on HDFCBANK. The fundamentals are steady but the next leg of re-rating needs a sharper catalyst than we see today. We rate Hold with a target of ₹1,820.\n\nMargin trajectory range-bound. EBITDA margin trends sideways at 3.45% as funding mix shift offsets pricing levers.\n\nDemand mix neutral — rural recovery offsets urban slowdown; pricing flat. Tariff increases unlikely in the near term.\n\nCatalyst calendar light over the next two quarters; we see no near-term inflection.\n\nRisks two-way: either margin or demand surprise positively, and the next leg of re-rating begins; or guidance is cut at 2QFY27 and the de-rating extends.\n\nBest regards,\n*Prakash Kapadia*\n*Institutional Equities*\n*Nuvama Institutional*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-19T04:00:00.000Z",
+                "created_at": "2026-05-19T04:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "dd1385f6-1292-4d18-aa25-efd26cc5094c",
+                        "type": "BODY",
+                        "filename": "-NUVAMA-HDFC-Bank-HDFCBANK-HOLD-PT-1-820 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1329,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCBANK": {
+                                    "tp": "1820",
+                                    "rating": "HOLD",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "HDFC Bank": {
+                                    "tp": "1820",
+                                    "rating": "HOLD",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "Nuvama Institutional": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "dd09ed65-e98d-4f8f-90e6-d4590abd3755",
+                            "title": "Email body - Fwd: Fw: [NUVAMA] HDFC Bank (HDFCBANK) — HOLD, PT ₹1,820",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
+            {
+                "id": "0276f8c4-6598-4b90-ae7d-d645e77657b0",
+                "forwarded_by_email": "ceekay@muns.io",
+                "original_sender_email": "simran@beascapital.in",
+                "original_sender_name": "Simran Thakkar",
+                "subject": "Fwd: Fw: [IIFL] HDFC Bank (HDFCBANK) — SELL, PT ₹1,550",
+                "metadata": null,
+                "text_body": "---------- Forwarded message ---------\nFrom: Simran Thakkar <simran@beascapital.in>\nDate: Mon, 18 May 2026 20:00:00 GMT\nSubject: Fw: [IIFL] HDFC Bank (HDFCBANK) — SELL, PT ₹1,550\nTo: Chiraag Kapil <ceekay@muns.io>\n\n------------------------------\n*From:* Naman Bagrecha, IIFL Capital <naman.bagrecha@iiflcap.com>\n*Sent:* Mon, 18 May 2026 20:00:00 GMT\n*To:* Simran Thakkar <simran@beascapital.in>\n*Subject:* [IIFL] HDFC Bank (HDFCBANK) — SELL, PT ₹1,550\n\n* ------------------------------ *\n\n*HDFC Bank (HDFCBANK) — SELL, PT ₹1,550*\nWe stay cautious on HDFCBANK. The risk-reward looks unattractive into FY27: margin compression risks are underappreciated, growth normalisation is biting, and the catalyst path keeps slipping. We rate Sell with a target of ₹1,550.\n\nDemand softness persists — unsecured retail stress visible; credit cost normalisation a real risk. Pricing pressure intensifies, competitive dynamics worsen; volume won't compensate.\n\nMargin compression looks structural — NIM compression persists as wholesale funding stays sticky; cost-of-deposits won't roll. EBITDA margin contracts 15 bps; operating margin won't snap back as cleanly as bulls model.\n\nCatalyst path slipping — NIM trough timing keeps slipping; rate cut benefit deferred to FY28. The much-anticipated trough is being pushed out another quarter; rate cut benefit deferred.\n\nRisks to our cautious view: a sharper-than-expected demand recovery or a margin surprise on cost programmes. Until we see those, we stay on the side-lines.\n\nBest regards,\n*Naman Bagrecha*\n*Institutional Equities*\n*IIFL Capital*\n\nThis email is intended solely for the recipient.",
+                "status": "PROCESSED",
+                "received_at": "2026-05-18T20:00:00.000Z",
+                "created_at": "2026-05-18T20:00:00.000Z",
+                "uploads": [
+                    {
+                        "id": "25515d72-7516-4737-91d9-03c7eed2a774",
+                        "type": "BODY",
+                        "filename": "-IIFL-HDFC-Bank-HDFCBANK-SELL-PT-1-550 body.txt",
+                        "mime_type": "text/plain",
+                        "size_bytes": 1630,
+                        "status": "UPLOADED",
+                        "error": null,
+                        "metadata": {
+                            "ner_results": {
+                                "HDFCBANK": {
+                                    "tp": "1550",
+                                    "rating": "SELL",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "HDFC Bank": {
+                                    "tp": "1550",
+                                    "rating": "SELL",
+                                    "ticker": "HDFCBANK"
+                                },
+                                "IIFL Capital": {
+                                    "tp": "N/A",
+                                    "rating": "N/A",
+                                    "ticker": "No match"
+                                }
+                            }
+                        },
+                        "document": {
+                            "document_id": "82cb3361-d5d5-4679-b258-f7cf326eb330",
+                            "title": "Email body - Fwd: Fw: [IIFL] HDFC Bank (HDFCBANK) — SELL, PT ₹1,550",
+                            "file_type": "txt",
+                            "category": "filing",
+                            "form": "email",
+                            "signed_url": ""
+                        }
+                    }
+                ]
+            },
             {
                 "id": "8fc710ca-a10f-4e87-9ce3-877b1d0727aa",
                 "forwarded_by_email": "ceekay@muns.io",
