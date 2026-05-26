@@ -1,16 +1,14 @@
-// Right pane for the "Where they disagree" mode — one company, framed
-// around the Street's agreement AND disagreement at equal weight. The
-// takeaway, the target-price gap, where they agree, where they disagree,
-// and the outliers. Secondary analysis (key drivers, open questions,
-// confidence rationale) sits behind a `MoreDetail` expander.
+// Right pane for the "Where they disagree" mode — one company, displayed
+// as a spreadsheet-style matrix: topics down the rows, brokers across the
+// columns. Header carries the takeaway and confidence; the matrix toggles
+// between disagree and agree. Outliers and secondary analysis sit below.
 
 import type { StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import { composeStreetInsight, type BrokerTier } from '../../viewModels/disagreementInsight'
 import { VerdictBadge, ConfidenceMeter, StanceMix, OutlierRow, MoreDetail } from './shared'
 import TargetPriceScale from './TargetPriceScale'
-import WhereTheyAgree from './WhereTheyAgree'
-import WhyTheyDisagree from './WhyTheyDisagree'
+import StreetMatrix from './StreetMatrix'
 
 interface Props {
   readonly c: DivergenceCardViewModel
@@ -20,16 +18,6 @@ interface Props {
 
 export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
   const insight = composeStreetInsight(c)
-
-  // Order the disagreements for "Why they disagree": the overall bull-vs-
-  // bear thesis (stance) first, then thematic splits by debate volume.
-  // Rating and target-price are excluded — the verdict badge and the
-  // target scale already carry those.
-  const stancePoints = c.disagreements.filter((d) => d.dimension === 'stance')
-  const themePoints = c.disagreements
-    .filter((d) => d.dimension !== 'stance' && d.dimension !== 'rating' && d.dimension !== 'target_price')
-    .sort((a, b) => debateVolume(b) - debateVolume(a))
-  const whyPoints = [...stancePoints, ...themePoints]
 
   return (
     <div className="flex flex-col gap-5">
@@ -61,12 +49,7 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
 
       <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers}/>
 
-      {/* Agreement and disagreement get equal weight — agreement was
-          previously buried inside MoreDetail. WhereTheyAgree owns its own
-          sort + filter; CompanyDetail just hands in the raw point list. */}
-      <WhereTheyAgree points={c.consensus} tierFor={tierFor}/>
-
-      <WhyTheyDisagree points={whyPoints} tierFor={tierFor}/>
+      <StreetMatrix c={c} tierFor={tierFor}/>
 
       {c.outliers.length > 0 && (
         <div className="flex flex-col gap-2.5">
@@ -104,10 +87,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────
-
-function debateVolume(d: DivergenceCardViewModel['disagreements'][number]): number {
-  return d.bullCitationCount + d.bearCitationCount + d.bullBrokers.length + d.bearBrokers.length
-}
 
 function hasMoreDetail(c: DivergenceCardViewModel): boolean {
   return c.resultant.keyDrivers.length > 0

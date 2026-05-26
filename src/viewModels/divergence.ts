@@ -16,6 +16,8 @@ export interface DivergenceCardViewModel {
   readonly sectorName: string
   readonly currency: string
   readonly brokerCount: number
+  /** Every broker covering this stock, used as the column set in the matrix view. */
+  readonly brokers: readonly BrokerRef[]
   readonly stanceDistribution: ConflictClosure['stanceDistribution']
   readonly targetStats: TargetStats
   readonly resultant: ResultantLogic
@@ -134,6 +136,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
         sectorName,
         currency: stock?.currency ?? 'INR',
         brokerCount: c.brokerCount,
+        brokers: c.brokerIds.map((b) => ref(b as unknown as string)),
         stanceDistribution: c.stanceDistribution,
         targetStats: c.targetStats,
         resultant: c.resultant,
