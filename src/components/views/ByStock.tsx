@@ -62,22 +62,22 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <ViewSelector view={view} setView={setView} showPortfolio={data.hasPortfolio}/>
       </div>
 
-      <div className="panel overflow-x-auto">
+      <div className="panel overflow-auto max-h-[calc(100vh-220px)]">
         <table className="w-full min-w-[1260px] text-[12px]">
-          <thead className="bg-line/[0.02] border-b border-line/5">
+          <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
-              <th className="px-3 py-2 font-medium sticky left-0 z-10 bg-ink-900 border-r border-line/10">Ticker</th>
-              <th className="px-3 py-2 font-medium">Street state</th>
-              <th className="px-3 py-2 font-medium text-right">
+              <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-900 border-r border-line/10">Ticker</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-900">Street state</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-900">
                 <div className="flex items-center justify-end gap-1.5">
                   <span>CMP</span>
                   <RefreshCmpButton onClick={refetchCmp} fetchedAt={lastFetchedAt}/>
                 </div>
               </th>
-              <th className="px-3 py-2 font-medium text-right">Avg target</th>
-              <th className="px-3 py-2 font-medium">Disagreement</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-900">Avg target</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-900">Disagreement</th>
               {data.brokers.map((b) => (
-                <th key={b.id} className="px-2 py-2 font-medium">
+                <th key={b.id} className="px-2 py-2 font-medium sticky top-0 z-20 bg-ink-900">
                   <div className="flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${BROKER_DOT_CLASS}`}/>
                     <span className="uppercase tracking-wider text-[10.5px]">{b.shortName}</span>
@@ -191,14 +191,17 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectRepo
     : undefined
   return (
     <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
-      <td className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10">
-        <button
-          onClick={() => onSelectTicker(row.ticker)}
-          className="flex flex-col text-left hover:text-accent transition-colors"
-        >
-          <span className="text-slate-100 font-semibold hover:text-accent">{row.ticker}</span>
+      <td
+        role="button"
+        tabIndex={0}
+        onClick={() => onSelectTicker(row.ticker)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectTicker(row.ticker) } }}
+        className="px-3 py-2 sticky left-0 z-10 bg-ink-900 border-r border-line/10 cursor-pointer hover:bg-line/[0.04] group transition-colors"
+      >
+        <div className="flex flex-col">
+          <span className="text-slate-100 font-semibold group-hover:text-accent transition-colors">{row.ticker}</span>
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
-        </button>
+        </div>
       </td>
       <td className="px-3 py-2" title={filterTooltip}>
         <div className="flex flex-col gap-1">
