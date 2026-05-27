@@ -22,6 +22,13 @@ export interface FetchForwardedEmailsOptions {
   readonly baseUrl: string
   /** Bearer token for the Authorization header. */
   readonly token?: string | null
+  /**
+   * Target user index — REQUIRED when the bearer is a service token
+   * (`isServiceToken=true`), otherwise the backend returns 400 "user could
+   * not be resolved" (API doc §2.3, §3.1). Optional with a user JWT.
+   * Sent as the `user_index` query param on every page request.
+   */
+  readonly userIndex?: number | string | null
   /** Injectable fetch — defaults to the global `fetch`. */
   readonly fetchImpl?: typeof fetch
   /** Override the page cap (clamped to the 25-page safety cap). */
@@ -45,7 +52,13 @@ function readTotalPages(body: unknown): number {
 async function getPage(page: number, opts: FetchForwardedEmailsOptions): Promise<unknown> {
   const doFetch = opts.fetchImpl ?? fetch
   const base = opts.baseUrl.replace(/\/+$/, '')
-  const url = `${base}/email/forwarded?page=${page}&limit=${PAGE_LIMIT}`
+  // `user_index` is appended only when the caller supplied one — empty / null
+  // omits the param entirely so a user-JWT request stays clean.
+  const userIndexParam =
+    opts.userIndex === undefined || opts.userIndex === null || opts.userIndex === ''
+      ? ''
+      : `&user_index=${encodeURIComponent(String(opts.userIndex))}`
+  const url = `${base}/email/forwarded?page=${page}&limit=${PAGE_LIMIT}${userIndexParam}`
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
   try {

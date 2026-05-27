@@ -28,6 +28,13 @@ async function resolveAuthToken(): Promise<string | null> {
   return value ?? null
 }
 
+/** Resolve the target user index for `user_index` (API doc §2.3, §3.1).
+ *  Required for service-token requests, ignored with a user JWT. */
+function resolveUserIndex(): number | string | null {
+  const hint = readScopeBootstrap().userIndexHint ?? import.meta.env.VITE_API_USER_INDEX
+  return hint === undefined || hint === '' ? null : hint
+}
+
 export async function applyPreviewFixture(): Promise<void> {
   const backendUrl = import.meta.env.VITE_BACKEND_API_URL
   const useFixture = !!import.meta.env.VITE_PREVIEW_FIXTURE
@@ -46,6 +53,7 @@ export async function applyPreviewFixture(): Promise<void> {
       const pages = await fetchForwardedEmailsDataset({
         baseUrl: backendUrl,
         token: await resolveAuthToken(),
+        userIndex: resolveUserIndex(),
       })
       // Live data: keep backend timestamps exactly as received — never
       // anchor, or customer-facing report dates and Today become wrong.
