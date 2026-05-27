@@ -28,6 +28,15 @@ interface ImportMetaEnv {
    */
   readonly VITE_API_TOKEN?: string
   /**
+   * Target user index for the forwarded-email endpoint when the bearer is a
+   * service token (`isServiceToken=true`). REQUIRED in that case per
+   * docs/forwarded-email-api §2.3 — sent as `?user_index=…`. Ignored with a
+   * user JWT. The host can also inject it via
+   * `window.__BROKER_RESEARCH_DASHBOARD__.userIndexHint` or the URL param
+   * `?user_index=…`.
+   */
+  readonly VITE_API_USER_INDEX?: string
+  /**
    * Raw-upstream → `/v1` normalization profile selector.
    *
    *   identity           (default) upstream already speaks /v1

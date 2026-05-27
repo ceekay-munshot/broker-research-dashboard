@@ -415,6 +415,88 @@ test('a truly empty / header-only email stays summary-less', () => {
   assertEqual(out.opinions.length, 0, 'no opinion invented')
 })
 
+// ── Wire-shape compatibility (API doc §5) ─────────────────────────────────
+
+test('camelCase aliases are accepted on emails, uploads, and document', () => {
+  // Spec §5 commits the normalizer to accept both snake_case and camelCase
+  // for every aliased field. A backend that emits the camelCase variants
+  // must produce the same downstream report / attachment as the snake_case
+  // equivalent — otherwise sender, body and signed-URL silently go empty.
+  const out = emailApiResponseToServerOutput(payload([{
+    id: 'e-cc-1',
+    forwardedByEmail: 'ceekay@muns.io',
+    originalSenderEmail: 'analyst@kotak.com',
+    originalSenderName: 'Kotak Research',
+    subject: 'Reliance Industries: 1QFY26 result — BUY',
+    textBody: '*From:* Kotak Research <analyst@kotak.com>\n\nReliance posts a strong 1Q; we stay BUY with target 3200.',
+    receivedAt: '2026-05-26T10:00:00.000Z',
+    uploads: [{
+      id: 'u-cc-1', type: 'BODY', filename: 'body.txt',
+      mimeType: 'text/plain',
+      sizeBytes: 4096,
+      metadata: { ner_results: { 'Reliance Industries': { ticker: 'RELIANCE', rating: 'BUY', tp: '3200' } } },
+      document: { documentId: 'doc-cc-1', signedUrl: 'https://signed.example/doc-cc-1' },
+    }],
+  }]))
+
+  const email = out.emails[0]
+  assert(email, 'an email was created from the camelCase payload')
+  assertEqual(email.senderAddress, 'analyst@kotak.com', 'originalSenderEmail alias propagates to senderAddress')
+  assertEqual(email.senderName, 'Kotak Research', 'originalSenderName alias propagates to senderName')
+  assertEqual(email.forwardedFrom[0], 'ceekay@muns.io', 'forwardedByEmail alias propagates to forwardedFrom')
+  assertEqual(email.bodyPreview.startsWith('*From:* Kotak Research'), true, 'textBody alias propagates to bodyPreview')
+  assertEqual(email.receivedAt.startsWith('2026-05-26T10:00:00'), true, 'receivedAt alias parses as a timestamp')
+
+  const attachment = out.attachments[0]
+  assert(attachment, 'an attachment was created from the camelCase upload')
+  assertEqual(attachment.mimeType, 'text/plain', 'mimeType alias propagates')
+  assertEqual(attachment.sizeBytes, 4096, 'sizeBytes alias propagates')
+  assertEqual(attachment.storageRef, 'doc-cc-1', 'document.documentId alias propagates to storageRef')
+  assertEqual(attachment.sourceUrl, 'https://signed.example/doc-cc-1', 'document.signedUrl alias propagates to sourceUrl')
+
+  const rpt = out.reports.find((r) => r.title.toLowerCase().includes('reliance'))
+  assert(rpt, 'NER landed on the report')
+  assertEqual(tickers(rpt!).includes('RELIANCE'), true, 'ticker survives the alias path')
+})
+
+test('lower-case tickers from NER are normalized to uppercase (no case-split stocks)', () => {
+  // Spec §4.5: "Normalize ticker to uppercase". If the wire ever sent
+  // "reliance" instead of "RELIANCE", stocks/opinions/disagreements would
+  // split across two keys without this normalization.
+  const out = emailApiResponseToServerOutput(payload([{
+    id: 'e-case-1',
+    forwarded_by_email: 'ceekay@muns.io',
+    original_sender_email: 'a@kotak.com',
+    original_sender_name: 'Kotak',
+    subject: 'Reliance — BUY',
+    text_body: '*From:* Kotak <a@kotak.com>\n\nReliance: BUY with TP 3200.',
+    received_at: '2026-05-26T10:00:00.000Z',
+    uploads: [{
+      id: 'u-case-1', type: 'BODY', filename: 'body.txt',
+      metadata: { ner_results: { 'Reliance Industries': { ticker: 'reliance', rating: 'BUY', tp: '3200' } } },
+    }],
+  }, {
+    id: 'e-case-2',
+    forwarded_by_email: 'ceekay@muns.io',
+    original_sender_email: 'b@iiflcap.com',
+    original_sender_name: 'IIFL',
+    subject: 'Reliance — SELL',
+    text_body: '*From:* IIFL <b@iiflcap.com>\n\nReliance: SELL with TP 2400.',
+    received_at: '2026-05-26T11:00:00.000Z',
+    uploads: [{
+      id: 'u-case-2', type: 'BODY', filename: 'body.txt',
+      metadata: { ner_results: { 'Reliance Industries': { ticker: 'RELIANCE', rating: 'SELL', tp: '2400' } } },
+    }],
+  }]))
+
+  const relianceStocks = out.stocks.filter((s) => String(s.ticker).toUpperCase() === 'RELIANCE')
+  assertEqual(relianceStocks.length, 1, 'one Stock row exists for RELIANCE — no case-split duplicate')
+  assertEqual(String(relianceStocks[0].ticker), 'RELIANCE', 'the stored ticker is uppercase')
+  assertEqual(out.opinions.length, 2, 'both brokers contribute an opinion')
+  assertEqual(out.opinions.every((o) => String(o.ticker) === 'RELIANCE'), true,
+    'opinions also key on the uppercase ticker')
+})
+
 // ── Summary ───────────────────────────────────────────────────────────────
 
 const passed = results.filter((r) => r.ok).length

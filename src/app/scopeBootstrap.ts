@@ -33,6 +33,11 @@ export interface ExternalScopeBootstrap {
   readonly orgIdHint?: string
   readonly actingUserIdHint?: string
 
+  /** Target user index for the forwarded-email endpoint when the bearer is a
+   *  service token. REQUIRED in that case (API doc §2.3, §3.1); ignored
+   *  otherwise. Sent as the `user_index` query param. */
+  readonly userIndexHint?: number | string
+
   /** Called when the upstream returns 401. The host can use this to refresh
    *  the token out-of-band (e.g. prompt a parent frame to re-mint). */
   readonly onUnauthenticated?: () => void
@@ -114,6 +119,7 @@ function hasAnyField(b: ExternalScopeBootstrap): boolean {
   return b.token !== undefined
     || b.orgIdHint !== undefined
     || b.actingUserIdHint !== undefined
+    || b.userIndexHint !== undefined
     || b.onUnauthenticated !== undefined
     || b.hostLabel !== undefined
 }
@@ -124,12 +130,14 @@ function readFromUrl(): ExternalScopeBootstrap | null {
   const token = params.get('token') ?? undefined
   const orgIdHint = params.get('orgId') ?? undefined
   const actingUserIdHint = params.get('actingUserId') ?? undefined
-  if (!token && !orgIdHint && !actingUserIdHint) return null
-  return { token, orgIdHint, actingUserIdHint }
+  const userIndexHint = params.get('user_index') ?? params.get('userIndex') ?? undefined
+  if (!token && !orgIdHint && !actingUserIdHint && !userIndexHint) return null
+  return { token, orgIdHint, actingUserIdHint, userIndexHint }
 }
 
 function readFromEnv(): ExternalScopeBootstrap | null {
   const token = import.meta.env.VITE_API_TOKEN
-  if (!token) return null
-  return { token }
+  const userIndexHint = import.meta.env.VITE_API_USER_INDEX
+  if (!token && !userIndexHint) return null
+  return { token, userIndexHint }
 }

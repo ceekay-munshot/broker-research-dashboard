@@ -55,24 +55,28 @@ import { extractSubjectName, normalizeKey } from '../../lib/reportSubject'
 // ── Raw wire shape ───────────────────────────────────────────────────────
 
 interface RawNer { readonly tp?: unknown; readonly rating?: unknown; readonly ticker?: unknown }
-interface RawDocument { readonly document_id?: unknown; readonly title?: unknown; readonly signed_url?: unknown }
+interface RawDocument {
+  readonly document_id?: unknown;     readonly documentId?: unknown
+  readonly title?: unknown
+  readonly signed_url?: unknown;      readonly signedUrl?: unknown
+}
 interface RawUpload {
   readonly id?: unknown
   readonly type?: unknown
   readonly filename?: unknown
-  readonly mime_type?: unknown
-  readonly size_bytes?: unknown
+  readonly mime_type?: unknown;       readonly mimeType?: unknown
+  readonly size_bytes?: unknown;      readonly sizeBytes?: unknown
   readonly metadata?: unknown
   readonly document?: RawDocument | null
 }
 interface RawEmail {
   readonly id?: unknown
-  readonly forwarded_by_email?: unknown
-  readonly original_sender_email?: unknown
-  readonly original_sender_name?: unknown
+  readonly forwarded_by_email?: unknown;    readonly forwardedByEmail?: unknown
+  readonly original_sender_email?: unknown; readonly originalSenderEmail?: unknown
+  readonly original_sender_name?: unknown;  readonly originalSenderName?: unknown
   readonly subject?: unknown
-  readonly text_body?: unknown
-  readonly received_at?: unknown
+  readonly text_body?: unknown;             readonly textBody?: unknown
+  readonly received_at?: unknown;           readonly receivedAt?: unknown
   readonly uploads?: unknown
 }
 
@@ -108,6 +112,29 @@ const ENTITY_STOPLIST = new Set([
 // ── Small helpers ────────────────────────────────────────────────────────
 
 function str(v: unknown): string { return typeof v === 'string' ? v : '' }
+
+/** Read the first string value found across alias keys (snake_case → camelCase).
+ *  Non-string / missing values yield ''. See API doc §5 for the alias set. */
+function getStr(o: unknown, ...keys: readonly string[]): string {
+  if (!o || typeof o !== 'object') return ''
+  const r = o as Record<string, unknown>
+  for (const k of keys) {
+    const v = r[k]
+    if (typeof v === 'string') return v
+  }
+  return ''
+}
+
+/** Numeric counterpart to {@link getStr}: first finite-number value across aliases. */
+function getNum(o: unknown, ...keys: readonly string[]): number {
+  if (!o || typeof o !== 'object') return 0
+  const r = o as Record<string, unknown>
+  for (const k of keys) {
+    const v = r[k]
+    if (typeof v === 'number' && Number.isFinite(v)) return v
+  }
+  return 0
+}
 
 /** Map the NER rating vocabulary onto the dashboard's canonical Rating. */
 function mapRating(raw: string): Rating | null {
@@ -187,7 +214,7 @@ function dedupeAndSortEmails(emails: readonly RawEmail[]): RawEmail[] {
     if (!byId.has(id)) byId.set(id, e)
   }
   const receivedMs = (e: RawEmail): number => {
-    const t = Date.parse(str(e.received_at))
+    const t = Date.parse(getStr(e, 'received_at', 'receivedAt'))
     return Number.isFinite(t) ? t : 0
   }
   return [...byId.values(), ...noId].sort((a, b) => receivedMs(b) - receivedMs(a))
@@ -203,9 +230,9 @@ function dedupeAndSortEmails(emails: readonly RawEmail[]): RawEmail[] {
 /** The forwarder's display name for a forwarded email — surfaced as
  *  "Received via" in the UI, never used as the broker identity. */
 function resolveSenderName(e: RawEmail): string {
-  return str(e.original_sender_name).trim()
-    || str(e.original_sender_email).trim()
-    || str(e.forwarded_by_email).trim()
+  return getStr(e, 'original_sender_name', 'originalSenderName').trim()
+    || getStr(e, 'original_sender_email', 'originalSenderEmail').trim()
+    || getStr(e, 'forwarded_by_email', 'forwardedByEmail').trim()
     || 'Unknown sender'
 }
 
@@ -258,9 +285,10 @@ function candidatesFor(
   const byTicker = new Map<string, RawCandidate>()
   for (const [entityName, row] of Object.entries(ner)) {
     if (ENTITY_STOPLIST.has(entityName)) continue
-    const ticker = str(row.ticker).trim()
-    const tl = ticker.toLowerCase()
-    if (!ticker || tl === 'no match' || tl === 'n/a' || BAD_TICKERS.has(ticker.toUpperCase())) continue
+    // API doc §4.5: normalize ticker to uppercase at intake so downstream
+    // grouping (byTicker, stocks, opinions) cannot split on case.
+    const ticker = str(row.ticker).trim().toUpperCase()
+    if (!ticker || ticker === 'NO MATCH' || ticker === 'N/A' || BAD_TICKERS.has(ticker)) continue
     const rating = mapRating(str(row.rating))
     const rawNerTp = str(row.tp)
     const parsedNerTp = parseTp(rawNerTp)
@@ -378,7 +406,7 @@ function buildServerOutputFromEmails(
   if (options.anchorToNow) {
     let newest = Number.NEGATIVE_INFINITY
     for (const e of rawEmails) {
-      const ms = Date.parse(str(e.received_at))
+      const ms = Date.parse(getStr(e, 'received_at', 'receivedAt'))
       if (Number.isFinite(ms) && ms > newest) newest = ms
     }
     if (Number.isFinite(newest)) delta = now.getTime() - newest
@@ -398,17 +426,24 @@ function buildServerOutputFromEmails(
   const textBodyByEmail = new Map<string, string>()
 
   for (const e of rawEmails) {
+    // Alias-aware reads — backend may emit snake_case or camelCase (API doc §5).
+    const eTextBody          = getStr(e, 'text_body', 'textBody')
+    const eReceivedAtRaw     = getStr(e, 'received_at', 'receivedAt')
+    const eForwardedByEmail  = getStr(e, 'forwarded_by_email', 'forwardedByEmail')
+    const eOrigSenderEmail   = getStr(e, 'original_sender_email', 'originalSenderEmail')
+    const eOrigSenderName    = getStr(e, 'original_sender_name', 'originalSenderName')
+
     const emailId = asEmailId(`eml_${str(e.id)}`)
-    textBodyByEmail.set(emailId as unknown as string, str(e.text_body))
-    const receivedAt = anchorIso(str(e.received_at))
+    textBodyByEmail.set(emailId as unknown as string, eTextBody)
+    const receivedAt = anchorIso(eReceivedAtRaw)
     const rawUploads = Array.isArray(e.uploads) ? (e.uploads as RawUpload[]) : []
     const senderName = resolveSenderName(e)
     const brokerCtx = buildEmailBrokerContext({
       subject: str(e.subject),
-      textBody: str(e.text_body),
-      originalSenderEmail: str(e.original_sender_email),
-      originalSenderName: str(e.original_sender_name),
-      forwardedByEmail: str(e.forwarded_by_email),
+      textBody: eTextBody,
+      originalSenderEmail: eOrigSenderEmail,
+      originalSenderName: eOrigSenderName,
+      forwardedByEmail: eForwardedByEmail,
     })
 
     const emailAttachmentIds: ReturnType<typeof asAttachmentId>[] = []
@@ -427,11 +462,11 @@ function buildServerOutputFromEmails(
         orgId: ORG_ID,
         emailId,
         filename,
-        mimeType: str(u.mime_type),
-        sizeBytes: typeof u.size_bytes === 'number' ? u.size_bytes : 0,
+        mimeType: getStr(u, 'mime_type', 'mimeType'),
+        sizeBytes: getNum(u, 'size_bytes', 'sizeBytes'),
         checksumSha256: '',
-        storageRef: str(u.document?.document_id) || uploadId,
-        sourceUrl: str(u.document?.signed_url) || null,
+        storageRef: getStr(u.document, 'document_id', 'documentId') || uploadId,
+        sourceUrl: getStr(u.document, 'signed_url', 'signedUrl') || null,
         pageCount: null,
         language: null,
         parseStatus: 'ready',
@@ -455,7 +490,7 @@ function buildServerOutputFromEmails(
       }
 
       const { candidates: rawCandidates, opinionCount } =
-        candidatesFor(ner as Record<string, RawNer>, str(e.text_body), str(e.subject))
+        candidatesFor(ner as Record<string, RawNer>, eTextBody, str(e.subject))
       // A digest rates many stocks — count opinion-bearing rows, never the
       // relaxed identity list, so a single-stock note never becomes a digest.
       const isDigest = opinionCount >= 6
@@ -539,13 +574,13 @@ function buildServerOutputFromEmails(
       id: emailId,
       orgId: ORG_ID,
       brokerId: emailBrokerId,
-      senderAddress: str(e.original_sender_email),
+      senderAddress: eOrigSenderEmail,
       senderName,
       recipientAddress: '',
       subject: str(e.subject),
-      bodyPreview: str(e.text_body).slice(0, 240),
+      bodyPreview: eTextBody.slice(0, 240),
       receivedAt,
-      forwardedFrom: str(e.forwarded_by_email) ? [str(e.forwarded_by_email)] : [],
+      forwardedFrom: eForwardedByEmail ? [eForwardedByEmail] : [],
       attachmentIds: emailAttachmentIds,
       reportIds: [],            // back-filled below
       status: 'ready',
