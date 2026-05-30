@@ -97,11 +97,6 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
   return (
     <aside className="w-60 shrink-0 border-r border-line/5 bg-ink-950/40 h-full overflow-y-auto">
       <div className="p-4 flex flex-col gap-6">
-        <div>
-          <div className="section-title mb-2">Filters</div>
-          <div className="text-[11px] text-slate-500">Narrow the research feed to the setups you care about.</div>
-        </div>
-
         <FilterSection title="Date range">
           <div className="flex flex-wrap gap-1.5">
             {DATE_RANGE_KEYS.map((r) => (

@@ -4,6 +4,7 @@ import DataSourceToggle from './DataSourceToggle'
 import AdminMenu from './AdminMenu'
 import munshotLogo from '../assets/munshot-logo.png'
 import type { TabId } from '../app/tabs'
+import { useDataSource } from '../app/ScopeContext'
 
 interface HeaderProps {
   readonly lastUpdated: string | null
@@ -18,6 +19,10 @@ function formatStamp(iso: string | null): string {
 }
 
 export default function Header({ lastUpdated, orgShortName, activeTab, setActiveTab }: HeaderProps) {
+  // The admin menu (ops tabs) is hidden while viewing the curated mock — that
+  // surface is the clean customer-facing demo. It stays available on the live
+  // feed where operators actually use it.
+  const { dataSource } = useDataSource()
   return (
     <header className="border-b border-line/5 bg-ink-950/80 backdrop-blur-md">
       <div className="flex items-center justify-between px-6 h-14">
@@ -43,7 +48,7 @@ export default function Header({ lastUpdated, orgShortName, activeTab, setActive
             <span className="num text-slate-200 text-[12px]">{formatStamp(lastUpdated)}</span>
           </div>
           <DataSourceToggle/>
-          <AdminMenu active={activeTab} setActive={setActiveTab}/>
+          {dataSource !== 'mock' && <AdminMenu active={activeTab} setActive={setActiveTab}/>}
           <ThemeToggle />
         </div>
       </div>
