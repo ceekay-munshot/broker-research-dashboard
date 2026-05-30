@@ -59,6 +59,8 @@ export interface BrokerSnapshotRow {
   readonly targetCurrency: string | null
   readonly quarterView: QuarterView | null
   readonly forwardOutlook: ForwardOutlook | null
+  /** The broker's latest report on this stock — clicking the row opens it. */
+  readonly reportId: ReportId
 }
 
 export interface RevisionDelta {
@@ -345,6 +347,7 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
       // in the type so a later backend can return a real one or omit it.
       quarterView: sum ? quarterViewFromStance(stance) : null,
       forwardOutlook: sum ? forwardOutlookFromStance(stance) : null,
+      reportId: r.id,
     }
   }).sort((a, b) => a.brokerShortName.localeCompare(b.brokerShortName))
 

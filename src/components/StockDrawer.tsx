@@ -46,8 +46,7 @@ function Body({ ticker, onClose, onSelectReport }: { ticker: StockTicker; onClos
   if (error)   return <Message onClose={onClose} tone="error" text={`Error: ${error.message}`}/>
   if (!data)   return <Message onClose={onClose} tone="loading" text={`Loading ${ticker}…`}/>
 
-  void onSelectReport // report links now live in the Agreements & disagreements tab
-  return <Content vm={data} onClose={onClose}/>
+  return <Content vm={data} onClose={onClose} onSelectReport={onSelectReport}/>
 }
 
 function TopBar({ onClose }: { onClose: () => void }) {
@@ -73,9 +72,10 @@ function Message({ onClose, tone, text }: { onClose: () => void; tone: 'loading'
   )
 }
 
-function Content({ vm, onClose }: {
+function Content({ vm, onClose, onSelectReport }: {
   vm: StockStreetView
   onClose: () => void
+  onSelectReport: (id: ReportId) => void
 }) {
   return (
     <>
@@ -84,7 +84,7 @@ function Content({ vm, onClose }: {
         <div className="px-5 py-4 flex flex-col gap-6">
           <HeaderSection vm={vm}/>
           <ConsensusEstimatesSection rows={vm.consensusEstimates}/>
-          <StreetAtAGlanceSection rows={vm.brokerSnapshot}/>
+          <StreetAtAGlanceSection rows={vm.brokerSnapshot} onSelectReport={onSelectReport}/>
           <RevisionsSection entries={vm.revisions}/>
         </div>
       </div>
@@ -255,7 +255,10 @@ const QUARTER_VIEW_TONE  = { positive: 'text-emerald-300', mixed: 'text-amber-30
 const FORWARD_LABEL = { bullish: 'Bullish', cautiously_optimistic: 'Caut. optimistic', neutral: 'Neutral', cautious: 'Cautious', bearish: 'Bearish' } as const
 const FORWARD_TONE  = { bullish: 'text-emerald-300', cautiously_optimistic: 'text-emerald-400/80', neutral: 'text-slate-400', cautious: 'text-amber-300', bearish: 'text-rose-300' } as const
 
-function StreetAtAGlanceSection({ rows }: { rows: readonly BrokerSnapshotRow[] }) {
+function StreetAtAGlanceSection({ rows, onSelectReport }: {
+  rows: readonly BrokerSnapshotRow[]
+  onSelectReport: (id: ReportId) => void
+}) {
   return (
     <Section title="Street views at a glance">
       {rows.length === 0 ? (
@@ -274,7 +277,15 @@ function StreetAtAGlanceSection({ rows }: { rows: readonly BrokerSnapshotRow[] }
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.brokerId as unknown as string} className="border-t border-line/5">
+                <tr
+                  key={r.brokerId as unknown as string}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => onSelectReport(r.reportId)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(r.reportId) } }}
+                  title={`Open ${r.brokerShortName}'s note`}
+                  className="border-t border-line/5 cursor-pointer hover:bg-line/[0.04] transition-colors"
+                >
                   <td className="px-3 py-2 text-slate-200">
                     <BrokerGlyph shortName={r.brokerShortName} color={r.brokerColor} size={4}/>
                   </td>
