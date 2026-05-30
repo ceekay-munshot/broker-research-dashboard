@@ -1,11 +1,11 @@
 // Right pane for the "Where they disagree" mode — one company, displayed
 // as a spreadsheet-style matrix: topics down the rows, brokers across the
-// columns. Header carries the takeaway and confidence; the matrix toggles
+// columns. Header carries the consensus + confidence; the matrix toggles
 // between disagree and agree. Outliers and secondary analysis sit below.
 
 import type { StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
-import { composeStreetInsight, type BrokerTier } from '../../viewModels/disagreementInsight'
+import type { BrokerTier } from '../../viewModels/disagreementInsight'
 import { VerdictBadge, ConfidenceMeter, StanceMix, OutlierRow, MoreDetail } from './shared'
 import TargetPriceScale from './TargetPriceScale'
 import StreetMatrix from './StreetMatrix'
@@ -17,8 +17,6 @@ interface Props {
 }
 
 export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
-  const insight = composeStreetInsight(c)
-
   return (
     <div className="flex flex-col gap-5">
       <header className="flex items-start justify-between gap-4 flex-wrap">
@@ -41,11 +39,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
           <ConfidenceMeter score={c.confidence.score} band={c.confidence.band}/>
         </div>
       </header>
-
-      <div className="rounded-md bg-line/[0.03] border border-line/8 border-l-2 border-l-accent/70 p-3.5">
-        <div className="text-[9.5px] uppercase tracking-[0.16em] text-accent/90 mb-1">The takeaway</div>
-        <p className="text-[14px] text-slate-100 leading-relaxed">{insight}</p>
-      </div>
 
       <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers}/>
 
