@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react'
 import type { OrgScope } from '../domain'
-import { getResearchAdapter } from '../adapters'
+import { getResearchAdapter, getDataSource, setDataSource as applyDataSource, type DataSource } from '../adapters'
 import { onScopeBootstrapChanged } from './scopeBootstrap'
 import { setDiagnosticsScope, resetDiagnostics } from '../adapters/upstream/diagnostics'
 
@@ -22,6 +22,10 @@ export interface ScopeContextValue {
   readonly generation: number
   /** Re-resolve the scope from the adapter. Host-visible via useScope(). */
   readonly reload: () => void
+  /** Which data source is on screen: the live feed or the curated mock. */
+  readonly dataSource: DataSource
+  /** Switch data source, then reload so every query re-resolves against it. */
+  readonly setDataSource: (next: DataSource) => void
 }
 
 const ScopeContext = createContext<ScopeContextValue | null>(null)
@@ -45,6 +49,16 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     resetDiagnostics()
     setDiagnosticsScope(null)
   }, [])
+
+  // Mock⇄Live data-source toggle. Swapping the adapter then calling reload()
+  // re-resolves the scope from the new adapter (mock and live carry different
+  // org scopes) and bumps generation, so every useAdapterQuery re-fetches.
+  const [dataSource, setDataSourceState] = useState<DataSource>(() => getDataSource())
+  const setDataSource = useCallback((next: DataSource) => {
+    applyDataSource(next)
+    setDataSourceState(next)
+    reload()
+  }, [reload])
 
   // Resolve the scope on mount and every time `reload()` bumps the token.
   useEffect(() => {
@@ -80,7 +94,7 @@ export function ScopeProvider({ children }: { children: React.ReactNode }) {
     return <BootstrapMessage tone="loading" text="Resolving session…" />
   }
   return (
-    <ScopeContext.Provider value={{ scope, generation, reload }}>
+    <ScopeContext.Provider value={{ scope, generation, reload, dataSource, setDataSource }}>
       {children}
     </ScopeContext.Provider>
   )
@@ -98,6 +112,12 @@ export function useScopeContext(): ScopeContextValue {
   const ctx = useContext(ScopeContext)
   if (!ctx) throw new Error('useScopeContext called outside ScopeProvider')
   return ctx
+}
+
+/** Read + switch the active data source (live feed ⇄ curated mock). */
+export function useDataSource(): { dataSource: DataSource; setDataSource: (next: DataSource) => void } {
+  const ctx = useScopeContext()
+  return { dataSource: ctx.dataSource, setDataSource: ctx.setDataSource }
 }
 
 function BootstrapMessage({ tone, text }: { tone: 'loading' | 'error'; text: string }) {

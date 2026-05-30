@@ -36,7 +36,15 @@ import {
 // so `activeMode` must exist before `createAdapterFromEnv()` (which calls
 // `readActiveMode()` internally) runs.
 let activeMode: AdapterMode = normalizeAdapterMode(undefined)
-let adapterInstance: ResearchAdapter = wrapForDiagnostics(createAdapterFromEnv())
+// The "live / real" adapter chosen from env (ServerOutputAdapter by default).
+// Held as a stable reference so the Mock⇄Live toggle can switch back to it, and
+// so getServerOutputAdapter() keeps returning it even while Mock is on screen.
+let primaryAdapter: ResearchAdapter = createAdapterFromEnv()
+// Lazily-created curated-mock adapter — the "ideal" side of the comparison
+// toggle. Built on first switch so a pure-live session never loads the mocks.
+let mockAdapter: ResearchAdapter | null = null
+let dataSource: DataSource = 'live'
+let adapterInstance: ResearchAdapter = wrapForDiagnostics(primaryAdapter)
 setDiagnosticsMode(activeMode)
 
 /** Diagnostics is meant for HTTP/upstream paths. The server-payload adapter
@@ -50,11 +58,36 @@ export function getResearchAdapter(): ResearchAdapter {
   return adapterInstance
 }
 
-/** When the active adapter is the server-output adapter, this returns it
- *  directly. The header chip uses this to render the waiting / live /
- *  delayed / error pill faithfully. Returns null in any other mode. */
+/** The env-selected server-output adapter, if that is the live/primary side.
+ *  Returns the *stable* primary reference (not the currently-toggled adapter),
+ *  so the boot loader keeps populating it and the header chip keeps reading its
+ *  feed status even while the Mock side is on screen. Null in non-server modes. */
 export function getServerOutputAdapter(): ServerOutputAdapter | null {
-  return adapterInstance instanceof ServerOutputAdapter ? adapterInstance : null
+  return primaryAdapter instanceof ServerOutputAdapter ? primaryAdapter : null
+}
+
+// ── Mock ⇄ Live data-source toggle ─────────────────────────────────────────
+// Lets the desk compare the curated-mock "ideal" against the live
+// /email/forwarded feed so the API can be tuned to parity before the mock is
+// retired. The live side is the env adapter (ServerOutputAdapter by default);
+// the mock side is the MockResearchAdapter. Switching swaps the active adapter;
+// the ScopeContext caller bumps `generation` so every useAdapterQuery re-fetches.
+export type DataSource = 'live' | 'mock'
+
+function getMockAdapter(): ResearchAdapter {
+  return (mockAdapter ??= new MockResearchAdapter())
+}
+
+/** Which side the toggle is currently showing. */
+export function getDataSource(): DataSource {
+  return dataSource
+}
+
+/** Swap the active adapter between the live feed and the curated mock. Callers
+ *  must bump the scope generation afterwards to flush cached reads. */
+export function setDataSource(next: DataSource): void {
+  dataSource = next
+  setResearchAdapter(next === 'mock' ? getMockAdapter() : primaryAdapter)
 }
 
 export function setResearchAdapter(next: ResearchAdapter): void {

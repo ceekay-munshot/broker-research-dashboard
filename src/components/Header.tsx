@@ -1,5 +1,6 @@
 import FeedStatusChip from './FeedStatusChip'
 import ThemeToggle from './ThemeToggle'
+import DataSourceToggle from './DataSourceToggle'
 import AdminMenu from './AdminMenu'
 import munshotLogo from '../assets/munshot-logo.png'
 import type { TabId } from '../app/tabs'
@@ -41,6 +42,7 @@ export default function Header({ lastUpdated, orgShortName, activeTab, setActive
             <span className="section-title">Last updated</span>
             <span className="num text-slate-200 text-[12px]">{formatStamp(lastUpdated)}</span>
           </div>
+          <DataSourceToggle/>
           <AdminMenu active={activeTab} setActive={setActiveTab}/>
           <ThemeToggle />
         </div>
