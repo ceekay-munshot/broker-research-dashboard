@@ -357,9 +357,46 @@ export class MockResearchAdapter implements ResearchAdapter {
 
   async getKpiSnapshot(scope: OrgScope): Promise<KpiSnapshot> {
     await this.delay()
-    const snap = kpiSnapshots.find((k) => k.orgId === scope.orgId)
-    if (!snap) throw new NotFoundError(`No KPI snapshot for org ${scope.orgId}`)
-    return snap
+    // Derive the snapshot LIVE from the in-scope fixtures rather than returning
+    // the hand-written kpiSnapshots[] (which is pinned to a fixed April date).
+    // The generated history is relative-to-now, so a static snapshot would make
+    // the header read "Last updated 23 Apr" above a feed full of today's notes.
+    const baseDelta = kpiSnapshots.find((k) => k.orgId === scope.orgId)?.windowDeltas
+    const now = new Date()
+    const nowIso = now.toISOString()
+    const since7 = now.getTime() - 7 * 86_400_000
+
+    const orgReports = reports.filter((r) => r.orgId === scope.orgId)
+    const orgOpinions = brokerStockOpinions.filter((o) => o.orgId === scope.orgId)
+
+    const brokersTracked = new Set(orgReports.map((r) => r.brokerId as unknown as string)).size
+    const stocksCovered = new Set(orgReports.flatMap((r) => r.tickers.map((t) => t as unknown as string))).size
+    const reportsIngested = orgReports.length
+    const reportsLast7 = orgReports.filter((r) => Date.parse(r.receivedAt) >= since7).length
+
+    // Divergence: tickers carrying both a bullish and a bearish live opinion.
+    const bull = new Set<string>(), bear = new Set<string>()
+    for (const o of orgOpinions) {
+      const t = o.ticker as unknown as string
+      if (o.stance === 'bullish') bull.add(t)
+      else if (o.stance === 'bearish') bear.add(t)
+    }
+    const divergenceFlags = [...bull].filter((t) => bear.has(t)).length
+
+    return {
+      orgId: scope.orgId,
+      asOf: nowIso,
+      brokersTracked,
+      reportsIngested,
+      stocksCovered,
+      divergenceFlags,
+      windowDeltas: baseDelta ?? {
+        brokersTracked:  { value: 0, windowDays: 30 },
+        reportsIngested: { value: reportsLast7, windowDays: 7 },
+        stocksCovered:   { value: 0, windowDays: 30 },
+        divergenceFlags: { value: 0, windowDays: 7 },
+      },
+    }
   }
 
   async getPortfolioSnapshot(scope: OrgScope): Promise<PortfolioSnapshot | null> {
