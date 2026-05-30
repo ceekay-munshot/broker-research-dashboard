@@ -4,7 +4,6 @@
 import { useState } from 'react'
 import type { Stance } from '../../domain'
 import type { ResultantState, StrengthBand } from '../../engine/types'
-import type { OutlierVM } from '../../viewModels/divergence'
 import type { ConsensusRating } from '../../viewModels/arb'
 import { TIER_LABEL, type BrokerTier } from '../../viewModels/disagreementInsight'
 import { RESULTANT_STATE_CHIP_CLASS } from '../../lib/semanticColor'
@@ -144,29 +143,6 @@ export function ScoreBadge({ score }: { score: number }) {
     >
       {score >= 0 ? '+' : ''}{score.toFixed(0)}
     </span>
-  )
-}
-
-// ── Outlier row ───────────────────────────────────────────────────────
-
-export function OutlierRow({ outlier, tier }: { outlier: OutlierVM; tier: BrokerTier }) {
-  const tone = outlier.direction === 'bullish' ? 'text-emerald-400' : 'text-rose-400'
-  return (
-    <li className="rounded-md border border-amber-500/20 bg-amber-500/[0.04] p-3 flex flex-col gap-1.5">
-      <div className="flex items-center gap-2 text-[12px] flex-wrap">
-        <span className="chip border border-amber-500/40 text-amber-300 text-[9.5px]">Outlier</span>
-        <BrokerTierDot tier={tier}/>
-        <span className="text-slate-100 font-semibold">{outlier.brokerName}</span>
-        <span className={`${tone} uppercase text-[9.5px] tracking-widest`}>{outlier.direction}</span>
-      </div>
-      {outlier.reasons.length > 0 && (
-        <div className="flex flex-wrap gap-1">
-          {outlier.reasons.map((r, idx) => (
-            <span key={idx} className="chip bg-line/[0.04] border border-line/5 text-slate-400 text-[10px]">{r}</span>
-          ))}
-        </div>
-      )}
-    </li>
   )
 }
 
