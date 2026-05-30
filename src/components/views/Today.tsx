@@ -41,7 +41,17 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     ratings: filters.ratings,
   })
 
-  const items = worklog.data?.items ?? []
+  // Drop backend extraction artifacts — tickerless "companies" whose name is
+  // really a forwarded digest filename or the forwarding fund's own entity
+  // (e.g. "01618 VIMANA CAPITAL MANAGEMENT LLP 23April2026 India Daily").
+  // Conservative: only tickerless names matching high-precision junk patterns
+  // are hidden, so a real resolved stock is never dropped. See
+  // docs/api-field-mapping.md → "Known extraction gaps".
+  const items = useMemo(
+    () => (worklog.data?.items ?? []).filter((i) => !looksLikeJunkCompany(i)),
+    [worklog.data],
+  )
+  const hiddenJunk = (worklog.data?.items.length ?? 0) - items.length
 
   // Simple, API-direct counts over the feed we display. (The view-model's
   // `summary` is hard-scoped to *today* and shared with other views, so we
@@ -118,6 +128,11 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
               >
                 Show more · {totalCards - shownCards} more stock{totalCards - shownCards > 1 ? 's' : ''}
               </button>
+            )}
+            {hiddenJunk > 0 && (
+              <p className="self-center mt-1 text-[10.5px] text-slate-600">
+                {hiddenJunk} unrecognized item{hiddenJunk > 1 ? 's' : ''} hidden
+              </p>
             )}
           </>
         )}
@@ -290,6 +305,24 @@ interface DayCards {
   readonly key: string
   readonly label: string
   readonly cards: readonly StockCardData[]
+}
+
+/** Heuristic: a TICKERLESS "company" whose name is really a forwarded digest
+ *  filename or the forwarding fund's own entity, not a covered stock. Applied
+ *  only to tickerless items, so a resolved ticker is never hidden. Each branch
+ *  is a high-precision junk signal a listed equity's name would not contain.
+ *  These are backend extraction artifacts (see docs/api-field-mapping.md). */
+function looksLikeJunkCompany(item: WorklogItem): boolean {
+  if (item.ticker) return false
+  const name = (item.stockName ?? '').trim()
+  if (!name) return false
+  const n = name.toLowerCase()
+  return (
+    /^\d{3,}/.test(name) ||                                                            // leading id run: "01618 ..."
+    /\b(llp|capital management|asset management|investment management)\b/.test(n) ||   // forwarding fund entity
+    /\d{1,2}\s?(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s?\d{2,4}/.test(n) || // smushed date: "23April2026"
+    /\b(india daily|morning (note|insight|wrap)|daily wrap)\b/.test(n)                 // digest titles
+  )
 }
 
 /** Stock identity key — ticker first, else normalized name. */

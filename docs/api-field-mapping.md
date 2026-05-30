@@ -213,3 +213,53 @@ should look"). Use it to drive the live API toward parity: anything the mock sho
 that Live doesn't is an API/transform gap (e.g. real sectors, prior target prices,
 evidence offsets — see §6). Remove the toggle and the `src/mocks/` fixtures once the
 live feed is good enough. Reference data in `src/reference/` stays.
+
+---
+
+## 11. Known extraction gaps (live backend — for the data/backend team)
+
+Observed against the live `devde.muns.io` feed (May 2026). These are **upstream
+extraction / attribution issues**, not dashboard bugs — the UI faithfully renders
+whatever `ner_results` + broker resolution return. Fixing them at the source is far
+cleaner than patching per-surface. Listed worst-first by user impact.
+
+**1. Multi-house forwards mis-attributed to one broker.**
+A single forwarded email that itself bundles several houses' notes (subject e.g.
+`Fwd: ...`, body listing "1. Avendus 2. Ambit 3. JMFL 4. Kotak 5. GS …") is
+extracted as multiple notes nearly all attributed to **one** house (observed: KIMS,
+where 5 of 6 lines resolved to Kotak). Effect: the same stock showed 4–5 near-identical
+broker rows. The dashboard now consolidates per-broker (latest wins) so it renders as
+one card, but the underlying attribution is still wrong.
+*Fix at source:* when the body is a list-of-houses forward, attribute each extracted
+call to the house it's listed under, not the first/dominant signal. `brokerResolver`'s
+`forwarded_body_header` tier is the right place; it needs per-section scoping.
+
+**2. Digest filenames leak in as "companies".**
+Tickerless entities whose name is really a digest filename or the forwarding fund's
+own entity surface as covered stocks — observed:
+`01618 VIMANA CAPITAL MANAGEMENT LLP 23April2026 India Daily` (a Kotak *India Daily*
+digest). The dashboard hides these with a conservative client-side guard
+(`looksLikeJunkCompany` in `Today.tsx`: leading id-runs, `LLP`/`capital management`,
+smushed dates like `23April2026`, digest titles like `India Daily`) and footnotes the
+hidden count — but the guard is a band-aid.
+*Fix at source:* the entity classifier should reject the forwarding org's own name and
+filename-derived titles before they become a `Stock`; digests should carry their
+constituent tickers, not a filename as the subject company.
+
+**3. Unresolved broker → "Unknown" + Neutral.**
+Several notes resolve to no house (rendered "Unknown") and, lacking a NER rating, fall
+to a Neutral stance. Honest, but low-signal.
+*Fix at source:* widen sender-domain / signature coverage in `brokerResolver`'s
+catalog so common senders resolve; distinguish "no rating issued" from a true Neutral
+call so the UI needn't imply a stance that wasn't made.
+
+**4. No sector taxonomy (recap of §6).**
+The feed carries no sector per stock, so Live collapses to one synthetic "Research
+Coverage" sector while the mock shows six. Serve a sector on the stock catalog
+(§9) to restore the sector filter and sector-feed grouping.
+
+**5. No prior target price (recap of §6).**
+`priorTargetPrice` is always null, so target **deltas** and ▲/▼ target arrows can't be
+shown. The Upgrade/Downgrade markers the UI does show come from note-signal language,
+not target movement. Serve the prior target (or a per-(broker,ticker) history) to
+enable true change detection.
