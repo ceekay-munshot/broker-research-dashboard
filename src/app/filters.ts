@@ -1,5 +1,5 @@
 import type {
-  BrokerId, SectorId, StockTicker, Iso8601, Rating,
+  BrokerId, SectorId, StockTicker, Iso8601, Rating, ReportType,
 } from '../domain'
 
 // UI-level filter state. Transformed into adapter-level queries inside the
@@ -13,6 +13,7 @@ export interface FiltersState {
   readonly tickers: readonly StockTicker[]
   readonly sectorIds: readonly SectorId[]
   readonly ratings: readonly Rating[]
+  readonly reportTypes: readonly ReportType[]
 }
 
 export const DEFAULT_FILTERS: FiltersState = {
@@ -21,6 +22,7 @@ export const DEFAULT_FILTERS: FiltersState = {
   tickers: [],
   sectorIds: [],
   ratings: [],
+  reportTypes: [],
 }
 
 export const DATE_RANGE_KEYS: readonly DateRangeKey[] = ['1D', '1W', '1M', '3M', 'YTD', '1Y', 'Custom']
@@ -50,5 +52,6 @@ export function filtersFingerprint(f: FiltersState): string {
     [...f.tickers].sort().join(','),
     [...f.sectorIds].sort().join(','),
     [...f.ratings].sort().join(','),
+    [...f.reportTypes].sort().join(','),
   ].join('|')
 }

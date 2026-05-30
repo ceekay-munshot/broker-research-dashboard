@@ -41,6 +41,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     tickers: filters.tickers,
     sectorIds: filters.sectorIds,
     ratings: filters.ratings,
+    reportTypes: filters.reportTypes,
   })
 
   // Apply the sidebar's Date range here. The worklog's own dateWindow only

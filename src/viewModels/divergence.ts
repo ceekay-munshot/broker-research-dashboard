@@ -1,5 +1,5 @@
 import type {
-  Broker, StockTicker, Stock, Sector,
+  Broker, StockTicker, Stock, Sector, BrokerStockOpinion,
 } from '../domain'
 import type {
   ConflictClosure, ConsensusPoint, DisagreementPoint, OutlierClassification,
@@ -24,6 +24,11 @@ export interface DivergenceCardViewModel {
    *  header — the same wording the Stocks tab uses. */
   readonly consensusRating: ConsensusRating
   readonly targetStats: TargetStats
+  /** Every covering broker's published price target on this stock, so the
+   *  target-price scale can plot one dot per broker (not just low/median/
+   *  high) and name each on hover. Sourced from per-broker opinions, which
+   *  are available in both mock and live modes. */
+  readonly brokerTargets: readonly BrokerTargetVM[]
   readonly resultant: ResultantLogic
   readonly confidence: ConfidenceDetail
   readonly strength: StrengthBand
@@ -37,6 +42,14 @@ export interface DivergenceCardViewModel {
 export interface BrokerRef {
   readonly id: string
   readonly name: string
+}
+
+/** One broker's published price target on a stock — the unit the target-
+ *  price scale plots as a single dot the reader can hover to identify. */
+export interface BrokerTargetVM {
+  readonly brokerId: string
+  readonly brokerName: string
+  readonly targetPrice: number
 }
 
 export interface ConsensusPointVM {
@@ -79,6 +92,9 @@ interface Inputs {
   readonly brokers: readonly Broker[]
   readonly stocks: readonly Stock[]
   readonly sectors: readonly Sector[]
+  /** Per-broker opinions across all covered stocks — grouped by ticker to
+   *  feed each card's per-broker target dots. */
+  readonly opinions: readonly BrokerStockOpinion[]
   readonly filters: FiltersState
 }
 
@@ -119,6 +135,16 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
     id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
   const ref = (id: string): BrokerRef => ({ id, name: name(id) })
 
+  // Group every published target by ticker so each card can plot one dot
+  // per broker. Keyed by ticker string for O(1) lookup inside the map below.
+  const opinionsByTicker = new Map<string, BrokerStockOpinion[]>()
+  for (const o of inputs.opinions) {
+    const t = o.ticker as unknown as string
+    const bucket = opinionsByTicker.get(t)
+    if (bucket) bucket.push(o)
+    else opinionsByTicker.set(t, [o])
+  }
+
   const cases = inputs.closures
     .filter((c) => tickerFilter.size === 0 || tickerFilter.has(c.ticker as string))
     .filter((c) => {
@@ -150,6 +176,13 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
         stanceDistribution: c.stanceDistribution,
         consensusRating: deriveConsensusRating(c),
         targetStats: c.targetStats,
+        brokerTargets: (opinionsByTicker.get(c.ticker as unknown as string) ?? [])
+          .filter((o) => o.targetPrice !== null)
+          .map<BrokerTargetVM>((o) => ({
+            brokerId: o.brokerId as unknown as string,
+            brokerName: name(o.brokerId as unknown as string),
+            targetPrice: o.targetPrice as number,
+          })),
         resultant: c.resultant,
         confidence: c.confidence,
         strength: c.resultant.strength,
@@ -191,6 +224,7 @@ export function useDivergenceViewModel(filters: FiltersState): QueryResult<Diver
   const brokers = useAdapterQuery((a, s) => a.listBrokers(s), [])
   const stocks = useAdapterQuery((a, s) => a.listStocks(s), [])
   const sectors = useAdapterQuery((a, s) => a.listSectors(s), [])
+  const opinions = useAdapterQuery((a, s) => a.listBrokerStockOpinions(s), [])
   const closures = useAdapterQuery(
     (a, s) => a.listConflictClosures(s, {
       tickers: filters.tickers.length ? filters.tickers : undefined,
@@ -202,12 +236,12 @@ export function useDivergenceViewModel(filters: FiltersState): QueryResult<Diver
     [fp],
   )
 
-  const loading = brokers.loading || stocks.loading || sectors.loading || closures.loading
-  const error = brokers.error ?? stocks.error ?? sectors.error ?? closures.error
+  const loading = brokers.loading || stocks.loading || sectors.loading || opinions.loading || closures.loading
+  const error = brokers.error ?? stocks.error ?? sectors.error ?? opinions.error ?? closures.error
 
   if (loading) return { data: null, loading: true, error: null }
   if (error) return { data: null, loading: false, error }
-  if (!brokers.data || !stocks.data || !sectors.data || !closures.data) {
+  if (!brokers.data || !stocks.data || !sectors.data || !opinions.data || !closures.data) {
     return { data: null, loading: true, error: null }
   }
 
@@ -216,6 +250,7 @@ export function useDivergenceViewModel(filters: FiltersState): QueryResult<Diver
     brokers: brokers.data,
     stocks: stocks.data,
     sectors: sectors.data,
+    opinions: opinions.data,
     filters,
   })
   return { data: vm, loading: false, error: null }

@@ -20,6 +20,33 @@ import type { ResultantState, StrengthBand } from '../engine/types'
 import type {
   ArbBand, NoteSignalKind, NoteSignalSource, ConsensusRating,
 } from '../domain/signal'
+import type { ReportType } from '../domain/report'
+
+// ── Report type ───────────────────────────────────────────────────────────
+// Plain-language label per report type — the single source the drawer chip and
+// the sidebar "Report Type" filter both read. REPORT_TYPE_FILTER_ORDER is the
+// subset shown as filter chips (the headline kinds an analyst sorts by),
+// newest-/most-actionable first.
+
+export const REPORT_TYPE_LABEL: Readonly<Record<ReportType, string>> = {
+  flash:              'Flash note',
+  earnings_review:    'Earnings update',
+  earnings_preview:   'Pre-results review',
+  management_meeting: 'Management meeting',
+  field_visit:        'Field visit',
+  initiation:         'Initiation',
+  update:             'Update',
+  morning_note:       'Morning note',
+  sector_note:        'Sector note',
+  deep_dive:          'Deep dive',
+  other:              'Research note',
+}
+
+/** The report types offered as sidebar filter chips, in display order. */
+export const REPORT_TYPE_FILTER_ORDER: readonly ReportType[] = [
+  'flash', 'earnings_review', 'earnings_preview',
+  'management_meeting', 'field_visit', 'initiation', 'update',
+]
 
 // ── Street view (resultant state) ────────────────────────────────────────
 // One canonical wording per state. Replaces the three drifted maps that

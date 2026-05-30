@@ -11,6 +11,7 @@ import type {
   AlertId, DigestId,
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
+  DailyPricePoint,
   AlertTriggerKind,
   CatalystEvent, PreEventBrief, PostEventReview,
   CatalystId, PostEventReviewId,
@@ -51,6 +52,7 @@ import {
   ingestionJobs, kpiSnapshots, ingestionStatuses,
   alertEvents, alertDigests,
   calibrationSnapshot,
+  dailyPricePoints,
   catalystEvents, preEventBriefs, postEventReviews,
   DEFAULT_ORG_ID, DEFAULT_USER_ID,
 } from '../mocks'
@@ -486,6 +488,17 @@ export class MockResearchAdapter implements ResearchAdapter {
     await this.delay()
     if (calibrationSnapshot.orgId !== scope.orgId) return null
     return calibrationSnapshot.coverageByTicker.find((c) => c.ticker === ticker) ?? null
+  }
+
+  // Daily closes for the Hit Rate price chart. The fixtures carry the same
+  // seeded ~120-day series the calibration snapshot was computed against, so
+  // call markers line up with the price line. Sorted oldest → newest.
+  async getDailyCloses(_scope: OrgScope, ticker: StockTicker): Promise<readonly DailyPricePoint[]> {
+    await this.delay()
+    return dailyPricePoints
+      .filter((p) => p.ticker === ticker)
+      .slice()
+      .sort((a, b) => a.date.localeCompare(b.date))
   }
 
   // ── Catalysts (Module 21) ────────────────────────────────────────

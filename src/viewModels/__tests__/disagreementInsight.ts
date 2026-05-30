@@ -41,6 +41,7 @@ function makeCard(over: Partial<DivergenceCardViewModel> = {}): DivergenceCardVi
       count: 0, mean: null, median: null, high: null, low: null,
       stdev: null, spreadPct: null,
     },
+    brokerTargets: [],
     resultant: {
       ticker: 'TEST' as unknown as StockTicker,
       state: 'unresolved',

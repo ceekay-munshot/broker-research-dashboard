@@ -1,8 +1,9 @@
 import React from 'react'
-import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating, SectorId } from '../domain'
+import type { Broker, Sector, Stock, BrokerId, StockTicker, Rating, SectorId, ReportType } from '../domain'
 import type { FiltersState, DateRangeKey } from '../app/filters'
 import { DATE_RANGE_KEYS } from '../app/filters'
 import { BROKER_DOT_CLASS } from '../lib/semanticColor'
+import { REPORT_TYPE_LABEL, REPORT_TYPE_FILTER_ORDER } from '../lib/signalVocab'
 
 interface SidebarProps {
   readonly brokers: readonly Broker[]
@@ -171,6 +172,18 @@ export default function Sidebar({ brokers, sectors, stocks, filters, setFilters 
                 active={filters.ratings.includes(r)}
                 onClick={() => toggle<'ratings'>(setFilters, 'ratings', r)}
               >{r}</Pill>
+            ))}
+          </div>
+        </FilterSection>
+
+        <FilterSection title="Report type" onReset={() => setFilters((p) => ({ ...p, reportTypes: [] }))}>
+          <div className="flex flex-wrap gap-1.5">
+            {REPORT_TYPE_FILTER_ORDER.map((rt) => (
+              <Pill
+                key={rt}
+                active={filters.reportTypes.includes(rt)}
+                onClick={() => toggle<'reportTypes'>(setFilters, 'reportTypes', rt as ReportType)}
+              >{REPORT_TYPE_LABEL[rt]}</Pill>
             ))}
           </div>
         </FilterSection>

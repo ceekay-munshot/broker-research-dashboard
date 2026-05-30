@@ -75,8 +75,12 @@ function stanceFor(r: Rating): Stance {
   return 'neutral'
 }
 
+// Weighted pool so the "Report type" filter has a realistic spread across every
+// category — updates dominate, but flash notes, earnings (review + preview),
+// management meetings and field visits all appear often enough to study.
 const REPORT_TYPES: readonly ReportType[] = [
-  'update', 'update', 'update', 'flash', 'deep_dive', 'earnings_review', 'earnings_preview', 'initiation',
+  'update', 'update', 'flash', 'flash', 'earnings_review', 'earnings_preview',
+  'management_meeting', 'field_visit', 'deep_dive', 'update',
 ]
 
 // Per-sector debate topics. Each topic names a driver and supplies a full,

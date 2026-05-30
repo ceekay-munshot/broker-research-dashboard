@@ -11,6 +11,7 @@ import type {
   AlertId, DigestId,
   CalibrationSnapshot, BrokerCalibrationSummary,
   AlertEffectivenessSummary, CoverageSignalResult,
+  DailyPricePoint,
   AlertTriggerKind,
   CatalystEvent, PreEventBrief, PostEventReview,
   CatalystId, PostEventReviewId,
@@ -138,6 +139,17 @@ export interface ResearchAdapter {
   getAlertEffectiveness(scope: OrgScope, kind: AlertTriggerKind): Promise<AlertEffectivenessSummary | null>
   /** Per-ticker coverage signal from the latest snapshot. */
   getCoverageSignal(scope: OrgScope, ticker: StockTicker): Promise<CoverageSignalResult | null>
+
+  /**
+   * Historical daily closes for a ticker — powers the Hit Rate tab's price
+   * chart, where a broker's past calls are plotted against how the stock
+   * actually moved. OPTIONAL: adapters with no price-history source (the
+   * live `/email/forwarded` feed today exposes only a current price) simply
+   * omit it, and the chart shows its "awaiting live price feed" state. When
+   * a price-history endpoint lands, implementing this lights the chart up
+   * with real data — no UI changes.
+   */
+  getDailyCloses?(scope: OrgScope, ticker: StockTicker): Promise<readonly DailyPricePoint[]>
 
   // ─── Catalysts (Module 21) ────────────────────────────────────────────
   /** All catalysts for the org, sorted by expectedAt asc. */

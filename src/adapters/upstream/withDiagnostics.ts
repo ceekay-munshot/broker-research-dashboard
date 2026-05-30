@@ -19,6 +19,7 @@ const METHOD_TO_KEY: Readonly<Record<keyof ResearchAdapter, string>> = {
   getSector:                'sectors',
   listStocks:               'stocks',
   getStock:                 'stocks',
+  getDailyCloses:           'stocks',
   listBrokerEmails:         'brokerEmails',
   getBrokerEmail:           'brokerEmail',
   listAttachments:          'attachments',

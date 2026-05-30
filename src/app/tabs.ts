@@ -6,6 +6,7 @@ export const TABS = [
   { id: 'stocks',        label: 'Stocks' },
   { id: 'brokers',       label: 'Brokers' },
   { id: 'disagreements', label: 'Agreements & disagreements' },
+  { id: 'hitRate',       label: 'Hit Rate' },
 ] as const
 
 // Hidden tabs — only reachable via the admin menu in the header.

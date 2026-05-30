@@ -12,9 +12,11 @@ import type { NoteSignalKind, NoteSignalSource } from './signal'
 export type ReportType =
   | 'initiation'
   | 'update'
-  | 'flash'
-  | 'earnings_preview'
-  | 'earnings_review'
+  | 'flash'                // quick "flash note" reaction
+  | 'earnings_preview'     // pre-results review
+  | 'earnings_review'      // earnings/results update
+  | 'management_meeting'   // notes from a management interaction
+  | 'field_visit'          // channel checks / plant or store visits
   | 'morning_note'
   | 'sector_note'
   | 'deep_dive'

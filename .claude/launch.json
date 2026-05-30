@@ -9,6 +9,12 @@
       "autoPort": true
     },
     {
+      "name": "mock",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": ["-c", "VITE_RESEARCH_ADAPTER=mock npx vite --port 5175 --strictPort"],
+      "port": 5175
+    },
+    {
       "name": "dev-local",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:local"],

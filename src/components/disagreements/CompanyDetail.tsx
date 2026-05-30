@@ -40,7 +40,7 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker, onSelectRepo
         </div>
       </header>
 
-      <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers}/>
+      <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers} brokerTargets={c.brokerTargets}/>
 
       <StreetMatrix c={c} tierFor={tierFor} onSelectReport={onSelectReport}/>
 

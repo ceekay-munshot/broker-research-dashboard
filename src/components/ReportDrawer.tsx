@@ -1,5 +1,5 @@
 import React, { Fragment, useEffect } from 'react'
-import type { ReportId, EvidenceSnippet, ReportType, StockTicker, BrokerSource } from '../domain'
+import type { ReportId, EvidenceSnippet, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext, SourceKind } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatPrice } from '../viewModels/shared'
@@ -8,7 +8,7 @@ import {
   TONE_CHIP_CLASS, TONE_TEXT_CLASS, getActionLabelTone, getChangeTone, BROKER_GLYPH_CLASS,
   type SemanticTone,
 } from '../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating } from '../lib/signalVocab'
+import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating, REPORT_TYPE_LABEL } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 import { cleanDisplayKeyPoints, isBoilerplateKeyPoint } from '../lib/researchTextCleaners'
 import { useStockPrices, type PriceCell } from '../hooks/useStockPrices'
@@ -17,19 +17,6 @@ interface ReportDrawerProps {
   readonly reportId: ReportId | null
   readonly onClose: () => void
   readonly onSelectTicker: (t: StockTicker) => void
-}
-
-// Plain, customer-facing labels for the report-type enum.
-const REPORT_TYPE_LABEL: Record<ReportType, string> = {
-  initiation:       'Initiation',
-  update:           'Update',
-  flash:            'Quick note',
-  earnings_preview: 'Earnings preview',
-  earnings_review:  'Earnings review',
-  morning_note:     'Morning note',
-  sector_note:      'Sector note',
-  deep_dive:        'Deep dive',
-  other:            'Research note',
 }
 
 // Plain-language NOUN labels for how a note's broker was resolved. Used
@@ -189,33 +176,43 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
             </Section>
           )}
 
-          {/* Risks */}
+          {/* Risks — bordered table, one risk per row. */}
           {vm.risks.length > 0 && (
             <Section title="Risks">
-              <ul className="flex flex-col gap-2">
+              <div className="rounded-md border border-line/10 overflow-hidden">
                 {vm.risks.map((r, idx) => (
-                  <li key={idx} className="flex gap-2 text-[12.5px] text-slate-300 leading-relaxed">
-                    <span className="text-rose-400/70 mt-0.5">▲</span>
+                  <div
+                    key={idx}
+                    className="flex gap-2.5 px-3 py-2.5 text-[12.5px] text-slate-300 leading-relaxed border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
+                  >
+                    <span className="text-rose-400/70 mt-0.5 shrink-0">▲</span>
                     <span className="flex-1">{r}</span>
-                  </li>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </Section>
           )}
 
-          {/* Catalysts */}
+          {/* Catalysts — date / event table. */}
           {vm.catalysts.length > 0 && (
             <Section title="Catalysts">
-              <ul className="flex flex-col gap-1.5">
+              <div className="rounded-md border border-line/10 overflow-hidden">
+                <div className="flex gap-3 px-3 py-1.5 bg-line/[0.03] border-b border-line/10">
+                  <span className="section-title w-20 shrink-0">When</span>
+                  <span className="section-title flex-1">Event</span>
+                </div>
                 {vm.catalysts.map((c, idx) => (
-                  <li key={idx} className="flex items-center gap-2 text-[12.5px]">
-                    <span className="num text-[10.5px] text-slate-500 w-16">
+                  <div
+                    key={idx}
+                    className="flex items-center gap-3 px-3 py-2 text-[12.5px] border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
+                  >
+                    <span className="num text-[11px] text-slate-400 w-20 shrink-0">
                       {c.expectedOn ? formatShortDate(c.expectedOn) : 'TBD'}
                     </span>
-                    <span className="text-slate-300">{c.label}</span>
-                  </li>
+                    <span className="text-slate-200 flex-1">{c.label}</span>
+                  </div>
                 ))}
-              </ul>
+              </div>
             </Section>
           )}
 
@@ -618,17 +615,20 @@ function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
   if (displayed.length === 0) return null
   return (
     <Section title="Key takeaways">
-      <ol className="flex flex-col gap-3">
+      <div className="rounded-md border border-line/10 overflow-hidden">
         {displayed.map((p, i) => (
-          <li key={p.originalIndex} className="flex flex-col gap-1.5">
-            <div className="flex gap-2 text-[13px] text-slate-200">
-              <span className="text-slate-500 num w-5">{i + 1}.</span>
+          <div
+            key={p.originalIndex}
+            className="flex flex-col gap-1.5 px-3 py-2.5 border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
+          >
+            <div className="flex gap-2.5 text-[13px] text-slate-200">
+              <span className="text-slate-500 num w-5 shrink-0">{i + 1}.</span>
               <span className="flex-1 leading-relaxed">{highlightFigures(p.text)}</span>
             </div>
             <EvidenceList snippets={vm.evidence.keyPointByIndex.get(p.originalIndex) ?? []} indent/>
-          </li>
+          </div>
         ))}
-      </ol>
+      </div>
     </Section>
   )
 }

@@ -342,11 +342,16 @@ function candidatesFor(
 function inferReportType(title: string, isBody: boolean, isDigest: boolean): ReportType {
   if (isDigest) return 'morning_note'
   const t = title.toLowerCase()
-  if (/morning|india daily|stock reco|daily/.test(t)) return 'morning_note'
-  if (/result|earnings|[1-4]\s?q|q[1-4]/.test(t))     return 'earnings_review'
-  if (/initiat/.test(t))                               return 'initiation'
-  if (/preview/.test(t))                               return 'earnings_preview'
-  if (isBody)                                          return 'flash'
+  if (/morning|india daily|stock reco|daily/.test(t))          return 'morning_note'
+  if (/mgmt|management (meet|interaction|call|con[\s-]?call)|concall|analyst meet|investor (meet|day)/.test(t))
+                                                               return 'management_meeting'
+  if (/field visit|channel check|plant visit|store visit|dealer check|site visit|ground check/.test(t))
+                                                               return 'field_visit'
+  if (/preview|ahead of result|pre[\s-]?result|result preview/.test(t)) return 'earnings_preview'
+  if (/result|earnings|[1-4]\s?q|q[1-4]|post[\s-]?result/.test(t)) return 'earnings_review'
+  if (/initiat/.test(t))                                       return 'initiation'
+  if (/flash|first (take|cut|read)|quick (take|note)|alert/.test(t)) return 'flash'
+  if (isBody)                                                  return 'flash'
   return 'update'
 }
 
