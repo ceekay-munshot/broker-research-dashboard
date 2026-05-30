@@ -155,66 +155,10 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
           {/* Executive read — highlighted thesis card with left accent. */}
           <ExecutiveRead vm={vm}/>
 
-          {/* Numbers that matter — table (3+ rows) or compact chips (≤2). */}
-          <NumbersTable vm={vm}/>
-
-          {/* Watch items — chip rail with deterministic tone hints. */}
-          <WatchItemsRail vm={vm}/>
-
-          {/* Key takeaways — boilerplate-filtered bullets with evidence,
-              numbered by display index but evidence-looked-up by original. */}
-          <KeyTakeawaysList vm={vm}/>
-
-          {/* Themes */}
-          {vm.themes.length > 0 && (
-            <Section title="Themes">
-              <div className="flex flex-wrap gap-1.5">
-                {vm.themes.map((t) => (
-                  <span key={t} className="chip bg-line/[0.04] border border-line/5 text-slate-300">{t}</span>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Risks — bordered table, one risk per row. */}
-          {vm.risks.length > 0 && (
-            <Section title="Risks">
-              <div className="rounded-md border border-line/10 overflow-hidden">
-                {vm.risks.map((r, idx) => (
-                  <div
-                    key={idx}
-                    className="flex gap-2.5 px-3 py-2.5 text-[12.5px] text-slate-300 leading-relaxed border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
-                  >
-                    <span className="text-rose-400/70 mt-0.5 shrink-0">▲</span>
-                    <span className="flex-1">{r}</span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
-
-          {/* Catalysts — date / event table. */}
-          {vm.catalysts.length > 0 && (
-            <Section title="Catalysts">
-              <div className="rounded-md border border-line/10 overflow-hidden">
-                <div className="flex gap-3 px-3 py-1.5 bg-line/[0.03] border-b border-line/10">
-                  <span className="section-title w-20 shrink-0">When</span>
-                  <span className="section-title flex-1">Event</span>
-                </div>
-                {vm.catalysts.map((c, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center gap-3 px-3 py-2 text-[12.5px] border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
-                  >
-                    <span className="num text-[11px] text-slate-400 w-20 shrink-0">
-                      {c.expectedOn ? formatShortDate(c.expectedOn) : 'TBD'}
-                    </span>
-                    <span className="text-slate-200 flex-1">{c.label}</span>
-                  </div>
-                ))}
-              </div>
-            </Section>
-          )}
+          {/* Note detail — Numbers, Watch items, Key takeaways, Themes, Risks
+              and Catalysts consolidated into one label/content table so the
+              note reads as a single structured block. */}
+          <NoteDetailTable vm={vm}/>
 
           {/* Source — four customer-facing facts: Broker / Broker sender /
               Forwarded by / Resolution detail. Each fact gets its own row;
@@ -544,105 +488,147 @@ function ExecutiveRead({ vm }: { vm: ReportDetailViewModel }) {
   )
 }
 
-// ── Numbers that matter — table for 3+, compact chips for ≤2 ───────────────
-// Adds an explicit "Upside +X%" row when `upsideChipPct` is set, alongside
-// the body-extracted `keyNumbers`. Read-through column is a deterministic
-// generic phrase set — never invents a company-specific narrative.
+// ── Note detail — one label/content table for the body sections ────────────
+// Numbers, Watch items, Key takeaways, Themes, Risks and Catalysts share a
+// single two-column table: the section name on the left, its content on the
+// right. Each row only appears when it has data. Replaces six separately-
+// styled blocks so the note reads as one structured spec sheet.
 
-function NumbersTable({ vm }: { vm: ReportDetailViewModel }) {
-  type Row = { readonly label: string; readonly value: string }
-  const rows: Row[] = []
+function NoteDetailTable({ vm }: { vm: ReportDetailViewModel }) {
+  const numbers: Array<{ label: string; value: string }> = []
   if (vm.upsideChipPct !== null) {
-    const sign = vm.upsideChipPct >= 0 ? '+' : ''
-    rows.push({ label: 'Upside', value: `${sign}${Math.round(vm.upsideChipPct)}%` })
+    numbers.push({ label: 'Upside', value: `${vm.upsideChipPct >= 0 ? '+' : ''}${Math.round(vm.upsideChipPct)}%` })
   }
-  for (const n of vm.keyNumbers) rows.push({ label: n.label, value: n.value })
+  for (const n of vm.keyNumbers) numbers.push({ label: n.label, value: n.value })
+
+  // Display numbering uses the FILTERED index; the ORIGINAL index is the key.
+  const takeaways = vm.keyPoints
+    .map((text, originalIndex) => ({ text, originalIndex }))
+    .filter((p) => !isBoilerplateKeyPoint(p.text))
+
+  const rows: Array<{ key: string; label: string; node: React.ReactNode }> = []
+
+  if (numbers.length > 0) {
+    rows.push({
+      key: 'numbers',
+      label: 'Numbers',
+      node: (
+        <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+          {numbers.map((n) => (
+            <span key={n.label} className="inline-flex items-baseline gap-1.5">
+              <span className="num text-[12.5px] font-semibold text-slate-100">{n.value}</span>
+              <span className="text-[11px] text-slate-500">{n.label}</span>
+            </span>
+          ))}
+        </div>
+      ),
+    })
+  }
+
+  if (vm.watchpoints.length > 0) {
+    rows.push({
+      key: 'watch',
+      label: 'Watch items',
+      node: (
+        <div className="flex flex-wrap gap-1.5">
+          {vm.watchpoints.map((w) => (
+            <span key={w} className={`chip border ${TONE_CHIP_CLASS[watchpointTone(w)]}`}>{w}</span>
+          ))}
+        </div>
+      ),
+    })
+  }
+
+  if (takeaways.length > 0) {
+    rows.push({
+      key: 'takeaways',
+      label: 'Key takeaways',
+      node: (
+        <ol className="flex flex-col gap-1.5">
+          {takeaways.map((p, i) => (
+            <li key={p.originalIndex} className="flex gap-2 text-[12.5px] text-slate-200 leading-relaxed">
+              <span className="num text-slate-500 shrink-0">{i + 1}.</span>
+              <span className="flex-1">{highlightFigures(p.text)}</span>
+            </li>
+          ))}
+        </ol>
+      ),
+    })
+  }
+
+  if (vm.themes.length > 0) {
+    rows.push({
+      key: 'themes',
+      label: 'Themes',
+      node: (
+        <div className="flex flex-wrap gap-1.5">
+          {vm.themes.map((t) => (
+            <span key={t} className="chip bg-line/[0.04] border border-line/5 text-slate-300">{t}</span>
+          ))}
+        </div>
+      ),
+    })
+  }
+
+  if (vm.risks.length > 0) {
+    rows.push({
+      key: 'risks',
+      label: 'Risks',
+      node: (
+        <div className="flex flex-col gap-1.5">
+          {vm.risks.map((r, idx) => (
+            <div key={idx} className="flex gap-2 text-[12.5px] text-slate-300 leading-relaxed">
+              <span className="text-rose-400/70 shrink-0 mt-0.5">▲</span>
+              <span className="flex-1">{r}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    })
+  }
+
+  if (vm.catalysts.length > 0) {
+    rows.push({
+      key: 'catalysts',
+      label: 'Catalysts',
+      node: (
+        <div className="flex flex-col gap-1.5">
+          {vm.catalysts.map((c, idx) => (
+            <div key={idx} className="flex gap-2.5 text-[12.5px]">
+              <span className="num text-[11px] text-slate-400 w-14 shrink-0">
+                {c.expectedOn ? formatShortDate(c.expectedOn) : 'TBD'}
+              </span>
+              <span className="text-slate-200 flex-1">{c.label}</span>
+            </div>
+          ))}
+        </div>
+      ),
+    })
+  }
+
   if (rows.length === 0) return null
 
-  // One consistent bordered table (Metric / Value / Read-through), matching the
-  // Key-takeaways, Risks and Catalysts tables in this drawer.
   return (
-    <Section title="Numbers that matter">
-      <div className="rounded-md border border-line/10 overflow-hidden">
-        <div className="grid grid-cols-[1fr_auto_1.4fr] gap-x-3 px-3 py-1.5 bg-line/[0.03] border-b border-line/10">
-          <span className="section-title">Metric</span>
-          <span className="section-title text-right">Value</span>
-          <span className="section-title">Read-through</span>
+    <div className="rounded-md border border-line/10 overflow-hidden">
+      {rows.map((row) => (
+        <div
+          key={row.key}
+          className="grid grid-cols-[128px_1fr] gap-3 px-3 py-2.5 border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
+        >
+          <div className="section-title pt-0.5 whitespace-nowrap">{row.label}</div>
+          <div className="min-w-0">{row.node}</div>
         </div>
-        {rows.map((r) => (
-          <div
-            key={r.label}
-            className="grid grid-cols-[1fr_auto_1.4fr] gap-x-3 items-baseline px-3 py-2 border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
-          >
-            <span className="text-[12px] text-slate-200 truncate" title={r.label}>{r.label}</span>
-            <span className="num text-[12px] text-slate-100 font-semibold text-right whitespace-nowrap">{r.value}</span>
-            <span className="text-[11.5px] text-slate-500 truncate" title={readThroughLabel(r.label)}>
-              {readThroughLabel(r.label)}
-            </span>
-          </div>
-        ))}
-      </div>
-    </Section>
+      ))}
+    </div>
   )
 }
 
-function readThroughLabel(label: string): string {
-  if (/revenue|sales|rev\b|nii|aum|order/i.test(label)) return 'Growth / sales momentum'
-  if (/ebitda|ebit\b|margin|roe|roic/i.test(label))    return 'Profitability'
-  if (/pat\b|eps\b|profit/i.test(label))               return 'Earnings'
-  if (/^upside$|upside\s*\(/i.test(label))             return 'Valuation'
-  if (/guidance|outlook/i.test(label))                 return 'Management outlook'
-  if (/cagr|capacity|expansion/i.test(label))          return 'Growth runway'
-  return 'Key metric'
-}
-
-// ── Watch items — chip rail with deterministic tone ────────────────────────
-
-function WatchItemsRail({ vm }: { vm: ReportDetailViewModel }) {
-  if (vm.watchpoints.length === 0) return null
-  return (
-    <Section title="Watch items">
-      <div className="flex flex-wrap gap-1.5">
-        {vm.watchpoints.map((w) => (
-          <span key={w} className={`chip border ${TONE_CHIP_CLASS[watchpointTone(w)]}`}>{w}</span>
-        ))}
-      </div>
-    </Section>
-  )
-}
+// ── Watch-item tone ────────────────────────────────────────────────────────
 
 function watchpointTone(label: string): SemanticTone {
   if (/leverage|debt|regulatory|pricing\s+pressure|input\s+cost|fx|forex/i.test(label)) return 'caution'
   if (/capacity|market\s+share|guidance|expansion/i.test(label)) return 'info'
   return 'neutral'
-}
-
-// ── Key takeaways — boilerplate-filtered bullets ───────────────────────────
-// Display numbering uses the FILTERED index (1, 2, 3, ...); the ORIGINAL index
-// is kept as a stable React key across the filter pass.
-
-function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
-  const displayed = vm.keyPoints
-    .map((text, originalIndex) => ({ text, originalIndex }))
-    .filter((p) => !isBoilerplateKeyPoint(p.text))
-  if (displayed.length === 0) return null
-  return (
-    <Section title="Key takeaways">
-      <div className="rounded-md border border-line/10 overflow-hidden">
-        {displayed.map((p, i) => (
-          <div
-            key={p.originalIndex}
-            className="flex flex-col gap-1.5 px-3 py-2.5 border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
-          >
-            <div className="flex gap-2.5 text-[13px] text-slate-200">
-              <span className="text-slate-500 num w-5 shrink-0">{i + 1}.</span>
-              <span className="flex-1 leading-relaxed">{highlightFigures(p.text)}</span>
-            </div>
-          </div>
-        ))}
-      </div>
-    </Section>
-  )
 }
 
 // ── Source button — open the original artifact ──────────────────────────
