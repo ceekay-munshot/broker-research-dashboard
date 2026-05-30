@@ -1,12 +1,13 @@
 // Right pane for the "Where they disagree" mode — one company, displayed
 // as a spreadsheet-style matrix: topics down the rows, brokers across the
 // columns. Header carries the consensus + confidence; the matrix toggles
-// between disagree and agree. Outliers and secondary analysis sit below.
+// between disagree and agree; outliers are flagged inline on the Broker-views
+// cards rather than in a separate list.
 
 import type { ReportId, StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import type { BrokerTier } from '../../viewModels/disagreementInsight'
-import { CallBadge, StanceMix, OutlierRow } from './shared'
+import { CallBadge, StanceMix } from './shared'
 import TargetPriceScale from './TargetPriceScale'
 import StreetMatrix from './StreetMatrix'
 
@@ -42,20 +43,9 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker, onSelectRepo
 
       <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers} brokerTargets={c.brokerTargets}/>
 
+      {/* Outliers are no longer a separate list — they're marked inline on the
+          individual cards in the Street-matrix "Broker views" tab. */}
       <StreetMatrix c={c} tierFor={tierFor} onSelectReport={onSelectReport}/>
-
-      {c.outliers.length > 0 && (
-        <div className="flex flex-col gap-2.5">
-          <span className="section-title">
-            {c.outliers.length === 1 ? 'Outlier broker' : `Outlier brokers (${c.outliers.length})`}
-          </span>
-          <ul className="flex flex-col gap-2">
-            {c.outliers.map((o, i) => (
-              <OutlierRow key={i} outlier={o} tier={tierFor(o.brokerId)}/>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   )
 }

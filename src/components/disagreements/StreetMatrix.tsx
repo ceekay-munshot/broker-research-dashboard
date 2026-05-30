@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { ReportId, StockTicker } from '../../domain'
-import type { DivergenceCardViewModel, BrokerRef } from '../../viewModels/divergence'
+import type { DivergenceCardViewModel, BrokerRef, OutlierVM } from '../../viewModels/divergence'
 import {
   buildStreetMatrix, type MatrixSide, type MatrixCell, type MatrixRow, type TopicCategory,
 } from '../../viewModels/streetMatrix'
@@ -56,7 +56,7 @@ export default function StreetMatrix({ c, tierFor, onSelectReport }: Props) {
       </div>
 
       {tab === 'brokers' ? (
-        <BrokerViewsPanel ticker={c.ticker} onSelectReport={onSelectReport}/>
+        <BrokerViewsPanel ticker={c.ticker} outliers={c.outliers} onSelectReport={onSelectReport}/>
       ) : matrix.rows.length === 0 ? (
         <EmptyMatrix side={side}/>
       ) : (
@@ -70,11 +70,16 @@ export default function StreetMatrix({ c, tierFor, onSelectReport }: Props) {
 // Each broker's full note on this stock — moved here from the Stock drawer so
 // the detailed views live alongside the agree/disagree breakdown.
 
-function BrokerViewsPanel({ ticker, onSelectReport }: {
+function BrokerViewsPanel({ ticker, outliers, onSelectReport }: {
   ticker: StockTicker
+  outliers: readonly OutlierVM[]
   onSelectReport: (id: ReportId) => void
 }) {
   const { data, loading, error } = useStockStreetView(ticker)
+  const outlierByBroker = useMemo(
+    () => new Map(outliers.map((o) => [o.brokerId, o])),
+    [outliers],
+  )
   if (loading) {
     return <div className="px-2 py-6 text-[12px] text-slate-500 animate-pulse">Loading broker views…</div>
   }
@@ -93,7 +98,12 @@ function BrokerViewsPanel({ ticker, onSelectReport }: {
   return (
     <ul className="flex flex-col gap-2.5">
       {details.map((d) => (
-        <BrokerViewCard key={d.reportId as unknown as string} detail={d} onSelectReport={onSelectReport}/>
+        <BrokerViewCard
+          key={d.reportId as unknown as string}
+          detail={d}
+          outlier={outlierByBroker.get(d.brokerId as unknown as string) ?? null}
+          onSelectReport={onSelectReport}
+        />
       ))}
     </ul>
   )

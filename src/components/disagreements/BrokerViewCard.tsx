@@ -5,23 +5,35 @@
 
 import type { ReportId } from '../../domain'
 import type { BrokerDetail } from '../../viewModels/stockStreetView'
+import type { OutlierVM } from '../../viewModels/divergence'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import BrokerGlyph from '../BrokerGlyph'
 
-export default function BrokerViewCard({ detail, onSelectReport }: {
+export default function BrokerViewCard({ detail, outlier, onSelectReport }: {
   detail: BrokerDetail
+  outlier?: OutlierVM | null
   onSelectReport: (id: ReportId) => void
 }) {
   const targetMoved = detail.priorTargetPrice != null
     && detail.targetPrice != null
     && detail.priorTargetPrice !== detail.targetPrice
   return (
-    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
+    <li className={`rounded border p-3 flex flex-col gap-2 ${
+      outlier ? 'border-amber-500/25 bg-amber-500/[0.03]' : 'border-line/5 bg-line/[0.02]'
+    }`}>
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <BrokerGlyph shortName={detail.brokerShortName} color={detail.brokerColor} withName={false} size={6}/>
           <div className="flex flex-col min-w-0">
-            <span className="text-slate-100 text-[12.5px] font-semibold truncate">{detail.brokerShortName}</span>
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="text-slate-100 text-[12.5px] font-semibold truncate">{detail.brokerShortName}</span>
+              {outlier && (
+                <span
+                  className="chip border border-amber-500/40 text-amber-300 text-[8.5px] shrink-0"
+                  title={outlier.reasons.length ? `Outlier — ${outlier.reasons.join(' · ')}` : 'Outlier vs the Street'}
+                >Outlier</span>
+              )}
+            </span>
             {detail.author && <span className="text-[10.5px] text-slate-500 truncate">{detail.author}</span>}
           </div>
         </div>
