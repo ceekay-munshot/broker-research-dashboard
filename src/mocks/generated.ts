@@ -1,0 +1,320 @@
+// ─────────────────────────────────────────────────────────────────────────
+// Generated mock history — ~6 months of broker research for the Aranya org.
+//
+// Why this exists: the hand-written fixtures (reports.ts, summaries.ts, …)
+// are a small, tightly-tuned slice dated to a fixed week. To let every
+// dashboard feature be studied — date-range filters (1D…1Y), the "New today"
+// card, per-broker timelines, multi-broker disagreements, rating
+// changes/upgrades/downgrades, target moves — we synthesise a much larger,
+// internally-consistent history HERE and the fixture files append it.
+//
+// Two design choices make this safe and useful:
+//   • Dates are RELATIVE TO `now` (computed at module load). So "today" and
+//     "this week" always have notes no matter when the app runs — the demo
+//     never goes stale.
+//   • The PRNG is SEEDED (mulberry32, constant seed). So the *structure*
+//     (who covers what, ratings, targets) is identical across reloads — only
+//     the absolute timestamps slide forward with real time.
+//
+// IDs are namespaced with a `g` (rpt_g0001, sum_g0001, …) so they can never
+// collide with the hand-written rpt_0001… set. Org is Aranya only (the
+// mock's default session org); Sahyadri/Vimana keep their hand-written sets.
+// ─────────────────────────────────────────────────────────────────────────
+
+import type {
+  ResearchReport, ReportSummary, BrokerStockOpinion,
+  BrokerEmail, Attachment, EvidenceSnippet,
+  Rating, Stance, ReportType, NoteSignalKind, NoteSignalSource,
+} from '../domain'
+import {
+  asOrgId, asBrokerId, asEmailId, asAttachmentId,
+  asReportId, asSummaryId, asSectorId, asTicker, asEvidenceId,
+} from '../lib/ids'
+import { stocks } from '../reference/stockCatalog'
+
+const ORG = asOrgId('org_aranya')
+const NOW = new Date()
+const DAY_MS = 86_400_000
+
+// ── Seeded PRNG (mulberry32) — deterministic structure across reloads ──────
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0
+  return () => {
+    a |= 0; a = (a + 0x6d2b79f5) | 0
+    let t = Math.imul(a ^ (a >>> 15), 1 | a)
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+const rand = mulberry32(0x5eed1234)
+const randInt = (lo: number, hi: number) => lo + Math.floor(rand() * (hi - lo + 1))
+const pick = <T,>(arr: readonly T[]): T => arr[Math.floor(rand() * arr.length)]!
+const chance = (p: number) => rand() < p
+
+// ── Coverage universe ──────────────────────────────────────────────────────
+// Aranya's 10 enabled houses. Each is given a deterministic coverage subset of
+// the 15-stock catalog, so most stocks end up with 5–8 brokers → meaningful
+// consensus & disagreement on the Stocks / Agreements tabs.
+const BROKERS: readonly { id: string; short: string; bias: number }[] = [
+  { id: 'brk_kotak',      short: 'Kotak',  bias:  0.6 },
+  { id: 'brk_mosl',       short: 'MOSL',   bias:  0.5 },
+  { id: 'brk_icici',      short: 'I-Sec',  bias:  0.0 },
+  { id: 'brk_hdfc',       short: 'HDFC',   bias:  0.2 },
+  { id: 'brk_axis',       short: 'Axis',   bias:  0.3 },
+  { id: 'brk_nuvama',     short: 'Nuvama', bias: -0.5 },
+  { id: 'brk_ambit',      short: 'Ambit',  bias:  0.4 },
+  { id: 'brk_jmfin',      short: 'JM Fin', bias: -0.3 },
+  { id: 'brk_iifl',       short: 'IIFL',   bias: -0.2 },
+  { id: 'brk_plilladher', short: 'PL',     bias:  0.3 },
+]
+
+const RATINGS: readonly Rating[] = ['Sell', 'Underweight', 'Hold', 'Overweight', 'Buy']
+function stanceFor(r: Rating): Stance {
+  if (r === 'Buy' || r === 'Overweight') return 'bullish'
+  if (r === 'Sell' || r === 'Underweight') return 'bearish'
+  return 'neutral'
+}
+
+const REPORT_TYPES: readonly ReportType[] = [
+  'update', 'update', 'update', 'flash', 'deep_dive', 'earnings_review', 'earnings_preview', 'initiation',
+]
+
+// Theme phrases per sector → readable titles & thesis without per-stock prose.
+const SECTOR_THEMES: Record<string, readonly string[]> = {
+  sec_it:         ['deal TCV momentum', 'GenAI attach rate', 'discretionary spend', 'margin cadence', 'BFSI vertical recovery'],
+  sec_fin:        ['NIM trajectory', 'deposit franchise', 'credit cost cycle', 'unsecured book mix', 'loan growth'],
+  sec_energy:     ['refining spreads', 'upstream capex discipline', 'retail EBITDA', 'gas pricing floor', 'FCF inflection'],
+  sec_pharma:     ['US generics pricing', 'specialty franchise ramp', 'gAPI cost tailwind', 'biosimilar pipeline', 'domestic formulations'],
+  sec_consumer:   ['rural demand recovery', 'premiumisation mix', 'volume growth', 'EV roadmap', 'input-cost easing'],
+  sec_industrial: ['order inflow at highs', 'execution cycle', 'working-capital discipline', 'export order book', 'margin expansion'],
+}
+const POSITIVE = ['accelerating', 'inflecting higher', 'ahead of plan', 're-rating', 'structurally improving']
+const NEGATIVE = ['under pressure', 'disappointing', 'derating', 'below plan', 'facing headwinds']
+const NEUTRAL  = ['in line', 'broadly stable', 'mixed', 'tracking expectations', 'range-bound']
+
+function iso(daysAgo: number, hourUtc: number, min: number): string {
+  const d = new Date(NOW.getTime() - daysAgo * DAY_MS)
+  d.setUTCHours(hourUtc, min, 0, 0)
+  return d.toISOString()
+}
+function utcDateOnly(daysAgo: number): string {
+  return new Date(NOW.getTime() - daysAgo * DAY_MS).toISOString().slice(0, 10)
+}
+
+// ── Generation ───────────────────────────────────────────────────────────────
+
+interface Gen {
+  reports: ResearchReport[]
+  summaries: ReportSummary[]
+  opinions: BrokerStockOpinion[]
+  emails: BrokerEmail[]
+  attachments: Attachment[]
+  evidence: EvidenceSnippet[]
+}
+
+function generate(): Gen {
+  const reports: ResearchReport[] = []
+  const summaries: ReportSummary[] = []
+  const emails: BrokerEmail[] = []
+  const attachments: Attachment[] = []
+  const evidence: EvidenceSnippet[] = []
+
+  // (broker,ticker) → latest note, for the derived opinions projection.
+  const latestByPair = new Map<string, { report: ResearchReport; rating: Rating; target: number; upside: number }>()
+
+  let n = 0   // report counter
+  let ev = 0  // evidence counter
+
+  // Force a handful of notes onto "today" / this week so the recent surfaces
+  // are never empty. Filled as we go.
+  const recencyQueue = [0, 0, 1, 1, 2, 3, 4, 5, 6]
+
+  for (const stock of stocks) {
+    const sector = stock.sectorId as unknown as string
+    const themes = SECTOR_THEMES[sector] ?? ['fundamentals']
+    const spot = stock.lastPrice ?? 1000
+
+    // Which brokers cover this stock — deterministic subset of 5–8.
+    const coverCount = randInt(5, 8)
+    const shuffled = [...BROKERS].sort(() => rand() - 0.5)
+    const covering = shuffled.slice(0, coverCount)
+
+    for (const brk of covering) {
+      // A series of notes for this (broker, stock) over ~6 months.
+      const numNotes = randInt(3, 7)
+      // Most recent note: bias toward recency; pull from the queue when available.
+      let daysAgo = recencyQueue.length > 0 && chance(0.5)
+        ? recencyQueue.shift()!
+        : randInt(0, 40)
+
+      // Rating walk seeded by the broker's structural bias.
+      let ratingIdx = Math.max(0, Math.min(4, 2 + Math.round(brk.bias * 2) + randInt(-1, 1)))
+      let prevTarget: number | null = null
+
+      const series: { daysAgo: number; ratingIdx: number; target: number }[] = []
+      for (let k = 0; k < numNotes; k++) {
+        // Walk the rating occasionally as we step BACK in time.
+        if (k > 0 && chance(0.35)) ratingIdx = Math.max(0, Math.min(4, ratingIdx + (chance(0.5) ? 1 : -1)))
+        // Target around spot, tilted by rating (bulls above, bears below) + drift.
+        const tilt = 1 + (ratingIdx - 2) * 0.06 + (rand() - 0.5) * 0.08
+        const target = Math.round((spot * tilt) / 5) * 5
+        series.push({ daysAgo, ratingIdx, target })
+        daysAgo += randInt(16, 34) // older note
+      }
+      // series[0] is newest; iterate oldest→newest so signal/target deltas read right.
+      series.reverse()
+
+      for (let k = 0; k < series.length; k++) {
+        const cur = series[k]!
+        const prev = k > 0 ? series[k - 1]! : null
+        const rating = RATINGS[cur.ratingIdx]!
+        const stance = stanceFor(rating)
+        const isFirst = k === 0
+        const theme = pick(themes)
+        const mood = stance === 'bullish' ? pick(POSITIVE) : stance === 'bearish' ? pick(NEGATIVE) : pick(NEUTRAL)
+        const reportType: ReportType = isFirst ? 'initiation' : pick(REPORT_TYPES)
+
+        // Note signal: first = new coverage; rating step = upgrade/downgrade.
+        let signalKind: NoteSignalKind | null = null
+        let signalSource: NoteSignalSource | null = null
+        if (isFirst) { signalKind = 'new_coverage'; signalSource = 'report_type' }
+        else if (prev && cur.ratingIdx > prev.ratingIdx) { signalKind = 'upgrade'; signalSource = 'body' }
+        else if (prev && cur.ratingIdx < prev.ratingIdx) { signalKind = 'downgrade'; signalSource = 'body' }
+
+        const upside = +(((cur.target - spot) / spot) * 100).toFixed(2)
+        n += 1
+        const seq = String(n).padStart(4, '0')
+        const rptId = `rpt_g${seq}`
+        const sumId = `sum_g${seq}`
+        const emlId = `eml_g${seq}`
+        const attId = `att_g${seq}`
+        const pubH = randInt(4, 12), pubM = randInt(0, 59)
+        const publishedAt = iso(cur.daysAgo, pubH, pubM)
+        const recvMin = pubM + randInt(40, 130)
+        const receivedAt = iso(cur.daysAgo, pubH + Math.floor(recvMin / 60), recvMin % 60)
+        const title = `${stock.ticker as unknown as string}: ${theme} ${mood}` +
+          (signalKind === 'upgrade' ? ' — upgrading' : signalKind === 'downgrade' ? ' — downgrading' : '')
+        const pageCount = randInt(8, 28)
+
+        reports.push({
+          id: asReportId(rptId), orgId: ORG, brokerId: asBrokerId(brk.id),
+          sourceEmailId: asEmailId(emlId), sourceAttachmentId: asAttachmentId(attId),
+          title, publishedAt, receivedAt, reportType,
+          tickers: [asTicker(stock.ticker as unknown as string)],
+          sectorIds: [asSectorId(sector)], pageCount, language: 'en',
+          status: 'ready', summaryId: asSummaryId(sumId),
+        })
+
+        // Summary + 3 evidence snippets.
+        const keyPoints = [
+          `${theme[0]!.toUpperCase()}${theme.slice(1)} ${mood} into the next two quarters`,
+          `Target implies ${upside >= 0 ? '+' : ''}${Math.round(upside)}% vs the last close`,
+          stance === 'bullish' ? 'Risk/reward skews favourable at current valuation'
+            : stance === 'bearish' ? 'Valuation leaves little margin of safety'
+            : 'Balanced setup pending the next print',
+        ]
+        const evIds = [0, 1, 2].map(() => { ev += 1; return asEvidenceId(`ev_g${String(ev).padStart(5, '0')}`) })
+        summaries.push({
+          id: asSummaryId(sumId), orgId: ORG, reportId: asReportId(rptId),
+          stance, rating,
+          targetPrice: cur.target, priorTargetPrice: prevTarget, targetCurrency: 'INR',
+          thesis: `${stock.name}: ${theme} ${mood}; we maintain a ${rating} stance with a ₹${cur.target.toLocaleString('en-IN')} target.`,
+          keyPoints,
+          themes: [theme],
+          risks: [stance === 'bullish' ? 'Execution slippage versus the raised bar' : 'A sharper-than-modelled recovery'],
+          catalysts: [{ label: 'Next quarterly result', expectedOn: iso(cur.daysAgo - randInt(20, 60), 9, 30) }],
+          confidence: +(0.6 + rand() * 0.3).toFixed(2),
+          generatedAt: receivedAt, generatorVersion: 'mock-gen-1.0',
+          evidenceIds: evIds,
+          keyNumbers: [
+            { label: 'PT', value: `₹${cur.target.toLocaleString('en-IN')}` },
+            { label: 'Upside', value: `${upside >= 0 ? '+' : ''}${Math.round(upside)}%` },
+          ],
+          watchpoints: [theme],
+          upsidePct: upside,
+          noteSignalKind: signalKind,
+          noteSignalSource: signalSource,
+          upsideChipPct: upside >= 15 ? upside : null,
+          actionLabel: null,
+        })
+        const evFields: readonly ['thesis' | 'keyPoint', string][] = [['thesis', ''], ['keyPoint', '0'], ['keyPoint', '1']]
+        evFields.forEach(([field, ref], i) => {
+          evidence.push({
+            id: evIds[i]!, orgId: ORG, reportId: asReportId(rptId), summaryId: asSummaryId(sumId),
+            attachmentId: asAttachmentId(attId), pageNumber: randInt(1, pageCount),
+            textSnippet: i === 0 ? `${theme} ${mood} — see page commentary.` : keyPoints[i === 1 ? 0 : 2]!,
+            charOffsetStart: null, charOffsetEnd: null, boundingBox: null,
+            supportingField: field, fieldRef: ref,
+          })
+        })
+
+        // Email + attachment (1:1, all ready).
+        const dateTag = utcDateOnly(cur.daysAgo).replace(/-/g, '')
+        emails.push({
+          id: asEmailId(emlId), orgId: ORG, brokerId: asBrokerId(brk.id),
+          senderAddress: `research@${brk.id.replace('brk_', '')}.com`,
+          senderName: `${brk.short} Research`, recipientAddress: 'research@aranyacapital.in',
+          subject: title, bodyPreview: `${stock.name}: ${theme} ${mood}. ${rating} maintained, PT ₹${cur.target.toLocaleString('en-IN')}.`,
+          receivedAt, forwardedFrom: ['arjun@aranyacapital.in'],
+          attachmentIds: [asAttachmentId(attId)], reportIds: [asReportId(rptId)],
+          status: 'ready', statusMessage: null, sourceMessageId: `<${emlId}@${brk.id}>`,
+        })
+        attachments.push({
+          id: asAttachmentId(attId), orgId: ORG, emailId: asEmailId(emlId),
+          filename: `${brk.short.replace(/\s+/g, '')}_${stock.ticker as unknown as string}_${dateTag}.pdf`,
+          mimeType: 'application/pdf', sizeBytes: randInt(180_000, 2_400_000),
+          checksumSha256: '', storageRef: `s3://mock/${attId}.pdf`,
+          pageCount, language: 'en', parseStatus: 'ready', parseErrorMessage: null,
+        })
+
+        prevTarget = cur.target
+
+        // Track latest per (broker,ticker) for opinions.
+        const pairKey = `${brk.id}|${stock.ticker as unknown as string}`
+        const existing = latestByPair.get(pairKey)
+        if (!existing || publishedAt > existing.report.publishedAt) {
+          latestByPair.set(pairKey, {
+            report: reports[reports.length - 1]!, rating, target: cur.target, upside,
+          })
+        }
+      }
+    }
+  }
+
+  // Derived opinions — latest note per (broker, ticker).
+  const opinions: BrokerStockOpinion[] = [...latestByPair.entries()].map(([key, v]) => {
+    const [brokerId, ticker] = key.split('|') as [string, string]
+    return {
+      orgId: ORG, brokerId: asBrokerId(brokerId), ticker: asTicker(ticker),
+      rating: v.rating, stance: stanceFor(v.rating),
+      targetPrice: v.target, priorTargetPrice: v.report.summaryId ? null : null,
+      targetCurrency: 'INR', lastReportId: v.report.id,
+      lastUpdatedAt: v.report.publishedAt, impliedUpsidePct: v.upside,
+    }
+  })
+
+  // A few in-flight emails (no report) so the Inbox shows queued/parsing/failed.
+  const inflight: readonly { status: BrokerEmail['status']; msg: string | null }[] = [
+    { status: 'queued', msg: null }, { status: 'parsing', msg: null },
+    { status: 'failed', msg: 'PDF parse failed: encrypted attachment' },
+    { status: 'queued', msg: null }, { status: 'parsing', msg: null },
+  ]
+  inflight.forEach((f, i) => {
+    const brk = BROKERS[i % BROKERS.length]!
+    const stock = stocks[i % stocks.length]!
+    const emlId = `eml_gx${String(i + 1).padStart(3, '0')}`
+    emails.push({
+      id: asEmailId(emlId), orgId: ORG, brokerId: asBrokerId(brk.id),
+      senderAddress: `research@${brk.id.replace('brk_', '')}.com`, senderName: `${brk.short} Research`,
+      recipientAddress: 'research@aranyacapital.in',
+      subject: `${stock.ticker as unknown as string}: inbound note`,
+      bodyPreview: 'Awaiting extraction…', receivedAt: iso(randInt(0, 2), randInt(5, 12), randInt(0, 59)),
+      forwardedFrom: ['arjun@aranyacapital.in'], attachmentIds: [], reportIds: [],
+      status: f.status, statusMessage: f.msg, sourceMessageId: `<${emlId}@${brk.id}>`,
+    })
+  })
+
+  return { reports, summaries, opinions, emails, attachments, evidence }
+}
+
+export const GENERATED: Gen = generate()

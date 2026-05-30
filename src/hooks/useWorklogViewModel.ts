@@ -45,7 +45,10 @@ export function useDailyWorklogViewModel(filters: WorklogFiltersState): QueryRes
   const sectors  = useAdapterQuery((a, s) => a.listSectors(s),  [])
   const stocks   = useAdapterQuery((a, s) => a.listStocks(s),   [])
   const reports  = useAdapterQuery(
-    (a, s) => a.listResearchReports(s, { limit: 200 }),
+    // High cap: the worklog is the feed's backbone and the mock/live datasets
+    // can carry several hundred reports across a 6-month history. A low limit
+    // would silently truncate the oldest notes from every date-windowed view.
+    (a, s) => a.listResearchReports(s, { limit: 2000 }),
     [fp],
   )
 

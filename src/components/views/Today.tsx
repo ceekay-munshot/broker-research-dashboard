@@ -372,6 +372,11 @@ function buildDays(items: readonly WorklogItem[]): DayCards[] {
     byDay.get(it.utcDate)!.push(it)
   }
 
+  // Newest day first — the worklog sorts items by priority-then-recency, so
+  // its raw order can float a high-priority older note above today's. The feed
+  // promises "newest first", so we order the day sections by date descending.
+  dayOrder.sort((a, b) => (a < b ? 1 : a > b ? -1 : 0))
+
   return dayOrder.map((dayKey) => {
     const dayItems = byDay.get(dayKey)!
 
