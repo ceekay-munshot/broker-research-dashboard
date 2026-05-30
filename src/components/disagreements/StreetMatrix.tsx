@@ -180,8 +180,12 @@ function MatrixTable({ matrix, tierFor }: {
     return [...map.entries()]
   }, [matrix.rows])
 
+  // Bounded 2-D scroll region so the header row and first column can freeze
+  // (spreadsheet-style). A plain overflow-x wrapper can't do this: once
+  // overflow-x is auto, overflow-y computes to auto too, and without a height
+  // bound there's no vertical scroll for `sticky top-0` to grab.
   return (
-    <div className="rounded-md border border-line/20 bg-line/[0.02] overflow-x-auto">
+    <div className="rounded-md border border-line/20 bg-line/[0.02] overflow-auto max-h-[70vh]">
       <table className="w-full border-collapse text-[12px]">
         <colgroup>
           <col style={{ width: '220px' }}/>
@@ -189,7 +193,7 @@ function MatrixTable({ matrix, tierFor }: {
         </colgroup>
         <thead>
           <tr className="border-b border-line/20">
-            <th className="text-left px-3 py-2.5 font-medium text-slate-500 text-[10.5px] uppercase tracking-[0.12em] sticky left-0 bg-ink-900 z-[1]">
+            <th className="text-left px-3 py-2.5 font-medium text-slate-500 text-[10.5px] uppercase tracking-[0.12em] sticky top-0 left-0 bg-ink-900 z-30">
               Topic
             </th>
             {matrix.brokers.map((b) => (
@@ -228,9 +232,11 @@ function CategoryGroup({ category, rows, brokers, open, onOpen, onClose }: {
       <tr>
         <td
           colSpan={brokers.length + 1}
-          className="px-3 pt-3 pb-1 text-[10px] uppercase tracking-[0.16em] text-slate-500 bg-line/[0.04] border-t border-line/15"
+          className="px-3 pt-3 pb-1 bg-line/[0.04] border-t border-line/15"
         >
-          {category}
+          <span className="sticky left-3 inline-block text-[10px] uppercase tracking-[0.16em] text-slate-500">
+            {category}
+          </span>
         </td>
       </tr>
       {rows.map((r) => (
@@ -250,7 +256,7 @@ function CategoryGroup({ category, rows, brokers, open, onOpen, onClose }: {
 function BrokerHeader({ broker, tier }: { broker: BrokerRef; tier: BrokerTier }) {
   return (
     <th
-      className="text-left px-3 py-2 font-medium text-slate-200 text-[12px] border-l border-line/15 whitespace-nowrap"
+      className="text-left px-3 py-2 font-medium text-slate-200 text-[12px] border-l border-line/15 whitespace-nowrap sticky top-0 z-20 bg-ink-900"
       title={broker.name}
     >
       <span className="inline-flex items-center gap-1.5">
@@ -270,7 +276,7 @@ function Row({ row, brokers, openBrokerId, onOpen, onClose }: {
 }) {
   return (
     <tr className="border-t border-line/15 align-top">
-      <td className="px-3 py-2.5 sticky left-0 bg-ink-900 z-[1] border-r border-line/15">
+      <td className="px-3 py-2.5 sticky left-0 bg-ink-900 z-10 border-r border-line/15">
         <div className="flex flex-col gap-0.5 max-w-[200px]">
           <span className="text-slate-100 font-semibold text-[12.5px] leading-snug">{row.topic}</span>
           {row.spread !== null && (
@@ -323,7 +329,10 @@ function Cell({ cell, broker, topic, open, onOpen, onClose }: {
 
   const isInteractive = cell.stance !== 'absent'
 
-  const { kpi, why } = splitKpiWhy(cell.summary)
+  // The cell carries just the headline — the one clear thing this broker said
+  // on this topic. The fuller wording (the "why" and any other claims) lives
+  // in the click-to-expand popover so the grid stays scannable.
+  const { kpi } = splitKpiWhy(cell.summary)
 
   return (
     <td className="border-l border-line/15 p-0 align-top min-w-[200px]">
@@ -331,17 +340,16 @@ function Cell({ cell, broker, topic, open, onOpen, onClose }: {
         ref={triggerRef}
         onClick={isInteractive ? onOpen : undefined}
         disabled={!isInteractive}
-        className={`block w-full text-left px-3 py-2.5 transition-colors ${cellTone} ${
+        title={isInteractive ? 'Click for the full note' : undefined}
+        className={`group relative block w-full text-left px-3 py-2.5 transition-colors ${cellTone} ${
           isInteractive ? 'cursor-pointer' : 'cursor-default'
         }`}
       >
         {isInteractive ? (
-          <div className="flex flex-col gap-0.5">
-            <span className="text-[12px] font-semibold leading-snug line-clamp-2">{kpi}</span>
-            {why && (
-              <span className="text-[11px] leading-snug line-clamp-2 opacity-75">{why}</span>
-            )}
-          </div>
+          <>
+            <span className="text-[12px] font-medium leading-snug line-clamp-2">{kpi}</span>
+            <span className="pointer-events-none absolute bottom-1 right-1.5 text-[11px] leading-none opacity-0 group-hover:opacity-60 transition-opacity">⤢</span>
+          </>
         ) : (
           <span className="text-[12px] leading-snug">{cell.summary}</span>
         )}
@@ -460,7 +468,7 @@ function CellPopover({ cell, broker, topic, anchor, onClose }: {
         </span>
         <span className={`chip border ${stanceCls} text-[9.5px] shrink-0`}>{stanceLabel}</span>
       </div>
-      <p className="text-[12px] text-slate-200 leading-relaxed line-clamp-5 whitespace-pre-wrap">
+      <p className="text-[12px] text-slate-200 leading-relaxed whitespace-pre-wrap max-h-64 overflow-y-auto">
         {cell.excerpt.replace(ANCHOR_TAG_RE, ' ').replace(/\s+/g, ' ').trim()}
       </p>
       <div className="flex items-center justify-end pt-1 border-t border-line/15">
