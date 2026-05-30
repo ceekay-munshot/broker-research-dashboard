@@ -79,18 +79,124 @@ const REPORT_TYPES: readonly ReportType[] = [
   'update', 'update', 'update', 'flash', 'deep_dive', 'earnings_review', 'earnings_preview', 'initiation',
 ]
 
-// Theme phrases per sector → readable titles & thesis without per-stock prose.
-const SECTOR_THEMES: Record<string, readonly string[]> = {
-  sec_it:         ['deal TCV momentum', 'GenAI attach rate', 'discretionary spend', 'margin cadence', 'BFSI vertical recovery'],
-  sec_fin:        ['NIM trajectory', 'deposit franchise', 'credit cost cycle', 'unsecured book mix', 'loan growth'],
-  sec_energy:     ['refining spreads', 'upstream capex discipline', 'retail EBITDA', 'gas pricing floor', 'FCF inflection'],
-  sec_pharma:     ['US generics pricing', 'specialty franchise ramp', 'gAPI cost tailwind', 'biosimilar pipeline', 'domestic formulations'],
-  sec_consumer:   ['rural demand recovery', 'premiumisation mix', 'volume growth', 'EV roadmap', 'input-cost easing'],
-  sec_industrial: ['order inflow at highs', 'execution cycle', 'working-capital discipline', 'export order book', 'margin expansion'],
+// Per-sector debate topics. Each topic names a driver and supplies a full,
+// investor-legible claim for each polarity — a KPI sentence with a real
+// number, then a "why" clause. The leading words include a dimension keyword
+// (margin/growth/demand/order/execution/catalyst) so the closure engine's
+// classifier (src/engine/classifiers.ts) files it under the right matrix row.
+// Bull and bear read as two sides of the SAME debate, which is what makes the
+// Agreements & disagreements matrix legible.
+interface Topic {
+  readonly label: string                 // short driver name (theme)
+  readonly bull: (n: number) => string   // bull-side claim, parameterised by a metric
+  readonly bear: (n: number) => string   // bear-side claim
+  readonly neutral: (n: number) => string
+  readonly unit: 'pct' | 'bps' | 'x'     // how to render the metric n
+}
+const fmt = (n: number, u: Topic['unit']) =>
+  u === 'pct' ? `${n}%` : u === 'bps' ? `${n}bps` : `${n}x`
+
+const SECTOR_TOPICS: Record<string, readonly Topic[]> = {
+  sec_it: [
+    { label: 'Deal TCV growth', unit: 'pct',
+      bull: (n) => `Growth: deal TCV up ${n}% YoY with book-to-bill above 1.1x. Large-deal pipeline and vendor consolidation underpin double-digit FY27 revenue growth.`,
+      bear: (n) => `Growth: deal TCV growth slowing to ${n}% YoY as discretionary projects slip. We see FY27 revenue growth decelerating toward mid-single digits.`,
+      neutral: (n) => `Growth: deal TCV tracking ${n}% YoY, broadly in line; momentum hinges on the next two quarters of conversion.` },
+    { label: 'EBIT margin trajectory', unit: 'bps',
+      bull: (n) => `Margin: EBIT margin expanding ~${n}bps as utilisation and pyramid optimisation offset wage hikes. We model margin at the top of guidance.`,
+      bear: (n) => `Margin: EBIT margin compressing ~${n}bps on wage inflation and weak utilisation. Pricing gives little room to recover near term.`,
+      neutral: (n) => `Margin: EBIT margin roughly flat (±${n}bps); levers and headwinds offset through FY26.` },
+    { label: 'GenAI / discretionary demand', unit: 'pct',
+      bull: (n) => `Demand: GenAI attach now ~${n}% of new deals, reviving discretionary spend across BFSI and hi-tech verticals.`,
+      bear: (n) => `Demand: discretionary spend still soft, GenAI only ~${n}% of deals and largely experimental — not yet a revenue driver.`,
+      neutral: (n) => `Demand: GenAI attach ~${n}% of deals; early but not yet moving the topline.` },
+  ],
+  sec_fin: [
+    { label: 'NIM trajectory', unit: 'bps',
+      bull: (n) => `Margin: NIM troughing with ~${n}bps expansion into FY27 as deposit repricing catches up to the asset book.`,
+      bear: (n) => `Margin: NIM compressing ~${n}bps as deposit costs stay sticky and the loan mix shifts to lower-yield secured credit.`,
+      neutral: (n) => `Margin: NIM broadly stable (±${n}bps); funding costs and asset yields move together.` },
+    { label: 'Loan growth', unit: 'pct',
+      bull: (n) => `Growth: loan growth sustaining ~${n}% with retail credit demand intact and market-share gains from weaker peers.`,
+      bear: (n) => `Growth: loan growth slowing to ~${n}% as the bank tightens unsecured underwriting amid rising stress.`,
+      neutral: (n) => `Growth: loan growth ~${n}%, in line with system credit; no clear share shift.` },
+    { label: 'Asset quality / credit cost', unit: 'bps',
+      bull: (n) => `Execution: credit costs benign at ~${n}bps; management's underwriting discipline keeps slippages well contained.`,
+      bear: (n) => `Execution: credit costs rising toward ~${n}bps as unsecured and microfinance books show early delinquency.`,
+      neutral: (n) => `Execution: credit costs ~${n}bps, in line; asset quality stable pending the next cycle.` },
+  ],
+  sec_energy: [
+    { label: 'Refining / O2C margin', unit: 'pct',
+      bull: (n) => `Margin: refining spreads recovering, O2C EBITDA up ~${n}% as cracks normalise off the trough.`,
+      bear: (n) => `Margin: refining spreads staying weak, O2C EBITDA down ~${n}% in a supply-surplus scenario.`,
+      neutral: (n) => `Margin: O2C EBITDA roughly flat (±${n}%); spreads range-bound.` },
+    { label: 'Upstream capex discipline', unit: 'pct',
+      bull: (n) => `Execution: capex discipline driving an FCF inflection, free cash flow up ~${n}% and supporting capital returns.`,
+      bear: (n) => `Execution: capex overruns of ~${n}% delay the FCF inflection; capital allocation remains a concern.`,
+      neutral: (n) => `Execution: capex broadly to plan (±${n}%); FCF trajectory unchanged.` },
+    { label: 'Retail EBITDA / ARPU', unit: 'pct',
+      bull: (n) => `Demand: retail ARPU discipline and ~${n}% EBITDA step-up into FY27 underpin the sum-of-parts re-rating.`,
+      bear: (n) => `Demand: retail EBITDA growth slowing to ~${n}% as tariff hikes meet competitive pushback.`,
+      neutral: (n) => `Demand: retail EBITDA growing ~${n}%, in line; ARPU trajectory steady.` },
+  ],
+  sec_pharma: [
+    { label: 'US generics pricing', unit: 'pct',
+      bull: (n) => `Demand: US generics price erosion easing to ~${n}%, with new launches offsetting base-business decline.`,
+      bear: (n) => `Demand: US generics pricing pressure persisting at ~${n}% erosion; channel consolidation keeps the base under stress.`,
+      neutral: (n) => `Demand: US generics erosion ~${n}%, in line; launches roughly offset base decline.` },
+    { label: 'Specialty franchise ramp', unit: 'pct',
+      bull: (n) => `Growth: specialty franchise ramping ~${n}% as flagship brands gain share — the core re-rating driver.`,
+      bear: (n) => `Growth: specialty ramp underwhelming at ~${n}%; R&D spend outpaces the revenue contribution.`,
+      neutral: (n) => `Growth: specialty growing ~${n}%, tracking plan; ramp visibility improving.` },
+    { label: 'Gross margin / gAPI cost', unit: 'bps',
+      bull: (n) => `Margin: gross margin expanding ~${n}bps on a benign API cost tailwind and a richer product mix.`,
+      bear: (n) => `Margin: gross margin compressing ~${n}bps as API costs rise and price erosion bites.`,
+      neutral: (n) => `Margin: gross margin flat (±${n}bps); cost and pricing offset.` },
+  ],
+  sec_consumer: [
+    { label: 'Volume / rural demand', unit: 'pct',
+      bull: (n) => `Demand: volume growth recovering to ~${n}% as rural demand inflects and the festive read-through is strong.`,
+      bear: (n) => `Demand: volume growth stalling at ~${n}% with rural recovery slower than modelled and down-trading visible.`,
+      neutral: (n) => `Demand: volume growth ~${n}%, in line; rural recovery gradual.` },
+    { label: 'Premiumisation / mix', unit: 'bps',
+      bull: (n) => `Margin: premiumisation lifting realisations, gross margin up ~${n}bps on a richer mix.`,
+      bear: (n) => `Margin: premiumisation stalling, gross margin down ~${n}bps as input costs outrun pricing.`,
+      neutral: (n) => `Margin: mix-led margin roughly flat (±${n}bps) through the year.` },
+    { label: 'EV / new-product roadmap', unit: 'pct',
+      bull: (n) => `Catalyst: the EV and new-product roadmap adds ~${n}% to the FY27 TAM, with launches a clear re-rating catalyst.`,
+      bear: (n) => `Catalyst: EV roadmap execution risk is high; we haircut the ~${n}% TAM uplift until launches prove out.`,
+      neutral: (n) => `Catalyst: EV roadmap adds ~${n}% to TAM; timing and execution still to be proven.` },
+  ],
+  sec_industrial: [
+    { label: 'Order inflow', unit: 'pct',
+      bull: (n) => `Order book: order inflow at record highs, up ~${n}% YoY; the backlog extends revenue visibility well into FY28.`,
+      bear: (n) => `Order book: order inflow slowing ~${n}% YoY as project awards are deferred; backlog conversion is the risk.`,
+      neutral: (n) => `Order book: order inflow ~${n}% YoY, in line; backlog steady.` },
+    { label: 'Execution / working capital', unit: 'pct',
+      bull: (n) => `Execution: execution cycle tightening, working capital down ~${n}% of sales — a clear cash-flow positive.`,
+      bear: (n) => `Execution: working capital stretching ~${n}% of sales as execution slips; cash conversion disappoints.`,
+      neutral: (n) => `Execution: working capital ~${n}% of sales, in line; execution on track.` },
+    { label: 'Margin expansion', unit: 'bps',
+      bull: (n) => `Margin: operating margin expanding ~${n}bps on operating leverage and a better project mix.`,
+      bear: (n) => `Margin: operating margin compressing ~${n}bps on competitive bidding and cost inflation.`,
+      neutral: (n) => `Margin: operating margin roughly flat (±${n}bps); leverage offsets cost.` },
+  ],
 }
 const POSITIVE = ['accelerating', 'inflecting higher', 'ahead of plan', 're-rating', 'structurally improving']
 const NEGATIVE = ['under pressure', 'disappointing', 'derating', 'below plan', 'facing headwinds']
 const NEUTRAL  = ['in line', 'broadly stable', 'mixed', 'tracking expectations', 'range-bound']
+
+/** Build the polarity-correct claim for a topic + stance, with a plausible
+ *  metric. Returns the full "KPI. Why." sentence the matrix renders. */
+function claimFor(topic: Topic, stance: Stance): string {
+  const n = topic.unit === 'bps' ? randInt(40, 220)
+    : topic.unit === 'x' ? randInt(8, 24)
+    : randInt(4, 28)
+  void fmt
+  if (stance === 'bullish') return topic.bull(n)
+  if (stance === 'bearish') return topic.bear(n)
+  return topic.neutral(n)
+}
 
 function iso(daysAgo: number, hourUtc: number, min: number): string {
   const d = new Date(NOW.getTime() - daysAgo * DAY_MS)
@@ -131,7 +237,7 @@ function generate(): Gen {
 
   for (const stock of stocks) {
     const sector = stock.sectorId as unknown as string
-    const themes = SECTOR_THEMES[sector] ?? ['fundamentals']
+    const topics = SECTOR_TOPICS[sector] ?? SECTOR_TOPICS.sec_it!
     const spot = stock.lastPrice ?? 1000
 
     // Which brokers cover this stock — deterministic subset of 5–8.
@@ -170,7 +276,13 @@ function generate(): Gen {
         const rating = RATINGS[cur.ratingIdx]!
         const stance = stanceFor(rating)
         const isFirst = k === 0
-        const theme = pick(themes)
+        // Pick TWO debate topics for this note so a stock accumulates views
+        // across multiple matrix rows (Growth, Margins, Demand…). The first is
+        // the headline driver; both become full claims classified by keyword.
+        const shuffledTopics = [...topics].sort(() => rand() - 0.5)
+        const topicA = shuffledTopics[0]!
+        const topicB = shuffledTopics[1] ?? topicA
+        const theme = topicA.label
         const mood = stance === 'bullish' ? pick(POSITIVE) : stance === 'bearish' ? pick(NEGATIVE) : pick(NEUTRAL)
         const reportType: ReportType = isFirst ? 'initiation' : pick(REPORT_TYPES)
 
@@ -205,23 +317,32 @@ function generate(): Gen {
           status: 'ready', summaryId: asSummaryId(sumId),
         })
 
-        // Summary + 3 evidence snippets.
+        // Two full, dimension-tagged debate claims (the matrix rows) plus a
+        // valuation line. claimA/claimB read as "KPI with a number. Why." so
+        // the Street matrix shows a bold headline and a lighter rationale.
+        const claimA = claimFor(topicA, stance)
+        const claimB = claimFor(topicB, stance)
+        // themes feed the closure classifier — keep the keyword-bearing label.
+        const themesList = [topicA.label, topicB.label]
         const keyPoints = [
-          `${theme[0]!.toUpperCase()}${theme.slice(1)} ${mood} into the next two quarters`,
-          `Target implies ${upside >= 0 ? '+' : ''}${Math.round(upside)}% vs the last close`,
-          stance === 'bullish' ? 'Risk/reward skews favourable at current valuation'
-            : stance === 'bearish' ? 'Valuation leaves little margin of safety'
-            : 'Balanced setup pending the next print',
+          claimA,
+          claimB,
+          `Valuation: our ₹${cur.target.toLocaleString('en-IN')} target implies ${upside >= 0 ? '+' : ''}${Math.round(upside)}% versus the last close, ` +
+            (stance === 'bullish' ? 'and risk/reward skews favourable from here.'
+              : stance === 'bearish' ? 'leaving little margin of safety at current levels.'
+              : 'a balanced setup pending the next print.'),
         ]
         const evIds = [0, 1, 2].map(() => { ev += 1; return asEvidenceId(`ev_g${String(ev).padStart(5, '0')}`) })
         summaries.push({
           id: asSummaryId(sumId), orgId: ORG, reportId: asReportId(rptId),
           stance, rating,
           targetPrice: cur.target, priorTargetPrice: prevTarget, targetCurrency: 'INR',
-          thesis: `${stock.name}: ${theme} ${mood}; we maintain a ${rating} stance with a ₹${cur.target.toLocaleString('en-IN')} target.`,
+          thesis: `${stock.name}: we rate the stock ${rating} with a ₹${cur.target.toLocaleString('en-IN')} target (${upside >= 0 ? '+' : ''}${Math.round(upside)}% upside). ${claimA}`,
           keyPoints,
-          themes: [theme],
-          risks: [stance === 'bullish' ? 'Execution slippage versus the raised bar' : 'A sharper-than-modelled recovery'],
+          themes: themesList,
+          risks: [stance === 'bullish'
+            ? `Execution slippage versus the raised bar on ${topicA.label.toLowerCase()} is the key downside risk.`
+            : `A sharper-than-modelled recovery in ${topicA.label.toLowerCase()} is the key upside risk to our cautious view.`],
           catalysts: [{ label: 'Next quarterly result', expectedOn: iso(cur.daysAgo - randInt(20, 60), 9, 30) }],
           confidence: +(0.6 + rand() * 0.3).toFixed(2),
           generatedAt: receivedAt, generatorVersion: 'mock-gen-1.0',
@@ -230,7 +351,7 @@ function generate(): Gen {
             { label: 'PT', value: `₹${cur.target.toLocaleString('en-IN')}` },
             { label: 'Upside', value: `${upside >= 0 ? '+' : ''}${Math.round(upside)}%` },
           ],
-          watchpoints: [theme],
+          watchpoints: [topicA.label, topicB.label],
           upsidePct: upside,
           noteSignalKind: signalKind,
           noteSignalSource: signalSource,
@@ -242,7 +363,7 @@ function generate(): Gen {
           evidence.push({
             id: evIds[i]!, orgId: ORG, reportId: asReportId(rptId), summaryId: asSummaryId(sumId),
             attachmentId: asAttachmentId(attId), pageNumber: randInt(1, pageCount),
-            textSnippet: i === 0 ? `${theme} ${mood} — see page commentary.` : keyPoints[i === 1 ? 0 : 2]!,
+            textSnippet: i === 0 ? claimA : keyPoints[i === 1 ? 1 : 2]!,
             charOffsetStart: null, charOffsetEnd: null, boundingBox: null,
             supportingField: field, fieldRef: ref,
           })
@@ -254,7 +375,7 @@ function generate(): Gen {
           id: asEmailId(emlId), orgId: ORG, brokerId: asBrokerId(brk.id),
           senderAddress: `research@${brk.id.replace('brk_', '')}.com`,
           senderName: `${brk.short} Research`, recipientAddress: 'research@aranyacapital.in',
-          subject: title, bodyPreview: `${stock.name}: ${theme} ${mood}. ${rating} maintained, PT ₹${cur.target.toLocaleString('en-IN')}.`,
+          subject: title, bodyPreview: `${stock.name} — ${rating}, PT ₹${cur.target.toLocaleString('en-IN')}. ${claimA}`,
           receivedAt, forwardedFrom: ['arjun@aranyacapital.in'],
           attachmentIds: [asAttachmentId(attId)], reportIds: [asReportId(rptId)],
           status: 'ready', statusMessage: null, sourceMessageId: `<${emlId}@${brk.id}>`,
