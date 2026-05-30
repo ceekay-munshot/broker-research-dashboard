@@ -1,7 +1,7 @@
 import React, { Fragment, useEffect } from 'react'
 import type { ReportId, EvidenceSnippet, ReportType, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
-import type { ReportDetailViewModel, ReportStreetContext } from '../viewModels/reportDetail'
+import type { ReportDetailViewModel, ReportStreetContext, SourceKind } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatPrice } from '../viewModels/shared'
 import { ARB_LABEL, ARB_COLOR } from '../viewModels/arb'
 import {
@@ -23,7 +23,7 @@ interface ReportDrawerProps {
 const REPORT_TYPE_LABEL: Record<ReportType, string> = {
   initiation:       'Initiation',
   update:           'Update',
-  flash:            'Flash note',
+  flash:            'Quick note',
   earnings_preview: 'Earnings preview',
   earnings_review:  'Earnings review',
   morning_note:     'Morning note',
@@ -243,22 +243,11 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
             </div>
           )}
 
-          {/* Source document */}
+          {/* Source — a direct link to the original artifact this note came
+              from (PDF / spreadsheet / document / email / web link). */}
           {vm.sourceDocument && (
-            <Section title="Source document">
-              <a
-                href={vm.sourceDocument.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded border border-accent/30 bg-accent/[0.06] px-3 py-2 text-[12px] text-accent hover:bg-accent/[0.1] transition-colors"
-              >
-                <span aria-hidden>↗</span>
-                <span className="font-medium">Open original PDF</span>
-                <span
-                  className="ml-auto text-[10.5px] text-slate-400 truncate max-w-[260px]"
-                  title={vm.sourceDocument.filename}
-                >{vm.sourceDocument.filename}</span>
-              </a>
+            <Section title="Source">
+              <SourceButton doc={vm.sourceDocument}/>
             </Section>
           )}
         </div>
@@ -641,6 +630,40 @@ function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
         ))}
       </ol>
     </Section>
+  )
+}
+
+// ── Source button — open the original artifact ──────────────────────────
+// One clear "Source" action, typed by what it points at. The icon + verb make
+// it obvious whether the original is a PDF, a spreadsheet, a document, the
+// forwarded email, or a web link.
+
+const SOURCE_META: Record<SourceKind, { icon: string; verb: string; noun: string }> = {
+  pdf:   { icon: '📄', verb: 'Open PDF',         noun: 'PDF document' },
+  excel: { icon: '📊', verb: 'Open spreadsheet', noun: 'Spreadsheet' },
+  doc:   { icon: '📝', verb: 'Open document',    noun: 'Document' },
+  email: { icon: '✉️', verb: 'Open email',       noun: 'Forwarded email' },
+  web:   { icon: '🔗', verb: 'Open link',        noun: 'Web link' },
+}
+
+function SourceButton({ doc }: { doc: NonNullable<ReportDetailViewModel['sourceDocument']> }) {
+  const meta = SOURCE_META[doc.kind]
+  const isMailto = doc.url.startsWith('mailto:')
+  return (
+    <a
+      href={doc.url}
+      {...(isMailto ? {} : { target: '_blank', rel: 'noopener noreferrer' })}
+      className="flex items-center gap-2.5 rounded border border-accent/30 bg-accent/[0.06] px-3 py-2.5 text-[12px] text-accent hover:bg-accent/[0.1] transition-colors"
+    >
+      <span aria-hidden className="text-[15px] leading-none">{meta.icon}</span>
+      <div className="flex flex-col min-w-0">
+        <span className="font-semibold">{meta.verb}</span>
+        <span className="text-[10.5px] text-slate-400 truncate max-w-[280px]" title={doc.filename}>
+          {meta.noun} · {doc.filename}
+        </span>
+      </div>
+      <span aria-hidden className="ml-auto shrink-0 text-slate-400">↗</span>
+    </a>
   )
 }
 

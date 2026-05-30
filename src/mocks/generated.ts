@@ -380,11 +380,23 @@ function generate(): Gen {
           attachmentIds: [asAttachmentId(attId)], reportIds: [asReportId(rptId)],
           status: 'ready', statusMessage: null, sourceMessageId: `<${emlId}@${brk.id}>`,
         })
+        // Vary the source artifact so the drawer's Source button exercises
+        // every kind: PDF, spreadsheet, Word doc, web link — and roughly every
+        // 5th note has no attachment URL so the email-source fallback shows.
+        const stem = `${brk.short.replace(/\s+/g, '')}_${stock.ticker as unknown as string}_${dateTag}`
+        const variant = n % 5
+        const src =
+          variant === 0 ? { ext: 'pdf',  mime: 'application/pdf', url: `https://research.${brk.id.replace('brk_', '')}.com/notes/${stem}.pdf` }
+          : variant === 1 ? { ext: 'xlsx', mime: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', url: `https://research.${brk.id.replace('brk_', '')}.com/models/${stem}.xlsx` }
+          : variant === 2 ? { ext: 'docx', mime: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', url: `https://research.${brk.id.replace('brk_', '')}.com/notes/${stem}.docx` }
+          : variant === 3 ? { ext: 'html', mime: 'text/html', url: `https://research.${brk.id.replace('brk_', '')}.com/web/${stem}` }
+          : { ext: 'pdf', mime: 'application/pdf', url: null } // no link → email-source fallback
         attachments.push({
           id: asAttachmentId(attId), orgId: ORG, emailId: asEmailId(emlId),
-          filename: `${brk.short.replace(/\s+/g, '')}_${stock.ticker as unknown as string}_${dateTag}.pdf`,
-          mimeType: 'application/pdf', sizeBytes: randInt(180_000, 2_400_000),
-          checksumSha256: '', storageRef: `s3://mock/${attId}.pdf`,
+          filename: `${stem}.${src.ext}`,
+          mimeType: src.mime, sizeBytes: randInt(180_000, 2_400_000),
+          checksumSha256: '', storageRef: `s3://mock/${attId}.${src.ext}`,
+          sourceUrl: src.url,
           pageCount, language: 'en', parseStatus: 'ready', parseErrorMessage: null,
         })
 

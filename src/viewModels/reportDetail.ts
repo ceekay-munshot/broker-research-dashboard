@@ -15,6 +15,22 @@ import {
   type ArbVerdict, type ConsensusRating,
 } from './arb'
 
+/** What kind of artifact the source link points at — drives the Source
+ *  button's icon and verb ("Open PDF" / "Open spreadsheet" / "Open email" /
+ *  "Open link"). */
+export type SourceKind = 'pdf' | 'excel' | 'doc' | 'email' | 'web'
+
+/** Classify a source from its MIME type / filename extension / URL. */
+function deriveSourceKind(filename: string, mimeType: string | null, url: string): SourceKind {
+  const f = filename.toLowerCase()
+  const m = (mimeType ?? '').toLowerCase()
+  if (m.includes('pdf') || f.endsWith('.pdf')) return 'pdf'
+  if (m.includes('spreadsheet') || m.includes('excel') || /\.(xlsx?|csv)$/.test(f)) return 'excel'
+  if (m.includes('word') || /\.docx?$/.test(f)) return 'doc'
+  if (m.includes('message/rfc822') || f.endsWith('.eml') || url.startsWith('mailto:')) return 'email'
+  return 'web'
+}
+
 export interface EvidenceBySection {
   readonly thesis: readonly EvidenceSnippet[]
   readonly rating: readonly EvidenceSnippet[]
@@ -131,11 +147,13 @@ export interface ReportDetailViewModel {
     readonly email: string | null
   } | null
 
-  /** The original research document, when the source feed provided a
-   *  downloadable link. Null for body-only reports or when no URL exists. */
+  /** The original source this note came from — the attachment when one exists,
+   *  else the forwarded email itself. `kind` drives the icon + verb on the
+   *  Source button. Null only when there's no link and no email to open. */
   readonly sourceDocument: {
     readonly url: string
     readonly filename: string
+    readonly kind: SourceKind
   } | null
 
   /** This call vs the Street — null when no multi-broker comparison exists. */
@@ -281,9 +299,7 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     brokerSender: deriveBrokerSender(report, sourceEmail),
     forwardedBy: deriveForwardedBy(sourceEmail),
 
-    sourceDocument: sourceAttachment?.sourceUrl
-      ? { url: sourceAttachment.sourceUrl, filename: sourceAttachment.filename }
-      : null,
+    sourceDocument: deriveSourceDocument(sourceAttachment, sourceEmail),
 
     streetContext: buildStreetContext(closure, report, summary),
 
@@ -299,6 +315,34 @@ export function buildReportDetailViewModel(inputs: Inputs): ReportDetailViewMode
     } : null,
     brokerStockConflict: report.brokerStockConflict ?? false,
   }
+}
+
+/** Resolve the note's source link + kind. Prefer the attachment's signed URL
+ *  (a PDF / spreadsheet / doc); fall back to the forwarded email when there's
+ *  no downloadable attachment, so the Source button always has somewhere to go.
+ *  Returns null only when neither exists. */
+function deriveSourceDocument(
+  attachment: Attachment | null,
+  email: BrokerEmail | undefined | null,
+): { url: string; filename: string; kind: SourceKind } | null {
+  if (attachment?.sourceUrl) {
+    return {
+      url: attachment.sourceUrl,
+      filename: attachment.filename,
+      kind: deriveSourceKind(attachment.filename, attachment.mimeType, attachment.sourceUrl),
+    }
+  }
+  if (email) {
+    // No attachment link — point at the forwarded email itself. A mailto:
+    // makes the "email" kind explicit; senderAddress is the best anchor we have.
+    const addr = email.senderAddress || email.senderName || 'email'
+    return {
+      url: `mailto:${email.senderAddress || ''}`,
+      filename: email.subject || `Email from ${addr}`,
+      kind: 'email',
+    }
+  }
+  return null
 }
 
 /** Pick the best broker-sender evidence string to feed into the parser.
