@@ -1,16 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReportId, BrokerId, StockTicker } from '../../domain'
-import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { FiltersState } from '../../app/filters'
-import type { OpinionCell, ByStockRowViewModel, StockView } from '../../viewModels/byStock'
+import type { OpinionCell, ByStockRowViewModel } from '../../viewModels/byStock'
 import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import CmpCell from '../cells/CmpCell'
-import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
 import {
-  RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
-  TONE_TEXT_CLASS, getChangeTone,
+  BROKER_DOT_CLASS, TONE_TEXT_CLASS, getChangeTone,
 } from '../../lib/semanticColor'
 
 interface ByStockProps {
@@ -20,10 +17,10 @@ interface ByStockProps {
 }
 
 export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByStockProps) {
-  const [view, setView] = useState<StockView>('most-covered')
   const [search, setSearch] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
-  const { data, loading, error } = useByStockViewModel(filters, view)
+  // One default ordering: most-covered first (what the Street is watching).
+  const { data, loading, error } = useByStockViewModel(filters, 'most-covered')
 
   // Live CMP fetch — called unconditionally (hooks rule) with a null-safe
   // ticker list. Empty list = no-op inside the hook.
@@ -77,10 +74,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
             disagrees. Click a stock for the full breakdown.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <StockSearch value={search} onChange={setSearch}/>
-          <ViewSelector view={view} setView={setView}/>
-        </div>
+        <StockSearch value={search} onChange={setSearch}/>
       </div>
 
       <div ref={scrollRef} className="panel overflow-auto max-h-[calc(100vh-220px)]">
@@ -88,7 +82,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
           <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10">Ticker</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Street state</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Call</th>
               <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">
                 <div className="flex items-center justify-end gap-1.5">
                   <span>CMP</span>
@@ -124,63 +118,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         </table>
       </div>
 
-      <div className="flex items-center gap-4 text-[11px] text-slate-500 flex-wrap">
-        <div className="flex items-center gap-1.5"><StateBadge state="consensus_bullish" strength="strong" compact/> consensus bullish</div>
-        <div className="flex items-center gap-1.5"><StateBadge state="consensus_bearish" strength="strong" compact/> consensus bearish</div>
-        <div className="flex items-center gap-1.5"><StateBadge state="mixed_constructive" strength="moderate" compact/> mixed · constructive tilt</div>
-        <div className="flex items-center gap-1.5"><StateBadge state="outlier_driven" strength="moderate" compact/> outlier-driven</div>
-        <div className="flex items-center gap-1.5"><StateBadge state="unresolved" strength="weak" compact/> unresolved</div>
-        <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500/40"/> outlier target</div>
-      </div>
-
-    </div>
-  )
-}
-
-// ─── View selector ────────────────────────────────────────────────────
-// Re-sorts the matrix only — no row is ever hidden.
-
-const STOCK_VIEWS: readonly {
-  readonly id: StockView
-  readonly label: string
-  readonly tooltip: string
-}[] = [
-  {
-    id: 'most-covered',
-    label: 'Most covered',
-    tooltip: 'Stocks with the most broker coverage at the top — see what the Street is paying the most attention to.',
-  },
-  {
-    id: 'consensus',
-    label: 'Consensus',
-    tooltip: 'Stocks where brokers most agree at the top — clearest collective view, whether bullish or bearish.',
-  },
-  {
-    id: 'contested',
-    label: 'Most disagreement',
-    tooltip: 'Stocks where brokers most disagree at the top — where the Street is split on rating or price target.',
-  },
-]
-
-function ViewSelector({ view, setView }: {
-  view: StockView;
-  setView: (v: StockView) => void;
-}) {
-  return (
-    <div className="flex items-center gap-1.5 flex-wrap">
-      <span className="section-title mr-0.5">View</span>
-      {STOCK_VIEWS.map((v) => (
-        <button
-          key={v.id}
-          onClick={() => setView(v.id)}
-          title={v.tooltip}
-          aria-label={v.tooltip}
-          className={`px-2.5 py-1 text-[11px] rounded border transition-colors
-            ${view === v.id
-              ? 'bg-accent/15 border-accent/40 text-accent'
-              : 'bg-line/[0.02] border-line/5 text-slate-300 hover:bg-line/[0.05] hover:border-line/10'}`}
-        >{v.label}</button>
-      ))}
     </div>
   )
 }
@@ -230,7 +167,7 @@ function StockRow({ row, zebra, highlight, brokerColumnIds, cmp, ratingFilter, o
   onSelectTicker: (t: StockTicker) => void;
 }) {
   const filterTooltip = ratingFilter
-    ? 'Street state reflects all brokers covering this stock, not the active rating filter.'
+    ? 'The call reflects all brokers covering this stock, not the active rating filter.'
     : undefined
   return (
     <tr className={`border-b border-line/5 ${highlight ? 'bg-accent/[0.07]' : zebra ? 'bg-line/[0.01]' : ''}`}>
@@ -247,15 +184,7 @@ function StockRow({ row, zebra, highlight, brokerColumnIds, cmp, ratingFilter, o
         </div>
       </td>
       <td className="px-3 py-2" title={filterTooltip}>
-        <div className="flex flex-col gap-1">
-          <StateBadge state={row.resultantState} strength={row.resultantStrength}/>
-          <span className="text-[10px] text-slate-500 num">
-            {row.brokerCount} broker{row.brokerCount === 1 ? '' : 's'}
-            {row.outlierBrokerIds.length > 0 && (
-              <span className="text-amber-400"> · {row.outlierBrokerIds.length} outlier{row.outlierBrokerIds.length === 1 ? '' : 's'}</span>
-            )}
-          </span>
-        </div>
+        <CallCell row={row}/>
       </td>
       <td className="px-3 py-2 num text-right">
         <CmpCell cell={cmp} avgTarget={row.avgTarget}/>
@@ -349,20 +278,43 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
   )
 }
 
-// ─── Shared state badge ───────────────────────────────────────────────
-// Labels live in src/lib/signalVocab.ts so every surface — By Stock, Stock
-// Drawer, Disagreements, Report Drawer — reads the same wording.
+// ─── Call cell ────────────────────────────────────────────────────────
+// The Street's call on a stock, in plain words: the consensus rating with how
+// many brokers back it (e.g. "Buy · 5 of 8"), "Mixed" when brokers are split,
+// or "No rating yet". Replaces the old jargon Street-state badge.
 
-function StateBadge({ state, strength, compact }: { state: ResultantState; strength: StrengthBand; compact?: boolean }) {
-  return (
-    <span
-      className={`chip border ${STATE_COLOR[state]} inline-flex items-center gap-1 ${compact ? 'text-[9px]' : 'text-[10px]'}`}
-      title={`${RESULTANT_STATE_LABEL[state]} · ${strength} strength`}
-    >
-      <span>{RESULTANT_STATE_LABEL[state]}</span>
-      {!compact && <span className="text-slate-500">·</span>}
-      {!compact && <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>}
+function CallCell({ row }: { row: ByStockRowViewModel }) {
+  const cr = row.consensusRating
+  const brokerLine = (
+    <span className="text-[10px] text-slate-500 num">
+      {row.brokerCount} broker{row.brokerCount === 1 ? '' : 's'} covering
     </span>
+  )
+
+  if (cr.kind === 'clear') {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="flex items-baseline gap-1.5">
+          <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[cr.rating]}`}>{cr.rating}</span>
+          <span className="text-[10px] text-slate-500 num">{cr.agree} of {cr.total}</span>
+        </span>
+        {brokerLine}
+      </div>
+    )
+  }
+  if (cr.kind === 'tie') {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <span className="text-[13px] font-semibold text-amber-500 dark:text-amber-400">Mixed</span>
+        {brokerLine}
+      </div>
+    )
+  }
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-[13px] font-medium text-slate-400">No rating yet</span>
+      {brokerLine}
+    </div>
   )
 }
 

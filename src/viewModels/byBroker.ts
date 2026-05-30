@@ -2,6 +2,7 @@ import type {
   Broker, ResearchReport, ReportSummary, Stance,
   BrokerId, PortfolioSnapshot, BrokerStockOpinion, Stock,
   CalibrationSnapshot, PostEventReview, ResolutionClass,
+  Rating, IsoCurrency, ReportId,
 } from '../domain'
 import type { ConflictClosure } from '../engine/types'
 import {
@@ -32,9 +33,12 @@ export interface BrokerCardViewModel {
   readonly viewChangesLast30d: number
   /** Most recent rating/stance/target change across the broker's coverage. */
   readonly lastMove: BrokerLastMove | null
-  /** Every note this broker published in range, newest first — the card shows
-   *  the first three; the drawer drills in for the full per-stock timeline. */
+  /** Every note this broker published in range, newest first. Kept for the
+   *  drawer's full per-stock timeline; the card itself renders `calls`. */
   readonly notes: readonly FeedItemViewModel[]
+  /** The broker's CURRENT call per stock — latest note per ticker, newest
+   *  first. This is what the card shows: what's the call, on what stock. */
+  readonly calls: readonly BrokerCall[]
   /** Module 18: items this broker published on book / watchlist names. */
   readonly bookActivity: BrokerBookActivity
   /** How this broker was resolved — drives card ordering and labels. */
@@ -47,6 +51,21 @@ export interface BrokerLastMove {
   readonly ticker: string
   readonly publishedAt: string
   readonly kind: 'rating' | 'target' | 'stance'
+}
+
+/** One current call: the broker's latest rating on a stock. `isNew` marks a
+ *  call published recently AND not seen before for that ticker in range (a
+ *  fresh initiation or a changed view), so the card can flag it. */
+export interface BrokerCall {
+  readonly ticker: string
+  readonly stockName: string | null
+  readonly rating: Rating | null
+  readonly stance: Stance
+  readonly targetPrice: number | null
+  readonly targetCurrency: IsoCurrency | null
+  readonly publishedAt: string
+  readonly reportId: ReportId
+  readonly isNew: boolean
 }
 
 export interface BrokerBookActivity {
@@ -76,6 +95,8 @@ interface Inputs {
   readonly brokers: readonly Broker[]
   readonly reports: readonly ResearchReport[]
   readonly summaries: readonly ReportSummary[]
+  /** Stock catalog for resolving display names on the per-stock calls. */
+  readonly stocks?: readonly Stock[]
   readonly filters: FiltersState
   /** Module 18: optional portfolio inputs. When absent, bookActivity is empty. */
   readonly portfolio?: {
@@ -140,6 +161,58 @@ function computeMoveStats(
   return { viewChangesLast30d, lastMove }
 }
 
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+
+/** Collapse a broker's reports into one CURRENT call per stock — the latest
+ *  note per ticker. A call is flagged `isNew` when its latest note is recent
+ *  (≤7d) AND it either initiated coverage or changed the rating vs the prior
+ *  note on that stock — i.e. genuinely new information, not a reiteration. */
+function buildCalls(
+  reports: readonly ResearchReport[],
+  summaryByReport: ReadonlyMap<string, ReportSummary>,
+  stockNameByTicker: ReadonlyMap<string, string>,
+): BrokerCall[] {
+  const byTicker = new Map<string, ResearchReport[]>()
+  for (const r of reports) {
+    const t = r.tickers[0] as unknown as string | undefined
+    if (!t) continue
+    const arr = byTicker.get(t) ?? []
+    arr.push(r)
+    byTicker.set(t, arr)
+  }
+
+  const nowMs = Date.now()
+  const calls: BrokerCall[] = []
+  for (const [ticker, bucket] of byTicker) {
+    bucket.sort((a, b) => a.publishedAt.localeCompare(b.publishedAt)) // oldest→newest
+    const latest = bucket[bucket.length - 1]!
+    const prev = bucket.length > 1 ? bucket[bucket.length - 2]! : null
+    const sum = summaryByReport.get(latest.id as string) ?? null
+    const prevSum = prev ? summaryByReport.get(prev.id as string) ?? null : null
+
+    const recent = nowMs - Date.parse(latest.publishedAt) <= SEVEN_DAYS_MS
+    const initiated = prev === null
+    const ratingChanged = !!prevSum && prevSum.rating !== (sum?.rating ?? null)
+    const isNew = recent && (initiated || ratingChanged)
+
+    calls.push({
+      ticker,
+      stockName: stockNameByTicker.get(ticker) ?? null,
+      rating: sum?.rating ?? null,
+      stance: sum?.stance ?? 'neutral',
+      targetPrice: sum?.targetPrice ?? null,
+      targetCurrency: sum?.targetCurrency ?? null,
+      publishedAt: latest.publishedAt,
+      reportId: latest.id,
+      isNew,
+    })
+  }
+  // New calls first, then newest-published.
+  calls.sort((a, b) =>
+    (Number(b.isNew) - Number(a.isNew)) || b.publishedAt.localeCompare(a.publishedAt))
+  return calls
+}
+
 /** Numeric baseline for relevance buckets so the engine has a scalar to nudge. */
 function bucketBaseline(b: 'critical' | 'high' | 'medium' | 'low' | 'none'): number {
   switch (b) {
@@ -166,6 +239,9 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
   // note exactly once.
   const reports = dedupeReports(inputs.reports)
   const summaryByReport = indexBy(inputs.summaries, (s) => s.reportId as string)
+  const stockNameByTicker = new Map<string, string>(
+    (inputs.stocks ?? []).map((s) => [s.ticker as unknown as string, s.name]),
+  )
   const brokerFilter = new Set<string>(inputs.filters.brokerIds as readonly string[])
   const brokers = inputs.brokers.filter((b) => brokerFilter.size === 0 || brokerFilter.has(b.id as string))
 
@@ -222,6 +298,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
     const notes = theirs.map((r) => buildFeedItem(
       r, summaryByReport.get(r.id as string) ?? null, broker,
     ))
+    const calls = buildCalls(theirs, summaryByReport, stockNameByTicker)
 
     // Module 18: items this broker published on the book / watchlist.
     const bookActivity: BrokerBookActivity = (() => {
@@ -331,6 +408,7 @@ export function buildByBrokerViewModel(inputs: Inputs): ByBrokerViewModel {
       viewChangesLast30d,
       lastMove,
       notes,
+      calls,
       bookActivity,
       resolutionClass,
       conflictCount,
@@ -406,6 +484,7 @@ export function useByBrokerViewModel(filters: FiltersState): QueryResult<ByBroke
     brokers: brokers.data,
     reports: reportsPage.data.items,
     summaries: summariesQuery.data,
+    stocks: stocks.data,
     filters,
     portfolio: {
       snapshot: portfolioQ.data ?? null,
