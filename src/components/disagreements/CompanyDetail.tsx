@@ -6,7 +6,7 @@
 import type { StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import type { BrokerTier } from '../../viewModels/disagreementInsight'
-import { CallBadge, ConfidenceMeter, StanceMix, OutlierRow } from './shared'
+import { CallBadge, StanceMix, OutlierRow } from './shared'
 import TargetPriceScale from './TargetPriceScale'
 import StreetMatrix from './StreetMatrix'
 
@@ -36,7 +36,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
         </div>
         <div className="flex flex-col items-end gap-1.5 shrink-0">
           <CallBadge cr={c.consensusRating}/>
-          <ConfidenceMeter score={c.confidence.score} band={c.confidence.band}/>
         </div>
       </header>
 
