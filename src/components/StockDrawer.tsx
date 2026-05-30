@@ -3,7 +3,7 @@ import type { ReportId, StockTicker } from '../domain'
 import {
   useStockStreetView,
   type BrokerDetail, type BrokerSnapshotRow, type ConsensusTarget,
-  type DivergenceCard, type EstimateRow, type RatingCounts, type RevisionEntry,
+  type EstimateRow, type RatingCounts, type RevisionEntry,
   type StockStreetView,
 } from '../viewModels/stockStreetView'
 import { RATING_TEXT_COLOR, formatPrice } from '../viewModels/shared'
@@ -85,7 +85,6 @@ function Content({ vm, onClose, onSelectReport }: {
           <ConsensusEstimatesSection rows={vm.consensusEstimates}/>
           <StreetAtAGlanceSection rows={vm.brokerSnapshot}/>
           <RevisionsSection entries={vm.revisions}/>
-          <DivergencesSection cards={vm.divergences}/>
           <BrokerDetailsSection details={vm.brokerDetails} onSelectReport={onSelectReport}/>
         </div>
       </div>
@@ -357,47 +356,7 @@ function DeltaChip({ delta }: { delta: RevisionEntry['deltas'][number] }) {
   )
 }
 
-// ── E · Key divergences ─────────────────────────────────────────────────
-
-function DivergencesSection({ cards }: { cards: readonly DivergenceCard[] }) {
-  return (
-    <Section title="Key divergences">
-      {cards.length === 0 ? (
-        <Placeholder>No material divergences in the current window.</Placeholder>
-      ) : (
-        <ul className="flex flex-col gap-2">
-          {cards.map((c, i) => <DivergenceItem key={i} card={c}/>)}
-        </ul>
-      )}
-    </Section>
-  )
-}
-
-function DivergenceItem({ card }: { card: DivergenceCard }) {
-  return (
-    <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-1.5">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-slate-100 text-[12.5px] font-semibold">{card.title}</span>
-        {card.spreadText && (
-          <span className="text-[10.5px] text-amber-300 num">{card.spreadText}</span>
-        )}
-      </div>
-      <p className="text-[12px] text-slate-300 leading-snug line-clamp-3">{card.summary}</p>
-      {(card.bullBrokers.length > 0 || card.bearBrokers.length > 0) && (
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10.5px] text-slate-500">
-          {card.bullBrokers.length > 0 && (
-            <span><span className="text-emerald-400">Bulls:</span> {card.bullBrokers.join(' · ')}</span>
-          )}
-          {card.bearBrokers.length > 0 && (
-            <span><span className="text-rose-400">Bears:</span> {card.bearBrokers.join(' · ')}</span>
-          )}
-        </div>
-      )}
-    </li>
-  )
-}
-
-// ── F · Detailed broker views ───────────────────────────────────────────
+// ── E · Detailed broker views ───────────────────────────────────────────
 
 function BrokerDetailsSection({ details, onSelectReport }: {
   details: readonly BrokerDetail[]
