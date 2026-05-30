@@ -177,23 +177,36 @@ function StockCard({ card, onSelectReport, onSelectTicker }: {
   onSelectTicker: (() => void) | null
 }) {
   const ticker = card.ticker as unknown as string | null
+  // Suppress the secondary name when it's just the ticker again (the name
+  // fell back to the ticker upstream) — avoids "MOTHERSON MOTHERSON".
+  const subName = ticker && card.name.trim().toUpperCase() !== ticker.toUpperCase() ? card.name : null
   return (
     <div className="panel overflow-hidden">
-      {/* Company header — the hero */}
+      {/* Company header — the hero. Uniform treatment: every card leads with a
+          bold primary identifier. With a ticker → bold TICKER + full company
+          name; tickerless (NER resolved a name but no exchange symbol) → the
+          company name IS the bold primary. We never invent a ticker. */}
       <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-2 border-b border-line/5">
-        {ticker && (
-          <span className="num text-[13px] font-semibold text-slate-100 shrink-0">{ticker}</span>
-        )}
         {onSelectTicker ? (
+          // Has a ticker (onSelectTicker is only set when card.ticker exists) —
+          // bold ticker + full name, the whole thing opens the Street view.
           <button
             onClick={onSelectTicker}
-            title={ticker ? `Open ${card.name} stock view` : undefined}
-            className="group text-left text-[12px] text-slate-400 truncate hover:text-accent transition-colors"
+            title={`Open ${card.name} stock view`}
+            className="group flex items-baseline gap-2 min-w-0 text-left"
           >
-            {card.name}
+            <span className="num text-[13px] font-semibold text-slate-100 shrink-0 group-hover:text-accent transition-colors">{ticker}</span>
+            {subName && <span className="text-[12px] text-slate-400 truncate group-hover:text-accent/80 transition-colors">{subName}</span>}
           </button>
+        ) : ticker ? (
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="num text-[13px] font-semibold text-slate-100 shrink-0">{ticker}</span>
+            {subName && <span className="text-[12px] text-slate-400 truncate">{subName}</span>}
+          </div>
         ) : (
-          <span className="text-[12px] text-slate-400 truncate">{card.name}</span>
+          // Tickerless — the company name takes the bold primary slot so the
+          // card carries the same visual weight as a ticker'd one.
+          <span className="text-[13px] font-semibold text-slate-100 truncate">{card.name}</span>
         )}
         {card.divergence && (
           <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border border-amber-400/40 text-amber-300 bg-amber-400/[0.08]">
