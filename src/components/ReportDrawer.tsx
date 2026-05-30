@@ -1,4 +1,4 @@
-import React, { Fragment, useEffect } from 'react'
+import React, { useEffect } from 'react'
 import type { ReportId, EvidenceSnippet, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext, SourceKind } from '../viewModels/reportDetail'
@@ -8,7 +8,7 @@ import {
   TONE_CHIP_CLASS, TONE_TEXT_CLASS, getActionLabelTone, getChangeTone, BROKER_GLYPH_CLASS,
   type SemanticTone,
 } from '../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, formatConsensusRating, REPORT_TYPE_LABEL } from '../lib/signalVocab'
+import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, REPORT_TYPE_LABEL } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 import { cleanDisplayKeyPoints, isBoilerplateKeyPoint } from '../lib/researchTextCleaners'
 import { useStockPrices, type PriceCell } from '../hooks/useStockPrices'
@@ -462,8 +462,11 @@ function StreetContextCard({ vm }: { vm: ReportDetailViewModel }) {
   }
   return (
     <HeroCard label="Street context">
-      <div className="text-[12.5px] text-slate-200 leading-tight">
-        {formatConsensusRating(ctx.consensusRating)}
+      {/* The Street's call in the SAME plain form used in the Stocks table and
+          the Agreements tab — "Hold · 5 of 9" / "Mixed" / "No rating yet" —
+          so the consensus reads identically everywhere. */}
+      <div className="text-[14px] font-semibold leading-tight">
+        <ConsensusCall cr={ctx.consensusRating}/>
       </div>
       <div className="flex items-center gap-1.5 flex-wrap">
         <span className={`chip border ${ARB_COLOR[ctx.arb.band]} text-[10px]`}>
@@ -477,6 +480,23 @@ function StreetContextCard({ vm }: { vm: ReportDetailViewModel }) {
       </div>
     </HeroCard>
   )
+}
+
+/** The consensus call rendered the same way as the By Stock "Call" column:
+ *  "<Rating> · N of M" (rating colour-coded), "Mixed", or "No rating yet". */
+function ConsensusCall({ cr }: { cr: ReportStreetContext['consensusRating'] }) {
+  if (cr.kind === 'clear') {
+    return (
+      <span className="inline-flex items-baseline gap-1.5 whitespace-nowrap">
+        <span className={RATING_TEXT_COLOR[cr.rating]}>{cr.rating}</span>
+        <span className="text-[11px] text-slate-500 num">{cr.agree} of {cr.total}</span>
+      </span>
+    )
+  }
+  if (cr.kind === 'tie') {
+    return <span className="text-amber-500 dark:text-amber-400">Mixed</span>
+  }
+  return <span className="text-slate-400">No rating yet</span>
 }
 
 // ── Outlier callout — only when this broker breaks from the Street ─────────
@@ -542,30 +562,27 @@ function NumbersTable({ vm }: { vm: ReportDetailViewModel }) {
   for (const n of vm.keyNumbers) rows.push({ label: n.label, value: n.value })
   if (rows.length === 0) return null
 
-  if (rows.length <= 2) {
-    return (
-      <Section title="Numbers that matter">
-        <div className="flex flex-wrap gap-1.5">
-          {rows.map((r) => <KeyNumberChip key={r.label} label={r.label} value={r.value}/>)}
-        </div>
-      </Section>
-    )
-  }
-
+  // One consistent bordered table (Metric / Value / Read-through), matching the
+  // Key-takeaways, Risks and Catalysts tables in this drawer.
   return (
     <Section title="Numbers that matter">
-      <div className="grid grid-cols-[1fr_auto_1fr] gap-x-3 gap-y-1.5 items-baseline">
-        <div className="section-title">Metric</div>
-        <div className="section-title text-right">Value</div>
-        <div className="section-title">Read-through</div>
+      <div className="rounded-md border border-line/10 overflow-hidden">
+        <div className="grid grid-cols-[1fr_auto_1.4fr] gap-x-3 px-3 py-1.5 bg-line/[0.03] border-b border-line/10">
+          <span className="section-title">Metric</span>
+          <span className="section-title text-right">Value</span>
+          <span className="section-title">Read-through</span>
+        </div>
         {rows.map((r) => (
-          <Fragment key={r.label}>
-            <div className="text-[12px] text-slate-200 truncate" title={r.label}>{r.label}</div>
-            <div className="num text-[12px] text-slate-100 font-semibold text-right whitespace-nowrap">{r.value}</div>
-            <div className="text-[11.5px] text-slate-500 truncate" title={readThroughLabel(r.label)}>
+          <div
+            key={r.label}
+            className="grid grid-cols-[1fr_auto_1.4fr] gap-x-3 items-baseline px-3 py-2 border-b border-line/5 last:border-0 odd:bg-line/[0.015]"
+          >
+            <span className="text-[12px] text-slate-200 truncate" title={r.label}>{r.label}</span>
+            <span className="num text-[12px] text-slate-100 font-semibold text-right whitespace-nowrap">{r.value}</span>
+            <span className="text-[11.5px] text-slate-500 truncate" title={readThroughLabel(r.label)}>
               {readThroughLabel(r.label)}
-            </div>
-          </Fragment>
+            </span>
+          </div>
         ))}
       </div>
     </Section>
@@ -832,14 +849,3 @@ function highlightFigures(text: string): React.ReactNode {
   return out
 }
 
-/** Compact label + value chip used by `NumbersTable` when there are ≤2
- *  metrics to surface. Deliberately not the global `.chip` class — that
- *  is uppercase and would mangle values like "23.7%" or "21/16x EBITDA". */
-function KeyNumberChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5 px-2 py-1 rounded border border-line/5 bg-line/[0.04]">
-      <span className="text-[10.5px] text-slate-400">{label}</span>
-      <span className="num text-[11.5px] font-medium text-slate-200">{value}</span>
-    </span>
-  )
-}
