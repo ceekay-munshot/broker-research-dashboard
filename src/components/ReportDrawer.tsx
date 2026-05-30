@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react'
-import type { ReportId, EvidenceSnippet, StockTicker, BrokerSource } from '../domain'
+import type { ReportId, StockTicker, BrokerSource } from '../domain'
 import { useReportDetailViewModel } from '../viewModels/reportDetail'
 import type { ReportDetailViewModel, ReportStreetContext, SourceKind } from '../viewModels/reportDetail'
 import { RATING_TEXT_COLOR, formatShortDate, formatPrice } from '../viewModels/shared'
@@ -540,9 +540,6 @@ function ExecutiveRead({ vm }: { vm: ReportDetailViewModel }) {
     <section className="border-l-2 border-accent/40 pl-3 flex flex-col gap-1.5">
       <div className="section-title">Why this note matters</div>
       <p className="text-[13.5px] text-slate-100 leading-relaxed">{highlightFigures(text)}</p>
-      {thesis !== null && vm.evidence.thesis.length > 0 && (
-        <EvidenceList snippets={vm.evidence.thesis} indent/>
-      )}
     </section>
   )
 }
@@ -621,9 +618,8 @@ function watchpointTone(label: string): SemanticTone {
 }
 
 // ── Key takeaways — boilerplate-filtered bullets ───────────────────────────
-// Display numbering uses the FILTERED index (1, 2, 3, ...). Evidence
-// lookup uses the ORIGINAL index so existing snippet attribution survives
-// the filter pass.
+// Display numbering uses the FILTERED index (1, 2, 3, ...); the ORIGINAL index
+// is kept as a stable React key across the filter pass.
 
 function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
   const displayed = vm.keyPoints
@@ -642,7 +638,6 @@ function KeyTakeawaysList({ vm }: { vm: ReportDetailViewModel }) {
               <span className="text-slate-500 num w-5 shrink-0">{i + 1}.</span>
               <span className="flex-1 leading-relaxed">{highlightFigures(p.text)}</span>
             </div>
-            <EvidenceList snippets={vm.evidence.keyPointByIndex.get(p.originalIndex) ?? []} indent/>
           </div>
         ))}
       </div>
@@ -802,23 +797,6 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h3 className="section-title">{title}</h3>
       {children}
     </section>
-  )
-}
-
-function EvidenceList({ snippets, indent }: { snippets: readonly EvidenceSnippet[]; indent?: boolean }) {
-  if (snippets.length === 0) return null
-  return (
-    <div className={`flex flex-col gap-1.5 ${indent ? 'ml-7' : ''}`}>
-      {snippets.map((s) => (
-        <div key={s.id} className="rounded border border-line/5 bg-line/[0.02] px-3 py-2 flex flex-col gap-0.5">
-          <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-slate-500">
-            <span className="chip border border-accent/30 text-accent/90">Evidence</span>
-            <span className="num">p.{s.pageNumber}</span>
-          </div>
-          <div className="text-[12px] text-slate-300 italic leading-relaxed">“{s.textSnippet}”</div>
-        </div>
-      ))}
-    </div>
   )
 }
 
