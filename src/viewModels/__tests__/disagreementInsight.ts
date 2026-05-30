@@ -36,6 +36,7 @@ function makeCard(over: Partial<DivergenceCardViewModel> = {}): DivergenceCardVi
     brokerCount: 3,
     brokers: [],
     stanceDistribution: { bullish: 0, neutral: 0, bearish: 0 },
+    consensusRating: { kind: 'none' },
     targetStats: {
       count: 0, mean: null, median: null, high: null, low: null,
       stdev: null, spreadPct: null,

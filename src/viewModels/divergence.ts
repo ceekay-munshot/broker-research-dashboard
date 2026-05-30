@@ -9,6 +9,7 @@ import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
 import { filtersFingerprint } from '../app/filters'
+import { deriveConsensusRating, type ConsensusRating } from './arb'
 
 export interface DivergenceCardViewModel {
   readonly ticker: StockTicker
@@ -19,6 +20,9 @@ export interface DivergenceCardViewModel {
   /** Every broker covering this stock, used as the column set in the matrix view. */
   readonly brokers: readonly BrokerRef[]
   readonly stanceDistribution: ConflictClosure['stanceDistribution']
+  /** Plain consensus call (Buy · 5 of 8 / Mixed / No rating) for the list +
+   *  header — the same wording the Stocks tab uses. */
+  readonly consensusRating: ConsensusRating
   readonly targetStats: TargetStats
   readonly resultant: ResultantLogic
   readonly confidence: ConfidenceDetail
@@ -144,6 +148,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
         brokerCount: c.brokerCount,
         brokers: c.brokerIds.map((b) => ref(b as unknown as string)),
         stanceDistribution: c.stanceDistribution,
+        consensusRating: deriveConsensusRating(c),
         targetStats: c.targetStats,
         resultant: c.resultant,
         confidence: c.confidence,

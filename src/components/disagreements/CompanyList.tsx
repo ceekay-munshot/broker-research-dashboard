@@ -3,7 +3,7 @@
 
 import type { StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
-import { VerdictBadge, SeverityBar, StanceMix } from './shared'
+import { CallBadge, SeverityBar, StanceMix } from './shared'
 
 interface Props {
   readonly cases: readonly DivergenceCardViewModel[]
@@ -28,7 +28,7 @@ export default function CompanyList({ cases, activeTicker, onSelect }: Props) {
           >
             <div className="flex items-center justify-between gap-2">
               <span className="num text-[13px] font-semibold text-slate-100">{c.ticker}</span>
-              <VerdictBadge state={c.resultant.state} strength={c.strength}/>
+              <CallBadge cr={c.consensusRating}/>
             </div>
             <div className="text-[11px] text-slate-400 truncate">{c.stockName}</div>
             <SeverityBar spreadPct={c.targetStats.spreadPct}/>

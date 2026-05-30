@@ -5,9 +5,11 @@ import { useState } from 'react'
 import type { Stance } from '../../domain'
 import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { OutlierVM } from '../../viewModels/divergence'
+import type { ConsensusRating } from '../../viewModels/arb'
 import { TIER_LABEL, type BrokerTier } from '../../viewModels/disagreementInsight'
 import { RESULTANT_STATE_CHIP_CLASS } from '../../lib/semanticColor'
 import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
+import { RATING_TEXT_COLOR } from '../../viewModels/shared'
 
 // ── Verdict (resultant state) ─────────────────────────────────────────
 // Labels live in src/lib/signalVocab.ts so the Disagreements tab, By Stock,
@@ -27,6 +29,26 @@ export function VerdictBadge({ state, strength }: {
       <span className="uppercase tracking-widest text-[9px] text-slate-500">{strength}</span>
     </span>
   )
+}
+
+// ── Call badge ────────────────────────────────────────────────────────
+// The Street's call in plain words — the consensus rating with how many
+// brokers back it (Buy · 5 of 8), "Mixed" when split, or "No rating yet".
+// Same wording as the By Stock "Call" column; replaces the jargon verdict.
+
+export function CallBadge({ cr }: { cr: ConsensusRating }) {
+  if (cr.kind === 'clear') {
+    return (
+      <span className="inline-flex items-baseline gap-1.5">
+        <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[cr.rating]}`}>{cr.rating}</span>
+        <span className="text-[10px] text-slate-500 num">{cr.agree} of {cr.total}</span>
+      </span>
+    )
+  }
+  if (cr.kind === 'tie') {
+    return <span className="text-[13px] font-semibold text-amber-500 dark:text-amber-400">Mixed</span>
+  }
+  return <span className="text-[13px] font-medium text-slate-400">No rating yet</span>
 }
 
 // ── Severity bar ──────────────────────────────────────────────────────
