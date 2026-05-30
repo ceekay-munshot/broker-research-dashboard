@@ -246,7 +246,7 @@ function BrokerCallHero({ vm, noteSignal, primaryTicker, cmpCell }: {
     <div className="grid grid-cols-2 lg:grid-cols-3 gap-2.5">
       <FormalCallCard vm={vm}/>
       {primaryTicker !== null && (
-        <CmpCard cell={cmpCell} targetPrice={vm.targetPrice} targetCurrency={vm.targetCurrency}/>
+        <CmpCard cell={cmpCell} targetPrice={vm.targetPrice} targetCurrency={vm.targetCurrency} upsidePct={vm.upsidePct}/>
       )}
       {vm.upsideChipPct !== null && <ImpliedUpsideCard upsideChipPct={vm.upsideChipPct}/>}
       {noteSignal?.noteSignalKind && <NoteSignalCard noteSignal={noteSignal}/>}
@@ -288,13 +288,52 @@ function FormalCallCard({ vm }: { vm: ReportDetailViewModel }) {
   )
 }
 
-function CmpCard({ cell, targetPrice, targetCurrency }: {
+function CmpCard({ cell, targetPrice, targetCurrency, upsidePct }: {
   cell: PriceCell | undefined
   targetPrice: number | null
   targetCurrency: string | null
+  upsidePct: number | null
 }) {
-  // Loading skeleton — also covers the "no cache hit yet" case for a
-  // fresh open before the in-flight fetch resolves.
+  // 1. Live quote wins when the price service returns one (prod, real ticker).
+  if (cell?.status === 'success') {
+    const delta = computeUpsideToTarget(targetPrice, cell.price)
+    return (
+      <HeroCard label="CMP">
+        <div className="num text-[16px] font-semibold leading-tight text-slate-100">
+          {formatPrice(cell.price, targetCurrency ?? 'INR', 0)}
+        </div>
+        {delta && (
+          <div className={`num text-[10.5px] ${TONE_TEXT_CLASS[delta.tone]}`} title={delta.tooltip}>
+            {delta.label}
+          </div>
+        )}
+        {!delta && <div className="text-[10.5px] text-slate-500">No target to compare</div>}
+      </HeroCard>
+    )
+  }
+  // 2. No live quote — fall back to the price the note was written against,
+  //    derived from the broker's target and its at-publication upside
+  //    (upside = (target − price) / price ⇒ price = target / (1 + upside)).
+  //    Keeps the card populated without depending on the live price service.
+  const refPrice = targetPrice !== null && upsidePct !== null && upsidePct > -100
+    ? targetPrice / (1 + upsidePct / 100)
+    : null
+  if (refPrice !== null) {
+    return (
+      <HeroCard label="CMP">
+        <div className="num text-[16px] font-semibold leading-tight text-slate-100">
+          {formatPrice(refPrice, targetCurrency ?? 'INR', 0)}
+        </div>
+        <div
+          className="text-[10.5px] text-slate-500"
+          title="Price this note was written against — the broker's reference for its upside. No live quote available."
+        >
+          at this call
+        </div>
+      </HeroCard>
+    )
+  }
+  // 3. Still fetching, with nothing to fall back to yet.
   if (!cell || cell.status === 'loading') {
     return (
       <HeroCard label="CMP">
@@ -302,30 +341,11 @@ function CmpCard({ cell, targetPrice, targetCurrency }: {
       </HeroCard>
     )
   }
-  // Unavailable: dead/ambiguous ticker or upstream error. Em-dash + a
-  // muted reason hint matches the By Stock CMP cell's behaviour.
-  if (cell.status === 'unavailable') {
-    return (
-      <HeroCard label="CMP">
-        <div className="text-[16px] font-semibold text-slate-500 leading-tight">—</div>
-        <div className="text-[10.5px] text-slate-500">{CMP_UNAVAILABLE_TOOLTIP[cell.reason]}</div>
-      </HeroCard>
-    )
-  }
-  const delta = computeUpsideToTarget(targetPrice, cell.price)
+  // 4. Unavailable and nothing to derive — em-dash + a muted reason hint.
   return (
     <HeroCard label="CMP">
-      <div className="num text-[16px] font-semibold leading-tight text-slate-100">
-        {formatPrice(cell.price, targetCurrency ?? 'INR', 0)}
-      </div>
-      {delta && (
-        <div className={`num text-[10.5px] ${TONE_TEXT_CLASS[delta.tone]}`} title={delta.tooltip}>
-          {delta.label}
-        </div>
-      )}
-      {!delta && (
-        <div className="text-[10.5px] text-slate-500">No target to compare</div>
-      )}
+      <div className="text-[16px] font-semibold text-slate-500 leading-tight">—</div>
+      <div className="text-[10.5px] text-slate-500">{CMP_UNAVAILABLE_TOOLTIP[cell.reason]}</div>
     </HeroCard>
   )
 }
