@@ -4,7 +4,7 @@
 // degrades to "unproven" when no calibration snapshot exists yet.
 
 import { useMemo, useState } from 'react'
-import type { StockTicker } from '../../domain'
+import type { ReportId, StockTicker } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import { useDivergenceViewModel } from '../../viewModels/divergence'
 import { useCalibrationViewModel } from '../../hooks/useCalibrationViewModel'
@@ -16,9 +16,10 @@ import { ViewMessage, EmptyState } from './shared'
 interface Props {
   readonly filters: FiltersState
   readonly onSelectTicker: (t: StockTicker) => void
+  readonly onSelectReport: (id: ReportId) => void
 }
 
-export default function DisagreementsSplit({ filters, onSelectTicker }: Props) {
+export default function DisagreementsSplit({ filters, onSelectTicker, onSelectReport }: Props) {
   const [selectedTicker, setSelectedTicker] = useState<StockTicker | null>(null)
 
   const divergence = useDivergenceViewModel(filters)
@@ -74,7 +75,7 @@ export default function DisagreementsSplit({ filters, onSelectTicker }: Props) {
           <CompanyList cases={cases} activeTicker={active.ticker} onSelect={setSelectedTicker}/>
         }
         detail={
-          <CompanyDetail c={active} tierFor={tierFor} onSelectTicker={onSelectTicker}/>
+          <CompanyDetail c={active} tierFor={tierFor} onSelectTicker={onSelectTicker} onSelectReport={onSelectReport}/>
         }
       />
     )

@@ -171,7 +171,7 @@ function ViewRouter({ tab, filters, onSelectReport, onSelectTicker, onSelectBrok
     case 'today':         return <Today         filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker} setActiveTab={setActiveTab}/>
     case 'stocks':        return <ByStock       filters={filters} onSelectReport={onSelectReport} onSelectTicker={onSelectTicker}/>
     case 'brokers':       return <ByBroker      filters={filters} onSelectReport={onSelectReport} onSelectBroker={onSelectBroker}/>
-    case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker}/>
+    case 'disagreements': return <Disagreements filters={filters} onSelectTicker={onSelectTicker} onSelectReport={onSelectReport}/>
 
     // Admin/operator tabs (reachable only via the AdminMenu in the header)
     case 'inbox':         return <Inbox setActiveTab={setActiveTab}/>

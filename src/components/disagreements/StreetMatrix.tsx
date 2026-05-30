@@ -5,20 +5,30 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import type { ReportId, StockTicker } from '../../domain'
 import type { DivergenceCardViewModel, BrokerRef } from '../../viewModels/divergence'
 import {
   buildStreetMatrix, type MatrixSide, type MatrixCell, type MatrixRow, type TopicCategory,
 } from '../../viewModels/streetMatrix'
+import { useStockStreetView } from '../../viewModels/stockStreetView'
 import type { BrokerTier } from '../../viewModels/disagreementInsight'
 import { BrokerTierDot } from './shared'
+import BrokerViewCard from './BrokerViewCard'
+
+/** The matrix has the two closure views plus a "Broker views" tab that lists
+ *  each broker's full note — the detail block that used to live in the Stock
+ *  drawer, now consolidated here. */
+type Tab = MatrixSide | 'brokers'
 
 interface Props {
   readonly c: DivergenceCardViewModel
   readonly tierFor: (brokerId: string) => BrokerTier
+  readonly onSelectReport: (id: ReportId) => void
 }
 
-export default function StreetMatrix({ c, tierFor }: Props) {
-  const [side, setSide] = useState<MatrixSide>('disagree')
+export default function StreetMatrix({ c, tierFor, onSelectReport }: Props) {
+  const [tab, setTab] = useState<Tab>('disagree')
+  const side: MatrixSide = tab === 'agree' ? 'agree' : 'disagree'
   const matrix = useMemo(() => buildStreetMatrix(c, side), [c, side])
 
   // Counts label the toggle so the reader knows whether either side is
@@ -36,15 +46,18 @@ export default function StreetMatrix({ c, tierFor }: Props) {
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <Toggle
-          side={side}
-          onChange={setSide}
+          tab={tab}
+          onChange={setTab}
           disagreeCount={disagreeCount}
           agreeCount={agreeCount}
+          brokerCount={c.brokerCount}
         />
-        <Legend side={side}/>
+        {tab !== 'brokers' && <Legend side={side}/>}
       </div>
 
-      {matrix.rows.length === 0 ? (
+      {tab === 'brokers' ? (
+        <BrokerViewsPanel ticker={c.ticker} onSelectReport={onSelectReport}/>
+      ) : matrix.rows.length === 0 ? (
         <EmptyMatrix side={side}/>
       ) : (
         <MatrixTable matrix={matrix} tierFor={tierFor}/>
@@ -53,17 +66,52 @@ export default function StreetMatrix({ c, tierFor }: Props) {
   )
 }
 
+// ── Broker views panel ──────────────────────────────────────────────────
+// Each broker's full note on this stock — moved here from the Stock drawer so
+// the detailed views live alongside the agree/disagree breakdown.
+
+function BrokerViewsPanel({ ticker, onSelectReport }: {
+  ticker: StockTicker
+  onSelectReport: (id: ReportId) => void
+}) {
+  const { data, loading, error } = useStockStreetView(ticker)
+  if (loading) {
+    return <div className="px-2 py-6 text-[12px] text-slate-500 animate-pulse">Loading broker views…</div>
+  }
+  if (error) {
+    return <div className="px-2 py-6 text-[12px] text-rose-400">Could not load broker views: {error.message}</div>
+  }
+  const details = data?.brokerDetails ?? []
+  if (details.length === 0) {
+    return (
+      <div className="rounded-md border border-dashed border-line/10 bg-line/[0.02] p-8 text-center">
+        <div className="text-slate-300 text-[13px] font-medium mb-1">No broker notes yet</div>
+        <p className="text-slate-500 text-[12px]">No broker coverage on this stock in the current window.</p>
+      </div>
+    )
+  }
+  return (
+    <ul className="flex flex-col gap-2.5">
+      {details.map((d) => (
+        <BrokerViewCard key={d.reportId as unknown as string} detail={d} onSelectReport={onSelectReport}/>
+      ))}
+    </ul>
+  )
+}
+
 // ── Toggle ────────────────────────────────────────────────────────────
 
-function Toggle({ side, onChange, disagreeCount, agreeCount }: {
-  side: MatrixSide
-  onChange: (s: MatrixSide) => void
+function Toggle({ tab, onChange, disagreeCount, agreeCount, brokerCount }: {
+  tab: Tab
+  onChange: (t: Tab) => void
   disagreeCount: number
   agreeCount: number
+  brokerCount: number
 }) {
-  const options: ReadonlyArray<readonly [MatrixSide, string, number]> = [
+  const options: ReadonlyArray<readonly [Tab, string, number]> = [
     ['disagree', 'Where they disagree', disagreeCount],
     ['agree',    'Where they agree',    agreeCount],
+    ['brokers',  'Broker views',        brokerCount],
   ]
   return (
     <div className="inline-flex rounded-lg border border-line/10 bg-line/[0.02] p-0.5">
@@ -72,11 +120,11 @@ function Toggle({ side, onChange, disagreeCount, agreeCount }: {
           key={id}
           onClick={() => onChange(id)}
           className={`px-3 py-1.5 rounded-md text-[12px] font-medium transition-colors inline-flex items-center gap-1.5 ${
-            side === id ? 'bg-accent/15 text-accent' : 'text-slate-400 hover:text-slate-200'
+            tab === id ? 'bg-accent/15 text-accent' : 'text-slate-400 hover:text-slate-200'
           }`}
         >
           {label}
-          <span className={`num text-[10.5px] ${side === id ? 'text-accent/80' : 'text-slate-500'}`}>{n}</span>
+          <span className={`num text-[10.5px] ${tab === id ? 'text-accent/80' : 'text-slate-500'}`}>{n}</span>
         </button>
       ))}
     </div>

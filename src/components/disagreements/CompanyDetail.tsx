@@ -3,7 +3,7 @@
 // columns. Header carries the consensus + confidence; the matrix toggles
 // between disagree and agree. Outliers and secondary analysis sit below.
 
-import type { StockTicker } from '../../domain'
+import type { ReportId, StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import type { BrokerTier } from '../../viewModels/disagreementInsight'
 import { CallBadge, StanceMix, OutlierRow } from './shared'
@@ -14,9 +14,10 @@ interface Props {
   readonly c: DivergenceCardViewModel
   readonly tierFor: (brokerId: string) => BrokerTier
   readonly onSelectTicker: (ticker: StockTicker) => void
+  readonly onSelectReport: (id: ReportId) => void
 }
 
-export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
+export default function CompanyDetail({ c, tierFor, onSelectTicker, onSelectReport }: Props) {
   return (
     <div className="flex flex-col gap-5">
       <header className="flex items-start justify-between gap-4 flex-wrap">
@@ -41,7 +42,7 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
 
       <TargetPriceScale stats={c.targetStats} currency={c.currency} outliers={c.outliers}/>
 
-      <StreetMatrix c={c} tierFor={tierFor}/>
+      <StreetMatrix c={c} tierFor={tierFor} onSelectReport={onSelectReport}/>
 
       {c.outliers.length > 0 && (
         <div className="flex flex-col gap-2.5">
