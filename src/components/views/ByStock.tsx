@@ -81,15 +81,15 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <table className="w-full min-w-[1080px] text-[12px]">
           <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
-              <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10">Ticker</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Call</th>
-              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">
+              <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10 w-[180px]">Ticker</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800 w-[150px]">Call</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800 w-[96px]">
                 <div className="flex items-center justify-end gap-1.5">
                   <span>CMP</span>
                   <RefreshCmpButton onClick={refetchCmp} fetchedAt={lastFetchedAt}/>
                 </div>
               </th>
-              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">Avg target</th>
+              <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800 w-[88px]">Avg target</th>
               {data.brokers.map((b) => (
                 <th key={b.id} className="px-2 py-2 font-medium sticky top-0 z-20 bg-ink-800">
                   <div className="flex items-center gap-1.5">
@@ -294,9 +294,9 @@ function CallCell({ row }: { row: ByStockRowViewModel }) {
   if (cr.kind === 'clear') {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="flex items-baseline gap-1.5">
+        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
           <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[cr.rating]}`}>{cr.rating}</span>
-          <span className="text-[10px] text-slate-500 num">{cr.agree} of {cr.total}</span>
+          <span className="text-[10px] text-slate-500 num shrink-0">{cr.agree} of {cr.total}</span>
         </span>
         {brokerLine}
       </div>
@@ -305,14 +305,14 @@ function CallCell({ row }: { row: ByStockRowViewModel }) {
   if (cr.kind === 'tie') {
     return (
       <div className="flex flex-col gap-0.5">
-        <span className="text-[13px] font-semibold text-amber-500 dark:text-amber-400">Mixed</span>
+        <span className="text-[13px] font-semibold text-amber-500 dark:text-amber-400 whitespace-nowrap">Mixed</span>
         {brokerLine}
       </div>
     )
   }
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[13px] font-medium text-slate-400">No rating yet</span>
+      <span className="text-[13px] font-medium text-slate-400 whitespace-nowrap">No rating yet</span>
       {brokerLine}
     </div>
   )
