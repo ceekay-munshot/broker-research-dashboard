@@ -54,10 +54,12 @@ export interface MarkerTally {
 // how the server indexes closes by array offset.
 const HORIZON_STEPS = 20
 
-// Flat-noise band: a move smaller than this isn't a real directional result.
-// (FLAT_BPS_PER_DAY / 100) * days, with FLAT_BPS_PER_DAY = 25 — identical to
-// the server engine. Over 20 days that's a ±5% dead-band.
-const FLAT_PCT_BAND = (25 / 100) * HORIZON_STEPS
+// Visual noise floor: a move smaller than this over the horizon isn't credited
+// to the call either way (it reads as "didn't really play out"). Kept tight so
+// the chart's green/red signal stays legible — lighter than the calibration
+// engine's window-scaled band, since this only colours markers, it doesn't feed
+// the authoritative leaderboard hit rate.
+const FLAT_PCT_BAND = 1.0
 
 /** Expected direction a call implies, from its rating (preferred) or stance. */
 export function directionFor(rating: Rating | null, stance: Stance): CallDirection {

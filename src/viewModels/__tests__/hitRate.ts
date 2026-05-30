@@ -153,8 +153,8 @@ function call(over: Partial<CallMarkerInput>): CallMarkerInput {
 }
 
 {
-  // Near-flat series: +2% over 20 steps, inside the ±5% dead-band.
-  const flatish = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i * 0.1))
+  // Near-flat series: +0.5% over 20 steps, inside the ±1% dead-band.
+  const flatish = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i * 0.025))
   check('directional call inside dead-band → neutral',
     buildCallMarkers([call({ rating: 'Buy' })], flatish)[0]!.outcome === 'neutral')
   check('Hold call → neutral regardless of move',

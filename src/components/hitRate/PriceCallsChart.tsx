@@ -83,8 +83,14 @@ export default function PriceCallsChart({ ticker, closes, markers, loading, curr
   const linePts = closes.map((p, i) => `${x(i).toFixed(1)},${y(p.close).toFixed(1)}`).join(' ')
   const areaPts = `${PAD_L},${(H - PAD_B).toFixed(1)} ${linePts} ${(W - PAD_R).toFixed(1)},${(H - PAD_B).toFixed(1)}`
 
+  // Only plot calls that fall on the visible time axis. Calls outside the
+  // price window (e.g. more recent than the sample series extends) would
+  // otherwise clamp to an edge and read as if they happened there — they stay
+  // in the calls list below instead.
+  const firstDate = closes[0]!.date
+  const lastDate = closes[n - 1]!.date
   const placed = markers
-    .filter((m) => m.outcome !== 'no_price' && m.anchorClose !== null)
+    .filter((m) => m.anchorClose !== null && m.date >= firstDate && m.date <= lastDate)
     .map((m) => ({ m, i: idxForDate(m.date) }))
 
   return (
@@ -107,7 +113,7 @@ export default function PriceCallsChart({ ticker, closes, markers, loading, curr
 
         {/* axis labels */}
         <text x={PAD_L} y={y(hi) - 4} className="fill-slate-500" fontSize="10">{formatPrice(hi, currency, 0)}</text>
-        <text x={PAD_L} y={y(lo) + 12} className="fill-slate-500" fontSize="10">{formatPrice(lo, currency, 0)}</text>
+        <text x={PAD_L} y={y(lo) - 4} className="fill-slate-500" fontSize="10">{formatPrice(lo, currency, 0)}</text>
         <text x={PAD_L} y={H - 6} className="fill-slate-600" fontSize="10">{formatShortDate(closes[0]!.date + 'T00:00:00Z')}</text>
         <text x={W - PAD_R} y={H - 6} textAnchor="end" className="fill-slate-600" fontSize="10">
           {formatShortDate(closes[n - 1]!.date + 'T00:00:00Z')}
