@@ -32,7 +32,6 @@ export default function Header({ lastUpdated, orgShortName, activeTab, setActive
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-slate-200 text-sm font-semibold tracking-wide">Munshot Broker Research OS</span>
-            <span className="text-slate-500 text-[11px] uppercase tracking-[0.18em]">Research Desk</span>
           </div>
           {orgShortName && (
             <span className="chip ml-3 border border-line/10 text-slate-400 bg-line/[0.02]">
