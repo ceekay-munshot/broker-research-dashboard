@@ -1,14 +1,14 @@
-// Overview — the broker-research feed.
+// Overview — the consolidated broker-research feed.
 //
-// Deliberately simple and scannable: a few honest, API-direct counts, then an
-// infinite chronological timeline of every broker note as it arrived. No
-// derived ARB/outlier math here (that lives in the Stocks and Agreements &
-// disagreements tabs) — this surface answers "what has the Street been
-// saying, newest first?" at a glance.
+// Scannable by design. A few honest, API-direct counts, then a day-grouped
+// timeline where the COMPANY is the hero: one card per stock per day, with a
+// compact line per broker (tag · view · target · what's new). No raw email
+// text — the full note opens in the Report drawer on click. Derived
+// ARB/outlier math lives in the Stocks and Agreements & disagreements tabs.
 //
 //   1. Header
 //   2. Simple counts — New today, Broker notes, Stocks analysed, Brokers
-//   3. Timeline — broker · stock · rating/target/upside · one-line why, by day
+//   3. Timeline — by day → by company → per-broker view lines
 
 import { useMemo, useState } from 'react'
 import type { ReportId, StockTicker } from '../../domain'
@@ -17,9 +17,7 @@ import type { TabId } from '../../app/tabs'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
-import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL } from '../../lib/signalVocab'
-import { resolveSummaryNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
+import { resolveSummaryNoteSignal } from '../../lib/signalPolicy'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -28,8 +26,8 @@ interface TodayProps {
   readonly setActiveTab: (id: TabId) => void
 }
 
-const INITIAL_VISIBLE = 30
-const PAGE = 30
+const INITIAL_VISIBLE = 12
+const PAGE = 12
 
 export default function Today({ filters, onSelectReport, onSelectTicker }: TodayProps) {
   // The whole feed, newest-first — not date-scoped. The sidebar's broker /
@@ -45,10 +43,10 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
 
   const items = worklog.data?.items ?? []
 
-  // Simple, API-direct counts over the feed we actually display. (The
-  // view-model's `summary` is hard-scoped to *today* and shared with other
-  // views, so we count the shown items here to stay consistent with the
-  // timeline below — and so the cards aren't all 0 on a historical feed.)
+  // Simple, API-direct counts over the feed we display. (The view-model's
+  // `summary` is hard-scoped to *today* and shared with other views, so we
+  // count the shown items here — consistent with the timeline, and non-zero
+  // on a historical feed.)
   const todayKey = new Date().toISOString().slice(0, 10)
   const counts = useMemo(() => {
     const brokers = new Set<string>()
@@ -56,8 +54,7 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     let today = 0
     for (const i of items) {
       brokers.add(i.brokerId as unknown as string)
-      if (i.ticker) stocks.add(`t:${i.ticker as unknown as string}`)
-      else if (i.stockName) stocks.add(`n:${i.stockName.toLowerCase()}`)
+      stocks.add(stockKey(i))
       if (i.utcDate === todayKey) today++
     }
     return { today, total: items.length, stocks: stocks.size, brokers: brokers.size }
@@ -68,19 +65,19 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
   const stocksAnalysed = worklog.data ? counts.stocks : null
   const activeBrokers = worklog.data ? counts.brokers : null
 
-  // Newest-first timeline, split into day sections for temporal context.
-  const days = useMemo(() => groupByDay(items), [items])
+  // Day → company cards. Each card consolidates a stock's notes for that day
+  // and dedupes to one view-line per broker (latest wins).
+  const days = useMemo(() => buildDays(items), [items])
 
   const [visible, setVisible] = useState(INITIAL_VISIBLE)
-  // Walk the day groups and keep only the first `visible` items overall.
-  const { shownDays, shownCount } = useMemo(() => sliceDays(days, visible), [days, visible])
-  const hasMore = shownCount < items.length
+  const { shownDays, shownCards, totalCards } = useMemo(() => sliceDays(days, visible), [days, visible])
+  const hasMore = shownCards < totalCards
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
         <h2 className="text-slate-100 font-semibold text-2xl tracking-tight">Broker Research Feed</h2>
-        <p className="text-slate-400 text-sm">Every broker note as it arrived — newest first.</p>
+        <p className="text-slate-400 text-sm">What the Street is saying, by company — newest first.</p>
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -97,29 +94,29 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
           <div className="panel px-4 py-8 text-[12px] text-slate-400">No broker notes yet.</div>
         ) : (
           <>
-            <div className="flex flex-col gap-5">
+            <div className="flex flex-col gap-6">
               {shownDays.map((day) => (
-                <div key={day.key} className="flex flex-col gap-1.5">
-                  <DayDivider label={day.label} count={day.items.length}/>
-                  <ul className="flex flex-col">
-                    {day.items.map((it) => (
-                      <TimelineRow
-                        key={it.id}
-                        item={it}
-                        onSelectReport={() => onSelectReport(it.reportId)}
-                        onSelectTicker={it.ticker ? () => onSelectTicker(it.ticker as StockTicker) : null}
+                <div key={day.key} className="flex flex-col gap-2.5">
+                  <DayDivider label={day.label} count={day.cards.length}/>
+                  <div className="flex flex-col gap-2.5">
+                    {day.cards.map((card) => (
+                      <StockCard
+                        key={card.key}
+                        card={card}
+                        onSelectReport={onSelectReport}
+                        onSelectTicker={card.ticker ? () => onSelectTicker(card.ticker as StockTicker) : null}
                       />
                     ))}
-                  </ul>
+                  </div>
                 </div>
               ))}
             </div>
             {hasMore && (
               <button
                 onClick={() => setVisible((v) => v + PAGE)}
-                className="self-center mt-1 text-[12px] text-slate-400 hover:text-accent border border-line/10 hover:border-accent/40 rounded-md px-4 py-1.5 transition-colors"
+                className="self-center mt-2 text-[12px] text-slate-400 hover:text-accent border border-line/10 hover:border-accent/40 rounded-md px-4 py-1.5 transition-colors"
               >
-                Show more · {items.length - shownCount} older note{items.length - shownCount > 1 ? 's' : ''}
+                Show more · {totalCards - shownCards} more stock{totalCards - shownCards > 1 ? 's' : ''}
               </button>
             )}
           </>
@@ -132,7 +129,6 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
 // ── Counts ──────────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value }: { label: string; value: number | null }) {
-  // null = still loading → "—". A real zero is shown as 0 (an honest count).
   return (
     <div className="rounded-lg bg-line/[0.02] px-4 py-3 flex flex-col gap-1.5">
       <span className="text-[11px] text-slate-400">{label}</span>
@@ -151,148 +147,267 @@ function DayDivider({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center gap-3 px-1">
       <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</span>
-      <span className="text-[10.5px] text-slate-600 num">{count}</span>
+      <span className="text-[10.5px] text-slate-600 num">{count} stock{count > 1 ? 's' : ''}</span>
       <span className="flex-1 h-px bg-line/5"/>
     </div>
   )
 }
 
-/** One broker note in the timeline. A stance-toned rail dot anchors the row;
- *  the headline is broker · stock with rating / target / upside, and a single
- *  "why it matters" line beneath. The row opens the report; the ticker (when
- *  present) opens the stock view. */
-function TimelineRow({ item, onSelectReport, onSelectTicker }: {
-  item: WorklogItem
-  onSelectReport: () => void
+/** One company for a given day: a header naming the stock (the hero — opens
+ *  the Street view), then one compact line per broker that weighed in. A
+ *  divergence hint appears when brokers disagree. */
+function StockCard({ card, onSelectReport, onSelectTicker }: {
+  card: StockCardData
+  onSelectReport: (id: ReportId) => void
   onSelectTicker: (() => void) | null
 }) {
-  const why = item.thesis?.trim() || item.headline?.trim() || item.title
-  const noteSignal = resolveNoteSignalChip(item)
-  const stockLabel = (item.ticker as unknown as string | null) ?? item.stockName ?? '—'
+  const ticker = card.ticker as unknown as string | null
+  return (
+    <div className="panel overflow-hidden">
+      {/* Company header — the hero */}
+      <div className="flex items-center gap-2 px-3.5 pt-2.5 pb-2 border-b border-line/5">
+        {ticker && (
+          <span className="num text-[13px] font-semibold text-slate-100 shrink-0">{ticker}</span>
+        )}
+        {onSelectTicker ? (
+          <button
+            onClick={onSelectTicker}
+            title={ticker ? `Open ${card.name} stock view` : undefined}
+            className="group text-left text-[12px] text-slate-400 truncate hover:text-accent transition-colors"
+          >
+            {card.name}
+          </button>
+        ) : (
+          <span className="text-[12px] text-slate-400 truncate">{card.name}</span>
+        )}
+        {card.divergence && (
+          <span className="shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border border-amber-400/40 text-amber-300 bg-amber-400/[0.08]">
+            Brokers split
+          </span>
+        )}
+        <span className="ml-auto shrink-0 text-[10.5px] text-slate-500 num">{shortTime(card.latestAt)}</span>
+      </div>
 
+      {/* One line per broker — the consolidated views */}
+      <ul className="flex flex-col">
+        {card.views.map((v) => (
+          <BrokerViewLine key={v.brokerId} view={v} onSelect={() => onSelectReport(v.reportId)}/>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
+/** A single broker's view on the company: short broker tag, their call, the
+ *  target, optional upside, and a "what's new" marker (new coverage / upgrade /
+ *  downgrade) only when it adds information. Opens that broker's report. */
+function BrokerViewLine({ view, onSelect }: { view: BrokerView; onSelect: () => void }) {
   return (
     <li className="border-b border-line/5 last:border-0">
-      <div className="flex gap-3 px-1 py-2.5 group">
-        {/* Rail dot — stance tone */}
-        <div className="flex flex-col items-center pt-1 shrink-0">
-          <span className={`w-2 h-2 rounded-full ${STANCE_DOT[item.stance]}`}/>
-        </div>
-
-        <button
-          onClick={onSelectReport}
-          className="flex-1 min-w-0 text-left flex flex-col gap-1 hover:bg-line/[0.03] -my-1 -mr-1 py-1 pr-1 rounded transition-colors"
+      <button
+        onClick={onSelect}
+        className="w-full text-left px-3.5 py-2 hover:bg-line/[0.03] transition-colors flex items-center gap-2.5"
+      >
+        {/* broker tag */}
+        <span
+          className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-line/[0.06] text-slate-200 num"
+          style={view.color ? { color: view.color } : undefined}
         >
-          {/* broker · stock · rating · target · upside · time */}
-          <div className="flex items-center gap-2 min-w-0 text-[12px]">
-            <span className="text-slate-200 font-semibold shrink-0">{item.brokerShortName}</span>
-            <Dot/>
-            {onSelectTicker ? (
-              <span
-                role="link"
-                tabIndex={0}
-                onClick={(e) => { e.stopPropagation(); onSelectTicker() }}
-                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onSelectTicker() } }}
-                className="num text-slate-100 font-semibold shrink-0 hover:text-accent cursor-pointer transition-colors"
-                title={item.stockName ?? undefined}
-              >
-                {stockLabel}
-              </span>
-            ) : (
-              <span className="num text-slate-100 font-semibold shrink-0">{stockLabel}</span>
-            )}
-            {item.rating && (
-              <><Dot/><span className={`shrink-0 ${RATING_TEXT_COLOR[item.rating]}`}>{item.rating}</span></>
-            )}
-            {item.targetPrice != null && (
-              <><Dot/><span className="text-slate-300 num shrink-0">TP {formatPrice(item.targetPrice, item.targetCurrency, 0)}</span></>
-            )}
-            {item.upsidePct != null && (
-              <><Dot/><span className={`num shrink-0 ${item.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                {item.upsidePct >= 0 ? '+' : ''}{Math.round(item.upsidePct)}%
-              </span></>
-            )}
-            <span className="text-[10.5px] text-slate-500 num shrink-0 ml-auto pl-2">
-              {shortTime(item.receivedAt)}
-            </span>
-          </div>
+          {view.brokerShortName}
+        </span>
 
-          {/* why it matters — one line */}
-          <div className="text-[12px] text-slate-400 truncate" title={why}>{why}</div>
+        {/* the call */}
+        {view.rating ? (
+          <span className={`shrink-0 text-[12px] font-medium ${RATING_TEXT_COLOR[view.rating]}`}>{view.rating}</span>
+        ) : (
+          <span className={`shrink-0 text-[12px] ${STANCE_TEXT[view.stance]}`}>{STANCE_WORD[view.stance]}</span>
+        )}
 
-          {/* signal chip — only when it adds info beyond the rating column */}
-          {noteSignal !== null && noteSignal.noteSignalKind !== null && (
-            <div>
-              <span
-                className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
-              >
-                {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
-              </span>
-            </div>
-          )}
-        </button>
-      </div>
+        {/* target price (short) */}
+        {view.targetPrice != null && (
+          <span className="shrink-0 text-[12px] text-slate-300 num">
+            TP {formatPrice(view.targetPrice, view.targetCurrency, 0)}
+          </span>
+        )}
+
+        {/* upside */}
+        {view.upsidePct != null && (
+          <span className={`shrink-0 text-[11.5px] num ${view.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+            {view.upsidePct >= 0 ? '+' : ''}{Math.round(view.upsidePct)}%
+          </span>
+        )}
+
+        {/* what's new — only the informative signals */}
+        {view.marker && (
+          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${view.marker.cls}`}>
+            {view.marker.label}
+          </span>
+        )}
+
+        <span className="ml-auto shrink-0 text-[10.5px] text-slate-500 num pl-2">{shortTime(view.receivedAt)}</span>
+      </button>
     </li>
   )
 }
 
-function Dot() {
-  return <span className="text-slate-600 shrink-0" aria-hidden>·</span>
+const STANCE_TEXT: Record<string, string> = {
+  bullish: 'text-emerald-400',
+  bearish: 'text-rose-400',
+  neutral: 'text-slate-400',
+}
+const STANCE_WORD: Record<string, string> = {
+  bullish: 'Positive',
+  bearish: 'Negative',
+  neutral: 'Neutral',
 }
 
-const STANCE_DOT: Record<string, string> = {
-  bullish: 'bg-emerald-400',
-  bearish: 'bg-rose-400',
-  neutral: 'bg-slate-500',
+// ── Consolidation ─────────────────────────────────────────────────────────────
+
+interface BrokerView {
+  readonly brokerId: string
+  readonly brokerShortName: string
+  readonly color: string | null
+  readonly stance: string
+  readonly rating: WorklogItem['rating']
+  readonly targetPrice: number | null
+  readonly targetCurrency: WorklogItem['targetCurrency']
+  readonly upsidePct: number | null
+  readonly reportId: ReportId
+  readonly receivedAt: string
+  readonly marker: { label: string; cls: string } | null
 }
 
-/** Resolve the Note signal chip, applying the non-duplication rule against the
- *  formal rating (so e.g. a Bullish-signal chip is suppressed when the rating
- *  is already Buy). Shared with the rest of the app via signalPolicy. */
-function resolveNoteSignalChip(item: WorklogItem): NoteSignalInput | null {
-  return resolveSummaryNoteSignal(
-    {
-      noteSignalKind: item.noteSignalKind,
-      noteSignalSource: item.noteSignalSource,
-      actionLabel: item.actionLabel,
-    },
-    item.rating,
-  )
+interface StockCardData {
+  readonly key: string
+  readonly name: string
+  readonly ticker: StockTicker | null
+  readonly views: readonly BrokerView[]
+  readonly latestAt: string
+  readonly divergence: boolean
 }
 
-// ── Day grouping ──────────────────────────────────────────────────────────────
-
-interface DayGroup {
+interface DayCards {
   readonly key: string
   readonly label: string
-  readonly items: readonly WorklogItem[]
+  readonly cards: readonly StockCardData[]
 }
 
-/** Split items (assumed newest-first from the builder) into contiguous day
- *  sections keyed by UTC date, labelled Today / Yesterday / "DD Mon YYYY". */
-function groupByDay(items: readonly WorklogItem[]): DayGroup[] {
-  const order: string[] = []
+/** Stock identity key — ticker first, else normalized name. */
+function stockKey(i: WorklogItem): string {
+  if (i.ticker) return `t:${i.ticker as unknown as string}`
+  if (i.stockName) return `n:${i.stockName.trim().toLowerCase()}`
+  return `r:${i.reportId as unknown as string}`
+}
+
+/** "What's new" marker — only the signals that add information beyond the
+ *  rating column. The shared signal policy already suppresses a signal that
+ *  merely mirrors the formal rating (e.g. Bullish signal + Buy). */
+function markerFor(item: WorklogItem): { label: string; cls: string } | null {
+  const resolved = resolveSummaryNoteSignal(
+    { noteSignalKind: item.noteSignalKind, noteSignalSource: item.noteSignalSource, actionLabel: item.actionLabel },
+    item.rating,
+  )
+  switch (resolved?.noteSignalKind) {
+    case 'new_coverage': return { label: 'New coverage', cls: 'border-sky-400/40 text-sky-300 bg-sky-400/[0.08]' }
+    case 'upgrade':      return { label: '▲ Upgrade',     cls: 'border-emerald-400/40 text-emerald-300 bg-emerald-400/[0.08]' }
+    case 'downgrade':    return { label: '▼ Downgrade',   cls: 'border-rose-400/40 text-rose-300 bg-rose-400/[0.08]' }
+    default:             return null
+  }
+}
+
+/** Build day → company cards. Items are grouped by UTC day, then by stock
+ *  within the day; each stock's notes collapse to one view-line per broker
+ *  (latest wins, preferring an entry that carries a target price). */
+function buildDays(items: readonly WorklogItem[]): DayCards[] {
+  const dayOrder: string[] = []
   const byDay = new Map<string, WorklogItem[]>()
   for (const it of items) {
-    const k = it.utcDate
-    if (!byDay.has(k)) { byDay.set(k, []); order.push(k) }
-    byDay.get(k)!.push(it)
+    if (!byDay.has(it.utcDate)) { byDay.set(it.utcDate, []); dayOrder.push(it.utcDate) }
+    byDay.get(it.utcDate)!.push(it)
   }
-  return order.map((k) => ({ key: k, label: dayLabel(k), items: byDay.get(k)! }))
+
+  return dayOrder.map((dayKey) => {
+    const dayItems = byDay.get(dayKey)!
+
+    const stockOrder: string[] = []
+    const byStock = new Map<string, WorklogItem[]>()
+    for (const it of dayItems) {
+      const k = stockKey(it)
+      if (!byStock.has(k)) { byStock.set(k, []); stockOrder.push(k) }
+      byStock.get(k)!.push(it)
+    }
+
+    const cards: StockCardData[] = stockOrder.map((k) => {
+      const group = byStock.get(k)!
+
+      // One view per broker — latest by receivedAt, tie-break to the entry
+      // that actually carries a target price, then a rating.
+      const byBroker = new Map<string, WorklogItem>()
+      for (const it of group) {
+        const bid = it.brokerId as unknown as string
+        const prev = byBroker.get(bid)
+        if (!prev || isBetterView(it, prev)) byBroker.set(bid, it)
+      }
+
+      const views: BrokerView[] = [...byBroker.values()]
+        .sort((a, b) => b.receivedAt.localeCompare(a.receivedAt))
+        .map((it) => ({
+          brokerId: it.brokerId as unknown as string,
+          brokerShortName: it.brokerShortName,
+          color: it.brokerColor,
+          stance: it.stance,
+          rating: it.rating,
+          targetPrice: it.targetPrice,
+          targetCurrency: it.targetCurrency,
+          upsidePct: it.upsidePct,
+          reportId: it.reportId,
+          receivedAt: it.receivedAt,
+          marker: markerFor(it),
+        }))
+
+      const top = group.reduce((a, b) => (b.receivedAt > a.receivedAt ? b : a))
+      const ratings = new Set(views.filter((v) => v.rating).map((v) => v.rating))
+      const stances = new Set(views.map((v) => v.stance))
+      return {
+        key: k,
+        name: top.stockName ?? (top.ticker as unknown as string | null) ?? top.title,
+        ticker: top.ticker,
+        views,
+        latestAt: top.receivedAt,
+        // Flag genuine disagreement: >1 broker and a mix of ratings or stances.
+        divergence: views.length > 1 && (ratings.size > 1 || stances.size > 1),
+      }
+    })
+
+    // Newest-active company first within the day.
+    cards.sort((a, b) => b.latestAt.localeCompare(a.latestAt))
+    return { key: dayKey, label: dayLabel(dayKey), cards }
+  })
 }
 
-/** Take whole or partial day groups until `limit` items have been collected,
- *  so "Show more" never leaves a day header with no rows under it. */
-function sliceDays(days: readonly DayGroup[], limit: number): { shownDays: DayGroup[]; shownCount: number } {
-  const shownDays: DayGroup[] = []
+/** Prefer the more-recent item; on a timestamp tie prefer one with a target
+ *  price, then one with a rating — so a broker's richest call wins. */
+function isBetterView(candidate: WorklogItem, current: WorklogItem): boolean {
+  if (candidate.receivedAt !== current.receivedAt) return candidate.receivedAt > current.receivedAt
+  const score = (i: WorklogItem) => (i.targetPrice != null ? 2 : 0) + (i.rating != null ? 1 : 0)
+  return score(candidate) > score(current)
+}
+
+/** Take whole/partial days until `limit` company-cards are collected, so a day
+ *  header never renders with no cards beneath it. */
+function sliceDays(days: readonly DayCards[], limit: number): {
+  shownDays: DayCards[]; shownCards: number; totalCards: number
+} {
+  const totalCards = days.reduce((n, d) => n + d.cards.length, 0)
+  const shownDays: DayCards[] = []
   let count = 0
   for (const day of days) {
     if (count >= limit) break
-    const remaining = limit - count
-    const take = day.items.slice(0, remaining)
-    shownDays.push({ ...day, items: take })
+    const take = day.cards.slice(0, limit - count)
+    shownDays.push({ ...day, cards: take })
     count += take.length
   }
-  return { shownDays, shownCount: count }
+  return { shownDays, shownCards: count, totalCards }
 }
 
 function dayLabel(utcDate: string): string {
