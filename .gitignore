@@ -5,6 +5,8 @@ dist-ssr
 .DS_Store
 .env
 .env.local
+.dev.vars
+.wrangler
 .vite
 npm-debug.log*
 yarn-debug.log*
