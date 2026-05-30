@@ -1,28 +1,24 @@
-// Overview — the investor's broker-research command center.
+// Overview — the broker-research feed.
 //
-// Not an email feed: a consolidated read on where the Street disagrees and
-// what changed today. Every number is real or honestly blank; no invented
-// reasons, no operator language.
+// Deliberately simple and scannable: a few honest, API-direct counts, then an
+// infinite chronological timeline of every broker note as it arrived. No
+// derived ARB/outlier math here (that lives in the Stocks and Agreements &
+// disagreements tabs) — this surface answers "what has the Street been
+// saying, newest first?" at a glance.
 //
 //   1. Header
-//   2. Four cards — Stocks with wide disagreement, Outlier calls, New notes, Stocks touched
-//   3. Where brokers disagree   → opens Street view
-//   4. What changed today       → opens the report
-//   5. Upcoming catalysts       → only when the feed has events
+//   2. Simple counts — New today, Broker notes, Stocks analysed, Brokers
+//   3. Timeline — broker · stock · rating/target/upside · one-line why, by day
 
-import type { ReactNode } from 'react'
+import { useMemo, useState } from 'react'
 import type { ReportId, StockTicker } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import type { TabId } from '../../app/tabs'
-import { useByStockViewModel, type ByStockRowViewModel } from '../../viewModels/byStock'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
-import { useCatalystsViewModel } from '../../hooks/useCatalystsViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
-import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ConsensusRating } from '../../viewModels/arb'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
-import { stockIdentityKey } from '../../lib/reportSubject'
 import { TONE_CHIP_CLASS, getActionLabelTone } from '../../lib/semanticColor'
-import { NOTE_SIGNAL_LABEL, formatConsensusRating } from '../../lib/signalVocab'
+import { NOTE_SIGNAL_LABEL } from '../../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../../lib/signalPolicy'
 
 interface TodayProps {
@@ -32,133 +28,108 @@ interface TodayProps {
   readonly setActiveTab: (id: TabId) => void
 }
 
+const INITIAL_VISIBLE = 30
+const PAGE = 30
+
 export default function Today({ filters, onSelectReport, onSelectTicker }: TodayProps) {
-  const byStock = useByStockViewModel(filters, 'contested')
-  // Project the sidebar's FiltersState into a WorklogFiltersState so
-  // the rating / broker / sector chips actually filter the "What changed
-  // today" feed. Before this, Today.tsx passed DEFAULT_WORKLOG_FILTERS and
-  // the sidebar's rating filter was dead UI.
+  // The whole feed, newest-first — not date-scoped. The sidebar's broker /
+  // stock / sector / rating chips still filter it.
   const worklog = useDailyWorklogViewModel({
     ...DEFAULT_WORKLOG_FILTERS,
+    dateWindow: 'all',
     brokerIds: filters.brokerIds,
     tickers: filters.tickers,
     sectorIds: filters.sectorIds,
     ratings: filters.ratings,
   })
-  const catalysts = useCatalystsViewModel()
 
-  const rows = byStock.data?.rows ?? []
-  const brokerName = new Map<string, string>()
-  for (const b of byStock.data?.brokers ?? []) brokerName.set(b.id as string, b.shortName)
+  const items = worklog.data?.items ?? []
 
-  // Card counts — null while loading → renders as "—".
-  const highArbStocks = byStock.data ? rows.filter((r) => r.arbVerdict.band === 'high').length : null
-  const outlierCalls = byStock.data
-    ? rows.reduce((sum, r) => sum + r.outlierBrokerIds.length, 0)
-    : null
-  const newBrokerNotes = worklog.data?.summary.totalItems ?? null
-  const stocksTouched = worklog.data?.summary.mentionedStocks ?? null
+  // Simple, API-direct counts over the feed we actually display. (The
+  // view-model's `summary` is hard-scoped to *today* and shared with other
+  // views, so we count the shown items here to stay consistent with the
+  // timeline below — and so the cards aren't all 0 on a historical feed.)
+  const todayKey = new Date().toISOString().slice(0, 10)
+  const counts = useMemo(() => {
+    const brokers = new Set<string>()
+    const stocks = new Set<string>()
+    let today = 0
+    for (const i of items) {
+      brokers.add(i.brokerId as unknown as string)
+      if (i.ticker) stocks.add(`t:${i.ticker as unknown as string}`)
+      else if (i.stockName) stocks.add(`n:${i.stockName.toLowerCase()}`)
+      if (i.utcDate === todayKey) today++
+    }
+    return { today, total: items.length, stocks: stocks.size, brokers: brokers.size }
+  }, [items, todayKey])
 
-  // Section data.
-  const disagreeRows = rows
-    .filter((r) => r.arbVerdict.band === 'high' || r.arbVerdict.band === 'moderate')
-    .slice(0, 6)
-  const changedGroups = groupChangedItems(worklog.data?.items ?? []).slice(0, 6)
-  const upcomingCatalysts = (catalysts.data?.upcoming7d ?? []).slice(0, 4)
+  const newToday = worklog.data ? counts.today : null
+  const totalNotes = worklog.data ? counts.total : null
+  const stocksAnalysed = worklog.data ? counts.stocks : null
+  const activeBrokers = worklog.data ? counts.brokers : null
 
-  // The forwarded-email feed carries no catalyst data today, so the catalysts
-  // panel would otherwise be permanent dead space — render it only when the
-  // feed actually has upcoming events.
-  const hasCatalysts = upcomingCatalysts.length > 0
+  // Newest-first timeline, split into day sections for temporal context.
+  const days = useMemo(() => groupByDay(items), [items])
+
+  const [visible, setVisible] = useState(INITIAL_VISIBLE)
+  // Walk the day groups and keep only the first `visible` items overall.
+  const { shownDays, shownCount } = useMemo(() => sliceDays(days, visible), [days, visible])
+  const hasMore = shownCount < items.length
 
   return (
     <div className="flex flex-col gap-8">
       <header className="flex flex-col gap-1">
-        <h2 className="text-slate-100 font-semibold text-2xl tracking-tight">Broker Research Overview</h2>
-        <p className="text-slate-400 text-sm">Consensus, outliers, and what changed today.</p>
+        <h2 className="text-slate-100 font-semibold text-2xl tracking-tight">Broker Research Feed</h2>
+        <p className="text-slate-400 text-sm">Every broker note as it arrived — newest first.</p>
       </header>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <SummaryCard label="Stocks with wide disagreement" value={highArbStocks}/>
-        <SummaryCard label="Outlier calls" value={outlierCalls}/>
-        <SummaryCard label="New broker notes" value={newBrokerNotes}/>
-        <SummaryCard label="Stocks touched" value={stocksTouched}/>
+        <SummaryCard label="New today" value={newToday}/>
+        <SummaryCard label="Broker notes" value={totalNotes}/>
+        <SummaryCard label="Stocks analysed" value={stocksAnalysed}/>
+        <SummaryCard label="Brokers" value={activeBrokers}/>
       </div>
 
-      {/* 1 — Where brokers disagree */}
-      <Section
-        title="Where brokers disagree"
-        subtitle="The stocks with the widest ARB — open Street view for the full breakdown."
-      >
-        {byStock.loading && !byStock.data ? (
-          <Loading/>
-        ) : disagreeRows.length === 0 ? (
-          <Empty text="No material broker disagreements right now."/>
-        ) : (
-          <ul className="flex flex-col">
-            {disagreeRows.map((r) => (
-              <DisagreeRow
-                key={r.ticker}
-                row={r}
-                brokerName={brokerName}
-                onSelect={() => onSelectTicker(r.ticker)}
-              />
-            ))}
-          </ul>
-        )}
-      </Section>
-
-      {/* 2 — What changed today */}
-      <Section
-        title="What changed today"
-        subtitle="The latest broker notes, grouped by company. Click a company name to open its stock view, or click a note to open the report."
-      >
+      <section className="flex flex-col gap-2">
         {worklog.loading && !worklog.data ? (
-          <Loading/>
-        ) : changedGroups.length === 0 ? (
-          <Empty text="No broker notes received yet."/>
+          <div className="panel px-4 py-8 text-[12px] text-slate-500 animate-pulse">Loading the feed…</div>
+        ) : items.length === 0 ? (
+          <div className="panel px-4 py-8 text-[12px] text-slate-400">No broker notes yet.</div>
         ) : (
-          <ul className="flex flex-col">
-            {changedGroups.map((g) => (
-              <ChangedStockGroup
-                key={g.key}
-                group={g}
-                onSelectReport={onSelectReport}
-                onSelectTicker={onSelectTicker}
-              />
-            ))}
-          </ul>
+          <>
+            <div className="flex flex-col gap-5">
+              {shownDays.map((day) => (
+                <div key={day.key} className="flex flex-col gap-1.5">
+                  <DayDivider label={day.label} count={day.items.length}/>
+                  <ul className="flex flex-col">
+                    {day.items.map((it) => (
+                      <TimelineRow
+                        key={it.id}
+                        item={it}
+                        onSelectReport={() => onSelectReport(it.reportId)}
+                        onSelectTicker={it.ticker ? () => onSelectTicker(it.ticker as StockTicker) : null}
+                      />
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+            {hasMore && (
+              <button
+                onClick={() => setVisible((v) => v + PAGE)}
+                className="self-center mt-1 text-[12px] text-slate-400 hover:text-accent border border-line/10 hover:border-accent/40 rounded-md px-4 py-1.5 transition-colors"
+              >
+                Show more · {items.length - shownCount} older note{items.length - shownCount > 1 ? 's' : ''}
+              </button>
+            )}
+          </>
         )}
-      </Section>
-
-      {/* 3 — Upcoming catalysts — only when the feed has any */}
-      {hasCatalysts && (
-        <Section title="Upcoming catalysts">
-          <ul className="flex flex-col">
-            {upcomingCatalysts.map((c) => (
-              <li key={c.catalystId as unknown as string} className="border-b border-line/5 last:border-0">
-                <button
-                  onClick={() => onSelectTicker(c.ticker as StockTicker)}
-                  className="w-full text-left px-4 py-2 hover:bg-line/[0.03] transition-colors flex flex-col gap-0.5"
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-slate-200 text-[12px] font-medium truncate">{c.ticker}</span>
-                    <span className="text-slate-500 text-[10.5px] num shrink-0">
-                      {c.daysUntil > 0 ? `in ${c.daysUntil}d` : 'today'}
-                    </span>
-                  </div>
-                  <span className="text-slate-400 text-[11px] truncate">{c.headline}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </Section>
-      )}
+      </section>
     </div>
   )
 }
 
-// ── Cards ─────────────────────────────────────────────────────────────────
+// ── Counts ──────────────────────────────────────────────────────────────────
 
 function SummaryCard({ label, value }: { label: string; value: number | null }) {
   // null = still loading → "—". A real zero is shown as 0 (an honest count).
@@ -174,180 +145,109 @@ function SummaryCard({ label, value }: { label: string; value: number | null }) 
   )
 }
 
-// ── Section shell ───────────────────────────────────────────────────────────
+// ── Timeline ──────────────────────────────────────────────────────────────────
 
-function Section({ title, subtitle, children }: {
-  title: string
-  subtitle?: string
-  children: ReactNode
-}) {
+function DayDivider({ label, count }: { label: string; count: number }) {
   return (
-    <section className="flex flex-col gap-2">
-      <div className="flex flex-col gap-0.5">
-        <h3 className="text-slate-100 text-base font-semibold">{title}</h3>
-        {subtitle && <p className="text-slate-400 text-[12px]">{subtitle}</p>}
-      </div>
-      <div className="panel">{children}</div>
-    </section>
+    <div className="flex items-center gap-3 px-1">
+      <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-400">{label}</span>
+      <span className="text-[10.5px] text-slate-600 num">{count}</span>
+      <span className="flex-1 h-px bg-line/5"/>
+    </div>
   )
 }
 
-function Loading() {
-  return <div className="px-4 py-6 text-[12px] text-slate-500 animate-pulse">Loading…</div>
-}
-
-function Empty({ text }: { text: string }) {
-  return <div className="px-4 py-6 text-[12px] text-slate-400">{text}</div>
-}
-
-// ── Where brokers disagree ──────────────────────────────────────────────────
-
-function DisagreeRow({ row, brokerName, onSelect }: {
-  row: ByStockRowViewModel
-  brokerName: ReadonlyMap<string, string>
-  onSelect: () => void
+/** One broker note in the timeline. A stance-toned rail dot anchors the row;
+ *  the headline is broker · stock with rating / target / upside, and a single
+ *  "why it matters" line beneath. The row opens the report; the ticker (when
+ *  present) opens the stock view. */
+function TimelineRow({ item, onSelectReport, onSelectTicker }: {
+  item: WorklogItem
+  onSelectReport: () => void
+  onSelectTicker: (() => void) | null
 }) {
-  const outlierId = row.outlierBrokerIds[0]
-  const outlierExtra = row.outlierBrokerIds.length - 1
+  const why = item.thesis?.trim() || item.headline?.trim() || item.title
+  const noteSignal = resolveNoteSignalChip(item)
+  const stockLabel = (item.ticker as unknown as string | null) ?? item.stockName ?? '—'
+
   return (
     <li className="border-b border-line/5 last:border-0">
-      <button
-        onClick={onSelect}
-        className="w-full text-left px-4 py-2.5 hover:bg-line/[0.03] transition-colors flex items-center gap-3 flex-wrap"
-      >
-        <span className="num text-slate-100 text-[13px] font-semibold w-16 shrink-0">{row.ticker}</span>
-        <span
-          className={`chip border ${ARB_COLOR[row.arbVerdict.band]} text-[10px] shrink-0 cursor-help`}
-          title={ARB_TOOLTIP}
-        >{ARB_LABEL[row.arbVerdict.band]}</span>
-        <ConsensusText cr={row.consensusRating}/>
-        <span className="text-[11px] text-slate-500 num">
-          {row.spreadPct !== null ? `spread ${Math.round(row.spreadPct)}%` : 'spread —'}
-        </span>
-        {outlierId && (
-          <span className="text-[11px] text-amber-300 ml-auto shrink-0">
-            outlier: {brokerName.get(outlierId as string) ?? '—'}
-            {outlierExtra > 0 ? ` +${outlierExtra}` : ''}
-          </span>
-        )}
-      </button>
-    </li>
-  )
-}
-
-function ConsensusText({ cr }: { cr: ConsensusRating }) {
-  // Text comes from the shared formatConsensusRating so every surface
-  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
-  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
-  // Renderer only owns the tone wrapper.
-  const tone = cr.kind === 'tie' ? 'text-amber-300'
-    : cr.kind === 'none' ? 'text-slate-500'
-    : 'text-slate-300'
-  return <span className={`text-[11px] shrink-0 ${tone}`}>{formatConsensusRating(cr)}</span>
-}
-
-// ── What changed today ──────────────────────────────────────────────────────
-
-interface ChangedGroup {
-  readonly key: string
-  readonly name: string
-  readonly ticker: StockTicker | null
-  readonly items: readonly WorklogItem[]
-}
-
-/** Group worklog items by stock identity (ticker, else company name) so the
- *  Overview shows one card per company with its notes nested — not the same
- *  stock split across separate rows. Groups, and notes within them, are
- *  ordered by their strongest note via `compareForOverview`. */
-function groupChangedItems(items: readonly WorklogItem[]): ChangedGroup[] {
-  const byKey = new Map<string, WorklogItem[]>()
-  for (const it of items) {
-    const k = stockIdentityKey(
-      it.ticker as unknown as string | null, it.stockName, it.reportId as unknown as string,
-    )
-    const bucket = byKey.get(k) ?? []
-    bucket.push(it)
-    byKey.set(k, bucket)
-  }
-  const groups: ChangedGroup[] = [...byKey.entries()].map(([key, its]) => {
-    const sorted = [...its].sort(compareForOverview)
-    const top = sorted[0]!
-    return {
-      key,
-      name: top.stockName ?? (top.ticker as unknown as string | null) ?? top.title,
-      ticker: top.ticker,
-      items: sorted,
-    }
-  })
-  return groups.sort((a, b) => compareForOverview(a.items[0]!, b.items[0]!))
-}
-
-/** One company group: a header naming the stock, with its broker notes nested
- *  beneath it. The header opens the stock's Street view; each note opens its
- *  own report. */
-function ChangedStockGroup({ group, onSelectReport, onSelectTicker }: {
-  group: ChangedGroup
-  onSelectReport: (id: ReportId) => void
-  onSelectTicker: (t: StockTicker) => void
-}) {
-  const NOTE_CAP = 4
-  const shown = group.items.slice(0, NOTE_CAP)
-  const extra = group.items.length - shown.length
-  const ticker = group.ticker
-  return (
-    <li className="border-b border-line/5 last:border-0 py-1">
-      {ticker ? (
-        // `group` so the name and the trailing arrow both light up on
-        // row hover — the static styling alone read as a heading, not
-        // a link. The arrow + accent-hover give an unmistakable cue
-        // that the company name opens the stock view.
-        <button
-          onClick={() => onSelectTicker(ticker)}
-          title={`Open ${group.name} stock view`}
-          className="group w-full text-left px-4 pt-1.5 pb-1 flex items-center gap-2 cursor-pointer hover:bg-line/[0.03] transition-colors"
-        >
-          <span className="text-slate-100 text-[13px] font-semibold truncate group-hover:text-accent transition-colors">
-            {group.name}
-          </span>
-          {group.items.length > 1 && (
-            <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
-          )}
-          <span
-            aria-hidden
-            className="ml-auto text-[11px] text-slate-500 group-hover:text-accent transition-colors shrink-0"
-          >
-            Open stock view →
-          </span>
-        </button>
-      ) : (
-        <div className="px-4 pt-1.5 pb-1 flex items-center gap-2">
-          <span className="text-slate-100 text-[13px] font-semibold truncate">{group.name}</span>
-          {group.items.length > 1 && (
-            <span className="text-[10.5px] text-slate-500 shrink-0">{group.items.length} notes</span>
-          )}
+      <div className="flex gap-3 px-1 py-2.5 group">
+        {/* Rail dot — stance tone */}
+        <div className="flex flex-col items-center pt-1 shrink-0">
+          <span className={`w-2 h-2 rounded-full ${STANCE_DOT[item.stance]}`}/>
         </div>
-      )}
-      <ul className="flex flex-col">
-        {shown.map((it) => (
-          <ChangedNoteRow key={it.id} item={it} onSelect={() => onSelectReport(it.reportId)}/>
-        ))}
-        {extra > 0 && (
-          <li className="pl-6 pr-4 py-1 text-[10.5px] text-slate-500">
-            +{extra} more note{extra > 1 ? 's' : ''}
-          </li>
-        )}
-      </ul>
+
+        <button
+          onClick={onSelectReport}
+          className="flex-1 min-w-0 text-left flex flex-col gap-1 hover:bg-line/[0.03] -my-1 -mr-1 py-1 pr-1 rounded transition-colors"
+        >
+          {/* broker · stock · rating · target · upside · time */}
+          <div className="flex items-center gap-2 min-w-0 text-[12px]">
+            <span className="text-slate-200 font-semibold shrink-0">{item.brokerShortName}</span>
+            <Dot/>
+            {onSelectTicker ? (
+              <span
+                role="link"
+                tabIndex={0}
+                onClick={(e) => { e.stopPropagation(); onSelectTicker() }}
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onSelectTicker() } }}
+                className="num text-slate-100 font-semibold shrink-0 hover:text-accent cursor-pointer transition-colors"
+                title={item.stockName ?? undefined}
+              >
+                {stockLabel}
+              </span>
+            ) : (
+              <span className="num text-slate-100 font-semibold shrink-0">{stockLabel}</span>
+            )}
+            {item.rating && (
+              <><Dot/><span className={`shrink-0 ${RATING_TEXT_COLOR[item.rating]}`}>{item.rating}</span></>
+            )}
+            {item.targetPrice != null && (
+              <><Dot/><span className="text-slate-300 num shrink-0">TP {formatPrice(item.targetPrice, item.targetCurrency, 0)}</span></>
+            )}
+            {item.upsidePct != null && (
+              <><Dot/><span className={`num shrink-0 ${item.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {item.upsidePct >= 0 ? '+' : ''}{Math.round(item.upsidePct)}%
+              </span></>
+            )}
+            <span className="text-[10.5px] text-slate-500 num shrink-0 ml-auto pl-2">
+              {shortTime(item.receivedAt)}
+            </span>
+          </div>
+
+          {/* why it matters — one line */}
+          <div className="text-[12px] text-slate-400 truncate" title={why}>{why}</div>
+
+          {/* signal chip — only when it adds info beyond the rating column */}
+          {noteSignal !== null && noteSignal.noteSignalKind !== null && (
+            <div>
+              <span
+                className={`inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
+              >
+                {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
+              </span>
+            </div>
+          )}
+        </button>
+      </div>
     </li>
   )
 }
 
-/** Resolve the Note signal chip for an Overview row. Delegates to the
- *  shared `resolveSummaryNoteSignal` so the precedence (typed kind →
- *  legacy fallback) AND the non-duplication rule against the formal
- *  rating are applied in one place. Defence in depth: the transform
- *  already nulls `actionLabel` when it suppresses `noteSignalKind`, but
- *  re-applying here means OLD summaries on disk that still carry a
- *  legacy string can't revive a suppressed chip either. */
+function Dot() {
+  return <span className="text-slate-600 shrink-0" aria-hidden>·</span>
+}
+
+const STANCE_DOT: Record<string, string> = {
+  bullish: 'bg-emerald-400',
+  bearish: 'bg-rose-400',
+  neutral: 'bg-slate-500',
+}
+
+/** Resolve the Note signal chip, applying the non-duplication rule against the
+ *  formal rating (so e.g. a Bullish-signal chip is suppressed when the rating
+ *  is already Buy). Shared with the rest of the app via signalPolicy. */
 function resolveNoteSignalChip(item: WorklogItem): NoteSignalInput | null {
   return resolveSummaryNoteSignal(
     {
@@ -359,119 +259,58 @@ function resolveNoteSignalChip(item: WorklogItem): NoteSignalInput | null {
   )
 }
 
-/** One broker note, nested under its company group. */
-function ChangedNoteRow({ item, onSelect }: { item: WorklogItem; onSelect: () => void }) {
-  const thesis = item.thesis?.trim() || null
-  const numbers = item.keyNumbers.slice(0, 3)
-  const extraNumbers = item.keyNumbers.length - numbers.length
-  const noteSignal = resolveNoteSignalChip(item)
-  const upsideChip = item.upsideChipPct
-  const hasSignals = noteSignal !== null || upsideChip !== null || item.keyNumbers.length > 0
+// ── Day grouping ──────────────────────────────────────────────────────────────
 
-  return (
-    <li>
-      <button
-        onClick={onSelect}
-        className="w-full text-left pl-6 pr-4 py-1.5 hover:bg-line/[0.03] transition-colors flex flex-col gap-1"
-      >
-        {/* Broker · rating · target · upside · time */}
-        <div className="flex items-center gap-2 min-w-0 text-[11.5px]">
-          <span className="text-slate-300 shrink-0 font-medium">{item.brokerShortName}</span>
-          {item.rating && (
-            <><Dot/><span className={`shrink-0 ${RATING_TEXT_COLOR[item.rating]}`}>{item.rating}</span></>
-          )}
-          {item.targetPrice != null && (
-            <><Dot/><span className="text-slate-300 num shrink-0">TP {formatPrice(item.targetPrice, item.targetCurrency, 0)}</span></>
-          )}
-          {item.upsidePct != null && (
-            <><Dot/><span className={`num shrink-0 ${item.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-              {item.upsidePct >= 0 ? '+' : ''}{Math.round(item.upsidePct)}%
-            </span></>
-          )}
-          <span className="text-[10.5px] text-slate-500 num shrink-0 ml-auto pl-2">
-            {relativeTime(item.receivedAt)}
-          </span>
-        </div>
-
-        {/* Why it matters — extracted thesis, else the headline */}
-        {thesis ? (
-          <div className="text-[12px] text-slate-300 truncate" title={thesis}>
-            <span className="text-slate-500">Why it matters: </span>{thesis}
-          </div>
-        ) : (
-          <div className="text-[12px] text-slate-400 truncate" title={item.headline || item.title}>
-            {item.headline || item.title}
-          </div>
-        )}
-
-        {/* Signals — note-signal chip + optional upside chip + up to three
-            key-number chips. The note-signal chip is suppressed at transform
-            time when the formal rating already covers it (Bullish signal +
-            formal Buy), so we don't render a duplicate of the rating column. */}
-        {hasSignals && (
-          <div className="flex items-center gap-1.5 overflow-hidden">
-            {noteSignal !== null && noteSignal.noteSignalKind !== null && (
-              <span
-                className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${TONE_CHIP_CLASS[getActionLabelTone(NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind])]}`}
-                title={NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
-              >
-                {NOTE_SIGNAL_LABEL[noteSignal.noteSignalKind]}
-              </span>
-            )}
-            {upsideChip !== null && (
-              <span
-                className="shrink-0 num text-[10px] font-semibold px-1.5 py-0.5 rounded border border-emerald-500/40 text-emerald-300 bg-emerald-500/10"
-                title="Extracted from the note body"
-              >
-                +{Math.round(upsideChip)}% upside
-              </span>
-            )}
-            {numbers.map((n) => (
-              <span
-                key={n.label}
-                className="shrink-0 whitespace-nowrap num text-[10.5px] px-1.5 py-0.5 rounded border border-line/5 bg-line/[0.04] text-slate-300"
-              >
-                {n.label} {n.value}
-              </span>
-            ))}
-            {extraNumbers > 0 && (
-              <span className="shrink-0 text-[10.5px] text-slate-500">+{extraNumbers}</span>
-            )}
-          </div>
-        )}
-      </button>
-    </li>
-  )
+interface DayGroup {
+  readonly key: string
+  readonly label: string
+  readonly items: readonly WorklogItem[]
 }
 
-function Dot() {
-  return <span className="text-slate-600 shrink-0" aria-hidden>·</span>
+/** Split items (assumed newest-first from the builder) into contiguous day
+ *  sections keyed by UTC date, labelled Today / Yesterday / "DD Mon YYYY". */
+function groupByDay(items: readonly WorklogItem[]): DayGroup[] {
+  const order: string[] = []
+  const byDay = new Map<string, WorklogItem[]>()
+  for (const it of items) {
+    const k = it.utcDate
+    if (!byDay.has(k)) { byDay.set(k, []); order.push(k) }
+    byDay.get(k)!.push(it)
+  }
+  return order.map((k) => ({ key: k, label: dayLabel(k), items: byDay.get(k)! }))
 }
 
-// ── Helpers ─────────────────────────────────────────────────────────────────
+/** Take whole or partial day groups until `limit` items have been collected,
+ *  so "Show more" never leaves a day header with no rows under it. */
+function sliceDays(days: readonly DayGroup[], limit: number): { shownDays: DayGroup[]; shownCount: number } {
+  const shownDays: DayGroup[] = []
+  let count = 0
+  for (const day of days) {
+    if (count >= limit) break
+    const remaining = limit - count
+    const take = day.items.slice(0, remaining)
+    shownDays.push({ ...day, items: take })
+    count += take.length
+  }
+  return { shownDays, shownCount: count }
+}
 
-function relativeTime(iso: string, fromMs: number = Date.now()): string {
+function dayLabel(utcDate: string): string {
+  const todayKey = new Date().toISOString().slice(0, 10)
+  if (utcDate === todayKey) return 'Today'
+  const y = new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)
+  if (utcDate === y) return 'Yesterday'
+  const d = new Date(`${utcDate}T00:00:00Z`)
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+function shortTime(iso: string, fromMs: number = Date.now()): string {
   const t = Date.parse(iso)
   if (Number.isNaN(t)) return '—'
   const ms = fromMs - t
   if (ms < 60_000)     return 'just now'
   if (ms < 3_600_000)  return `${Math.floor(ms / 60_000)}m ago`
   if (ms < 86_400_000) return `${Math.floor(ms / 3_600_000)}h ago`
-  return `${Math.floor(ms / 86_400_000)}d ago`
-}
-
-/** Overview-only re-rank for the "What changed today" teaser. Reads threaded
- *  view-model fields only — never re-parses email text, never replaces the
- *  worklog builder's canonical order. Tier 0: a decision-ready note (rating +
- *  target + upside + thesis). Tier 1: a big-upside call. Tier 2: the rest.
- *  Newest-first within a tier; Array.sort is stable so ties keep builder order. */
-function compareForOverview(a: WorklogItem, b: WorklogItem): number {
-  const tier = (it: WorklogItem): number => {
-    if (it.rating !== null && it.targetPrice !== null && it.upsidePct !== null && !!it.thesis) return 0
-    if (it.upsidePct !== null && it.upsidePct >= 15) return 1
-    return 2
-  }
-  const byTier = tier(a) - tier(b)
-  if (byTier !== 0) return byTier
-  return b.receivedAt.localeCompare(a.receivedAt)
+  const d = new Date(t)
+  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })
 }
