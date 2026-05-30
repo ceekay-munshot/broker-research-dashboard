@@ -1,7 +1,6 @@
 // Tests for the Hit Rate view-model transforms:
 //   1. buildHitRateLeaderboard — filtering, ordering, colour join, empty state
-//   2. buildCallMarkers / tallyMarkers — per-call outcome grading vs a price
-//      series (correct / wrong / neutral / pending / no_price)
+//   2. buildCallRows — per-call gain since the call + whether the target is met
 //
 // Pure functions, no React/adapter. Run: npx tsx src/viewModels/__tests__/hitRate.ts
 
@@ -10,8 +9,8 @@ import type {
   BrokerId, OrgId, StockTicker,
 } from '../../domain'
 import {
-  buildHitRateLeaderboard, buildCallMarkers, tallyMarkers, directionFor,
-  type CallMarkerInput,
+  buildHitRateLeaderboard, buildCallRows, directionFor,
+  type CallRowInput,
 } from '../hitRate'
 
 let failed = 0
@@ -86,10 +85,10 @@ function mkCloses(values: readonly number[], start = '2026-01-01'): DailyPricePo
   }))
 }
 
-function call(over: Partial<CallMarkerInput>): CallMarkerInput {
+function call(over: Partial<CallRowInput>): CallRowInput {
   return {
     reportId: 'r1', publishedAt: '2026-01-01T00:00:00.000Z',
-    rating: null, stance: 'neutral', targetPrice: null, ...over,
+    rating: null, stance: 'neutral', targetPrice: null, targetCurrency: 'INR', ...over,
   }
 }
 
@@ -132,61 +131,43 @@ function call(over: Partial<CallMarkerInput>): CallMarkerInput {
   check('no rating falls back to stance', directionFor(null, 'bearish') === 'down')
 }
 
-// ── 3 · Call outcome grading ───────────────────────────────────────────────
+// ── 3 · Call rows: gain since call + target met ─────────────────────────────
 
 {
-  // Rising 21-pt series: +20% by the 20-step horizon.
+  // Rising 21-pt series: idx0 = 100 … idx20 = 120. Call anchors at idx0 (=100).
   const up = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i))
-  const [buyHit] = buildCallMarkers([call({ rating: 'Buy' })], up)
-  check('bullish call that rose → correct', buyHit!.outcome === 'correct', buyHit!.outcome)
-  check('correct marker carries forward return', Math.round(buyHit!.returnPct!) === 20, String(buyHit!.returnPct))
 
-  const [sellMiss] = buildCallMarkers([call({ rating: 'Sell' })], up)
-  check('bearish call that rose → wrong', sellMiss!.outcome === 'wrong', sellMiss!.outcome)
+  const buy = buildCallRows([call({ rating: 'Buy', targetPrice: 110 })], up, 120)[0]!
+  check('call price anchored at the call date', buy.callPrice === 100, String(buy.callPrice))
+  check('gain since call = (cmp − callPrice)/callPrice', Math.round(buy.gainPct!) === 20, String(buy.gainPct))
+  check('rising stock favours a Buy', buy.favorable === true)
+  check('target met when cmp ≥ target (buy)', buy.result === 'hit', buy.result)
+
+  const buyOpen = buildCallRows([call({ rating: 'Buy', targetPrice: 130 })], up, 120)[0]!
+  check('target open when cmp < target (buy)', buyOpen.result === 'open', buyOpen.result)
+
+  const sell = buildCallRows([call({ rating: 'Sell', targetPrice: 90 })], mkCloses(Array.from({ length: 21 }, (_, i) => 100 - i)), 80)[0]!
+  check('falling stock favours a Sell', sell.favorable === true, String(sell.gainPct))
+  check('target met when cmp ≤ target (sell)', sell.result === 'hit', sell.result)
+
+  const hold = buildCallRows([call({ rating: 'Hold', targetPrice: 110 })], up, 120)[0]!
+  check('Hold has no target result', hold.result === 'na', hold.result)
+  check('Hold gain not favourable-flagged', hold.favorable === null)
 }
 
 {
-  // Falling 21-pt series: -20% by the horizon.
-  const down = mkCloses(Array.from({ length: 21 }, (_, i) => 100 - i))
-  check('bearish call that fell → correct', buildCallMarkers([call({ rating: 'Sell' })], down)[0]!.outcome === 'correct')
-  check('bullish call that fell → wrong', buildCallMarkers([call({ rating: 'Buy' })], down)[0]!.outcome === 'wrong')
-}
+  // Call dated after the price window → no anchor price → no gain, but the
+  // target can still be judged from the current price.
+  const early = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i), '2026-01-01') // ends ~2026-01-21
+  const future = buildCallRows([call({ rating: 'Buy', publishedAt: '2026-03-01T00:00:00.000Z', targetPrice: 110 })], early, 120)[0]!
+  check('call after the window has no call price', future.callPrice === null, String(future.callPrice))
+  check('no call price → no gain', future.gainPct === null)
+  check('target still graded from current price', future.result === 'hit', future.result)
 
-{
-  // Near-flat series: +0.5% over 20 steps, inside the ±1% dead-band.
-  const flatish = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i * 0.025))
-  check('directional call inside dead-band → neutral',
-    buildCallMarkers([call({ rating: 'Buy' })], flatish)[0]!.outcome === 'neutral')
-  check('Hold call → neutral regardless of move',
-    buildCallMarkers([call({ rating: 'Hold' })], flatish)[0]!.outcome === 'neutral')
-}
-
-{
-  // Too-recent: only 10 points, so a 20-step horizon falls off the end.
-  const short = mkCloses(Array.from({ length: 10 }, (_, i) => 100 + i))
-  check('call with no forward point → pending', buildCallMarkers([call({ rating: 'Buy' })], short)[0]!.outcome === 'pending')
-
-  // Before the price window → no anchor.
-  const later = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i), '2026-03-01')
-  const early = buildCallMarkers([call({ rating: 'Buy', publishedAt: '2026-01-01T00:00:00.000Z' })], later)[0]
-  check('call before the price window → no_price', early!.outcome === 'no_price', early!.outcome)
-  check('empty price series → no_price', buildCallMarkers([call({ rating: 'Buy' })], [])[0]!.outcome === 'no_price')
-}
-
-// ── 4 · Tally ───────────────────────────────────────────────────────────────
-
-{
-  const up = mkCloses(Array.from({ length: 21 }, (_, i) => 100 + i))
-  const markers = buildCallMarkers([
-    call({ reportId: 'r1', rating: 'Buy' }),   // correct
-    call({ reportId: 'r2', rating: 'Sell' }),  // wrong
-    call({ reportId: 'r3', rating: 'Hold' }),  // neutral — not counted
-  ], up)
-  const t = tallyMarkers(markers)
-  check('tally counts only graded directional calls', t.evaluated === 2, String(t.evaluated))
-  check('tally correct count', t.correct === 1, String(t.correct))
-  check('tally hit rate', t.hitRate === 0.5, String(t.hitRate))
-  check('empty tally → null hit rate', tallyMarkers([]).hitRate === null)
+  // No current price at all → no gain, no target verdict.
+  const noCmp = buildCallRows([call({ rating: 'Buy', targetPrice: 110 })], mkCloses([100, 105]), null)[0]!
+  check('no cmp → null gain', noCmp.gainPct === null)
+  check('no cmp → na result', noCmp.result === 'na', noCmp.result)
 }
 
 if (failed > 0) {

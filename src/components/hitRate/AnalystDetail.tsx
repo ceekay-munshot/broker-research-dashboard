@@ -1,21 +1,21 @@
 // Right-hand drill-down for a selected analyst: a plain-language accuracy
-// summary, a stock selector, the price chart with their calls marked, and the
-// underlying call list. Reuses the per-broker timeline view-model that powers
-// the Brokers-tab drawer; layers on the sample-price outcome grading.
+// summary, a stock selector, and a simple table of that analyst's calls on the
+// stock — date, call, target, the gain since the call, and whether the target
+// has been met. No chart: the table is faster to read for an institutional user.
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ReportId, StockTicker } from '../../domain'
 import type { FiltersState } from '../../app/filters'
 import { useBrokerDetailViewModel } from '../../viewModels/brokerDetail'
 import {
-  buildCallMarkers, tallyMarkers,
-  type AnalystHitRateRow, type CallMarker, type CallMarkerInput,
+  buildCallRows,
+  type AnalystHitRateRow, type CallRow, type CallRowInput,
 } from '../../viewModels/hitRate'
 import { useDailyCloses } from '../../hooks/useDailyCloses'
+import { useStockPrices } from '../../hooks/useStockPrices'
 import { RATING_TEXT_COLOR, formatPrice, formatShortDate } from '../../viewModels/shared'
 import { TONE_TEXT_CLASS } from '../../lib/semanticColor'
 import BrokerGlyph from '../BrokerGlyph'
-import PriceCallsChart from './PriceCallsChart'
 import { hitRateTone, formatPct } from './shared'
 
 interface Props {
@@ -46,26 +46,35 @@ export default function AnalystDetail({ row, filters, onSelectReport, onSelectTi
   }, [stocks, selectedTicker])
 
   const closesQ = useDailyCloses((selectedTicker as unknown as StockTicker) ?? null)
+  const priceRes = useStockPrices(selectedTicker ? [selectedTicker] : [])
 
   const entries = useMemo(
     () => (selectedTicker && vm ? vm.timelineByTicker.get(selectedTicker) ?? [] : []),
     [vm, selectedTicker],
   )
-  const markers = useMemo<readonly CallMarker[]>(() => {
-    const inputs: CallMarkerInput[] = entries.map((e) => ({
+
+  const closes = closesQ.data ?? []
+  const sampleLatest = closes.length > 0 ? closes[closes.length - 1]!.close : null
+  const sampleAsOf = closes.length > 0 ? closes[closes.length - 1]!.date : null
+  const liveCell = selectedTicker ? priceRes.prices.get(selectedTicker) : undefined
+  const liveCmp = liveCell?.status === 'success' ? liveCell.price : null
+  const cmp = liveCmp ?? sampleLatest
+  const currency = closes[0]?.currency ?? entries[0]?.targetCurrency ?? 'INR'
+
+  const rows = useMemo<readonly CallRow[]>(() => {
+    const inputs: CallRowInput[] = entries.map((e) => ({
       reportId: e.reportId as unknown as string,
       publishedAt: e.publishedAt,
       rating: e.rating,
       stance: e.stance,
       targetPrice: e.targetPrice,
+      targetCurrency: e.targetCurrency,
     }))
-    return buildCallMarkers(inputs, closesQ.data ?? [])
-  }, [entries, closesQ.data])
-  const tally = tallyMarkers(markers)
-  const markerByReport = useMemo(
-    () => new Map(markers.map((m) => [m.reportId, m])),
-    [markers],
-  )
+    return buildCallRows(inputs, closes, cmp)
+  }, [entries, closes, cmp])
+
+  const targeted = rows.filter((r) => r.result !== 'na').length
+  const hitCount = rows.filter((r) => r.result === 'hit').length
 
   if (loading) return <Panel><Centered tone="loading" text="Loading track record…"/></Panel>
   if (error)   return <Panel><Centered tone="error" text={`Error: ${error.message}`}/></Panel>
@@ -73,23 +82,12 @@ export default function AnalystDetail({ row, filters, onSelectReport, onSelectTi
     return <Panel><Centered tone="loading" text="No calls from this analyst in the loaded window yet."/></Panel>
   }
 
-  const currency = closesQ.data?.[0]?.currency ?? entries[0]?.targetCurrency ?? 'INR'
-  const selectedStock = stocks.find((s) => (s.ticker as unknown as string) === selectedTicker) ?? null
-
   return (
     <div className="flex flex-col gap-5">
       <SummaryHeader row={row} brokerName={vm.brokerName} noteCount={vm.noteCount} stocksCovered={vm.stocksCovered}/>
 
       <section className="flex flex-col gap-3">
-        <div className="flex items-baseline justify-between gap-3 flex-wrap">
-          <h3 className="section-title">How their calls played out</h3>
-          {tally.evaluated > 0 && (
-            <span className="text-[11px] text-slate-400">
-              On <span className="text-slate-200 font-medium">{selectedTicker}</span>:{' '}
-              <span className="num text-slate-100">{tally.correct} of {tally.evaluated}</span> directional calls worked
-            </span>
-          )}
-        </div>
+        <h3 className="section-title">Their calls &amp; how they played out</h3>
 
         {/* Stock selector */}
         <div className="flex flex-wrap gap-1.5">
@@ -115,31 +113,128 @@ export default function AnalystDetail({ row, filters, onSelectReport, onSelectTi
         </div>
 
         {selectedTicker && (
-          <div className="panel p-3 flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-2">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-baseline justify-between gap-3 flex-wrap">
               <button
                 onClick={() => onSelectTicker(selectedTicker as unknown as StockTicker)}
                 className="text-slate-200 hover:text-accent text-[12.5px] font-medium"
                 title="Open stock"
               >
-                {selectedStock?.stockName ?? selectedTicker} <span className="text-slate-500">→</span>
+                {stocks.find((s) => (s.ticker as unknown as string) === selectedTicker)?.stockName ?? selectedTicker}
+                <span className="text-slate-500"> →</span>
               </button>
+              <div className="flex items-baseline gap-3 text-[11.5px]">
+                {cmp !== null && (
+                  <span className="text-slate-400">
+                    CMP <span className="num text-slate-100">{formatPrice(cmp, currency, 0)}</span>
+                    {liveCmp === null && sampleAsOf && (
+                      <span className="text-slate-600 num"> · sample {formatShortDate(sampleAsOf + 'T00:00:00Z')}</span>
+                    )}
+                  </span>
+                )}
+                {targeted > 0 && (
+                  <span className="text-slate-400">
+                    <span className="num text-slate-100">{hitCount} of {targeted}</span> targets met
+                  </span>
+                )}
+              </div>
             </div>
-            <PriceCallsChart
-              ticker={selectedTicker}
-              stockName={selectedStock?.stockName ?? null}
-              closes={closesQ.data ?? []}
-              markers={markers}
-              loading={closesQ.loading}
-              currency={currency}
-            />
+
+            <CallsTable rows={rows} currency={currency} onSelectReport={onSelectReport}/>
+
+            {closes.length === 0 && (
+              <p className="text-[10.5px] text-slate-600 italic">
+                Gain since call needs price history — showing current price vs target until a price feed is connected.
+              </p>
+            )}
           </div>
         )}
-
-        <CallsList entries={entries} markerByReport={markerByReport} currency={currency} onSelectReport={onSelectReport}/>
       </section>
     </div>
   )
+}
+
+// ── Calls table ─────────────────────────────────────────────────────────
+
+function CallsTable({ rows, currency, onSelectReport }: {
+  rows: readonly CallRow[]
+  currency: string
+  onSelectReport: (id: ReportId) => void
+}) {
+  if (rows.length === 0) {
+    return (
+      <div className="rounded border border-dashed border-line/10 bg-line/[0.01] px-3 py-3 text-[11.5px] text-slate-500">
+        No calls on this stock in the loaded window.
+      </div>
+    )
+  }
+  return (
+    <div className="overflow-x-auto rounded border border-line/5">
+      <table className="w-full text-[12px]">
+        <thead className="bg-line/[0.02]">
+          <tr className="text-left text-slate-400 text-[10.5px] uppercase tracking-wider">
+            <th className="px-3 py-2 font-medium">Date</th>
+            <th className="px-3 py-2 font-medium">Call</th>
+            <th className="px-3 py-2 font-medium text-right">Target</th>
+            <th className="px-3 py-2 font-medium text-right">Gain since call</th>
+            <th className="px-3 py-2 font-medium">Target met?</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr
+              key={r.reportId}
+              role="button"
+              tabIndex={0}
+              onClick={() => onSelectReport(r.reportId as unknown as ReportId)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(r.reportId as unknown as ReportId) } }}
+              className="border-t border-line/5 cursor-pointer hover:bg-line/[0.04] transition-colors"
+              title="Open this note"
+            >
+              <td className="px-3 py-2 num text-slate-400 whitespace-nowrap">
+                {formatShortDate(r.date + 'T00:00:00Z')} {r.date.slice(0, 4)}
+              </td>
+              <td className="px-3 py-2">
+                {r.rating
+                  ? <span className={`chip border border-line/10 bg-line/[0.04] ${RATING_TEXT_COLOR[r.rating]} text-[10px]`}>{r.rating}</span>
+                  : <span className="text-slate-600">—</span>}
+              </td>
+              <td className="px-3 py-2 text-right num text-slate-200">
+                {r.targetPrice !== null ? formatPrice(r.targetPrice, r.targetCurrency ?? currency, 0) : <span className="text-slate-600">—</span>}
+              </td>
+              <td className="px-3 py-2 text-right num">
+                <GainCell row={r}/>
+              </td>
+              <td className="px-3 py-2"><ResultCell row={r}/></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function GainCell({ row }: { row: CallRow }) {
+  if (row.gainPct === null) return <span className="text-slate-600">—</span>
+  const cls = row.favorable === true ? 'text-emerald-400' : row.favorable === false ? 'text-rose-400' : 'text-slate-400'
+  const tip = row.direction === 'flat'
+    ? 'Stock move since the note'
+    : `Stock ${row.gainPct >= 0 ? 'rose' : 'fell'} ${Math.abs(row.gainPct).toFixed(1)}% since the call — ${row.favorable ? 'in its favour' : 'against it'}`
+  return (
+    <span className={cls} title={tip}>
+      {row.gainPct >= 0 ? '+' : ''}{row.gainPct.toFixed(1)}%
+    </span>
+  )
+}
+
+function ResultCell({ row }: { row: CallRow }) {
+  if (row.result === 'hit') {
+    return <span className="text-emerald-400 text-[11.5px]" title="Current price has reached the target">✓ Hit</span>
+  }
+  if (row.result === 'open') {
+    return <span className="text-slate-500 text-[11.5px]" title="Target not reached yet">Open</span>
+  }
+  return <span className="text-slate-600 text-[11.5px]" title="No directional target">—</span>
 }
 
 // ── Summary header ────────────────────────────────────────────────────────
@@ -186,56 +281,6 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'po
       <span className={`num ${cls}`}>{value}</span>
     </span>
   )
-}
-
-// ── Calls list ──────────────────────────────────────────────────────────
-
-function CallsList({ entries, markerByReport, currency, onSelectReport }: {
-  entries: readonly import('../../viewModels/brokerDetail').BrokerTimelineEntry[]
-  markerByReport: ReadonlyMap<string, CallMarker>
-  currency: string
-  onSelectReport: (id: ReportId) => void
-}) {
-  if (entries.length === 0) return null
-  return (
-    <ul className="flex flex-col divide-y divide-line/5 rounded border border-line/5">
-      {entries.map((e) => {
-        const m = markerByReport.get(e.reportId as unknown as string)
-        return (
-          <li key={e.reportId as unknown as string}>
-            <button
-              onClick={() => onSelectReport(e.reportId)}
-              className="w-full text-left px-3 py-2 flex items-center gap-3 hover:bg-line/[0.03] transition-colors"
-            >
-              <OutcomeIcon outcome={m?.outcome ?? 'no_price'}/>
-              <span className="num text-[11px] text-slate-400 w-20 shrink-0">
-                {formatShortDate(e.publishedAt)} {e.publishedAt.slice(0, 4)}
-              </span>
-              {e.rating ? (
-                <span className={`text-[11.5px] ${RATING_TEXT_COLOR[e.rating]} w-20 shrink-0`}>{e.rating}</span>
-              ) : <span className="text-slate-600 w-20 shrink-0 text-[11.5px]">—</span>}
-              <span className="num text-[11.5px] text-slate-300 w-20 shrink-0">
-                {e.targetPrice !== null ? formatPrice(e.targetPrice, e.targetCurrency ?? currency, 0) : '—'}
-              </span>
-              <span className="text-[11.5px] text-slate-400 truncate flex-1">{e.headline}</span>
-            </button>
-          </li>
-        )
-      })}
-    </ul>
-  )
-}
-
-function OutcomeIcon({ outcome }: { outcome: CallMarker['outcome'] }) {
-  const map = {
-    correct: { ch: '✓', cls: 'text-emerald-400', tip: 'Played out' },
-    wrong:   { ch: '✗', cls: 'text-rose-400', tip: "Didn't play out" },
-    neutral: { ch: '·', cls: 'text-slate-500', tip: 'No directional bet' },
-    pending: { ch: '◦', cls: 'text-slate-500', tip: 'Too recent to grade' },
-    no_price:{ ch: '·', cls: 'text-slate-600', tip: 'Outside price window' },
-  } as const
-  const v = map[outcome]
-  return <span className={`w-4 shrink-0 text-center ${v.cls}`} title={v.tip}>{v.ch}</span>
 }
 
 // ── shells ────────────────────────────────────────────────────────────────

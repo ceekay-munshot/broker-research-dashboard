@@ -1,6 +1,6 @@
 // "Hit Rate" — which analysts call it right. A leaderboard of research houses
-// ranked by how often their rated calls play out, with a drill-down chart that
-// plots a chosen analyst's past calls against the stock's price history.
+// ranked by how often their rated calls play out, with a drill-down table of a
+// chosen analyst's calls: target, gain since the call, and whether it was met.
 // Implementation lives in components/hitRate/.
 
 import type { ReportId, StockTicker } from '../../domain'

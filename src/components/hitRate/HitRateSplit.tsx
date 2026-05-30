@@ -1,11 +1,12 @@
 // Hit Rate — a leaderboard-first split view. Left: analysts ranked by how
 // often their calls are right (real data, works on the live feed). Right:
-// the selected analyst's calls plotted on the stock price chart.
+// the selected analyst's calls in a simple table — date, call, target, the
+// gain since the call, and whether the target has been met.
 //
-// The accuracy figures come from the calibration snapshot; the drill-down
-// price chart is drawn from the built-in sample series (see PriceCallsChart),
-// so it's coherent in demo mode and shows an "awaiting live price feed" state
-// on the live feed until a price-history source is connected.
+// The accuracy figures come from the calibration snapshot. "Target met" uses
+// the current price vs the call's target (live-capable); the gain-since-call
+// column needs price history, so it's populated from the sample series in demo
+// mode and shows "—" on a live feed until a price-history source is connected.
 
 import { useEffect, useMemo, useState } from 'react'
 import type { BrokerId, ReportId, StockTicker } from '../../domain'
@@ -47,7 +48,7 @@ export default function HitRateSplit({ filters, onSelectTicker, onSelectReport }
       <header className="flex flex-col gap-1">
         <h2 className="text-slate-100 font-semibold text-lg">Who calls it right</h2>
         <p className="text-slate-400 text-[12px]">
-          How often each analyst's rated calls have actually played out — and what that looked like on the chart.
+          How often each analyst's rated calls have actually played out — and how each call has done since.
         </p>
       </header>
 

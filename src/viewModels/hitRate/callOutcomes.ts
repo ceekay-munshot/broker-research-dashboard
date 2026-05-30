@@ -1,65 +1,44 @@
-// Maps a broker's past calls onto a daily-close price series and decides,
-// for each call, whether it played out — the data behind the Hit Rate
-// drill-down chart's ▲/▼ markers.
+// Turns a broker's calls on a stock into table rows: for each call, how the
+// stock has moved since (gain %) and whether the price target has been met.
 //
-// This mirrors the server calibration engine's outcome math
-// (server/src/calibration/outcomes.ts): anchor at the close on/just-before
-// the call date, look a fixed window forward, compare realised direction to
-// the call's expected direction. It runs client-side here purely to colour
-// the chart markers against the (sample) price series; the authoritative
-// per-analyst hit-rate % shown in the leaderboard still comes straight from
-// the snapshot.
+// Pure transform. "Target met" is judged on the current price vs the target —
+// the one comparison that works on the live feed (current price + the call's
+// own target). The gain % needs the price at the call date, so it's populated
+// from the sample price series in demo mode and falls back to "—" on a live
+// feed that has no price history yet.
 
 import type { DailyPricePoint, Rating, Stance } from '../../domain'
 
 export type CallDirection = 'up' | 'down' | 'flat'
 
-export type CallOutcome =
-  | 'correct'   // directional call, moved the called way
-  | 'wrong'     // directional call, moved against
-  | 'neutral'   // a Hold / no-view call — no directional bet to grade
-  | 'pending'   // too recent — no forward price yet to judge it
-  | 'no_price'  // call falls outside the available price window
+/** Has the call's price target been met by the current price? */
+export type CallResult =
+  | 'hit'     // current price has reached / passed the target
+  | 'open'    // directional call, target not reached yet
+  | 'na'      // no target, or a Hold / no-view note
 
-export interface CallMarkerInput {
+export interface CallRowInput {
   readonly reportId: string
-  readonly publishedAt: string        // ISO 8601 timestamp
+  readonly publishedAt: string          // ISO 8601 timestamp
   readonly rating: Rating | null
   readonly stance: Stance
   readonly targetPrice: number | null
+  readonly targetCurrency: string | null
 }
 
-export interface CallMarker {
+export interface CallRow {
   readonly reportId: string
-  readonly date: string               // YYYY-MM-DD — the call date (x position)
+  readonly date: string                 // YYYY-MM-DD
+  readonly rating: Rating | null
   readonly direction: CallDirection
-  readonly anchorClose: number | null // price at the call (y position)
-  readonly forwardClose: number | null
-  readonly returnPct: number | null
-  readonly outcome: CallOutcome
   readonly targetPrice: number | null
+  readonly targetCurrency: string | null
+  readonly callPrice: number | null     // close on/just-before the call date
+  readonly cmp: number | null           // current market price (same for the stock)
+  readonly gainPct: number | null       // (cmp − callPrice) / callPrice, signed
+  readonly favorable: boolean | null     // did that move help the call's direction?
+  readonly result: CallResult
 }
-
-export interface MarkerTally {
-  /** Directional calls old enough to judge (correct + wrong). */
-  readonly evaluated: number
-  readonly correct: number
-  /** correct / evaluated, as a 0..1 fraction; null when nothing evaluated. */
-  readonly hitRate: number | null
-}
-
-// Forward window for grading a call. 20 ≈ WINDOW_DAYS['20d'] — the longest,
-// least-noisy horizon the ~120-point sample series supports. The fixture
-// series steps one point per calendar day, so a step ≈ a trading day, matching
-// how the server indexes closes by array offset.
-const HORIZON_STEPS = 20
-
-// Visual noise floor: a move smaller than this over the horizon isn't credited
-// to the call either way (it reads as "didn't really play out"). Kept tight so
-// the chart's green/red signal stays legible — lighter than the calibration
-// engine's window-scaled band, since this only colours markers, it doesn't feed
-// the authoritative leaderboard hit rate.
-const FLAT_PCT_BAND = 1.0
 
 /** Expected direction a call implies, from its rating (preferred) or stance. */
 export function directionFor(rating: Rating | null, stance: Stance): CallDirection {
@@ -81,54 +60,53 @@ function findAnchorIndex(closes: readonly DailyPricePoint[], dateStr: string): n
   return idx
 }
 
-/** Grade each call against the price series. Order of `calls` is preserved. */
-export function buildCallMarkers(
-  calls: readonly CallMarkerInput[],
+/**
+ * Build one row per call. `cmp` is the stock's current price (live when
+ * available, else the latest sample close) — the same value for every row.
+ */
+export function buildCallRows(
+  calls: readonly CallRowInput[],
   closes: readonly DailyPricePoint[],
-): readonly CallMarker[] {
+  cmp: number | null,
+): readonly CallRow[] {
   const sorted = [...closes].sort((a, b) => a.date.localeCompare(b.date))
+  const lastDate = sorted.length > 0 ? sorted[sorted.length - 1]!.date : null
 
   return calls.map((c) => {
     const direction = directionFor(c.rating, c.stance)
     const date = c.publishedAt.slice(0, 10)
-    const base = { reportId: c.reportId, date, direction, targetPrice: c.targetPrice }
 
-    const anchorIdx = sorted.length > 0 ? findAnchorIndex(sorted, date) : -1
-    if (anchorIdx < 0) {
-      return { ...base, anchorClose: null, forwardClose: null, returnPct: null, outcome: 'no_price' as const }
-    }
-    const anchorClose = sorted[anchorIdx]!.close
+    // Price at the call: only when the call falls within the price window.
+    // Calls more recent than the series (no anchor) get a null call price.
+    const anchorIdx = findAnchorIndex(sorted, date)
+    const inWindow = anchorIdx >= 0 && lastDate !== null && date <= lastDate
+    const callPrice = inWindow ? sorted[anchorIdx]!.close : null
 
-    // A Hold / no-view note isn't a directional bet — plot it, don't grade it.
-    if (direction === 'flat') {
-      return { ...base, anchorClose, forwardClose: null, returnPct: null, outcome: 'neutral' as const }
+    const gainPct = callPrice !== null && callPrice !== 0 && cmp !== null
+      ? ((cmp - callPrice) / callPrice) * 100
+      : null
+    const favorable = gainPct === null || direction === 'flat'
+      ? null
+      : direction === 'up' ? gainPct > 0 : gainPct < 0
+
+    let result: CallResult = 'na'
+    if (c.targetPrice !== null && cmp !== null && direction !== 'flat') {
+      const hit = direction === 'up' ? cmp >= c.targetPrice : cmp <= c.targetPrice
+      result = hit ? 'hit' : 'open'
     }
 
-    const fwdIdx = anchorIdx + HORIZON_STEPS
-    if (fwdIdx >= sorted.length) {
-      return { ...base, anchorClose, forwardClose: null, returnPct: null, outcome: 'pending' as const }
+    return {
+      reportId: c.reportId,
+      date,
+      rating: c.rating,
+      direction,
+      targetPrice: c.targetPrice,
+      targetCurrency: c.targetCurrency,
+      callPrice,
+      cmp,
+      gainPct,
+      favorable,
+      result,
     }
-    const forwardClose = sorted[fwdIdx]!.close
-    const returnPct = ((forwardClose - anchorClose) / anchorClose) * 100
-
-    // Within the dead-band the move is noise — neither a hit nor a miss.
-    if (Math.abs(returnPct) <= FLAT_PCT_BAND) {
-      return { ...base, anchorClose, forwardClose, returnPct, outcome: 'neutral' as const }
-    }
-    const correct = direction === 'up' ? returnPct > 0 : returnPct < 0
-    return { ...base, anchorClose, forwardClose, returnPct, outcome: correct ? 'correct' as const : 'wrong' as const }
   })
-}
-
-/** Roll markers up into the small "X of Y calls worked" tally for a stock. */
-export function tallyMarkers(markers: readonly CallMarker[]): MarkerTally {
-  let evaluated = 0
-  let correct = 0
-  for (const m of markers) {
-    if (m.outcome === 'correct' || m.outcome === 'wrong') {
-      evaluated++
-      if (m.outcome === 'correct') correct++
-    }
-  }
-  return { evaluated, correct, hitRate: evaluated > 0 ? correct / evaluated : null }
 }
