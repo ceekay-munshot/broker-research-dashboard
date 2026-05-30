@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { ReportId, BrokerId, StockTicker } from '../../domain'
 import type { ResultantState, StrengthBand } from '../../engine/types'
 import type { FiltersState } from '../../app/filters'
@@ -7,8 +7,7 @@ import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import CmpCell from '../cells/CmpCell'
-import { ARB_LABEL, ARB_COLOR, ARB_TOOLTIP, type ArbVerdict, type ConsensusRating } from '../../viewModels/arb'
-import { RESULTANT_STATE_LABEL, formatConsensusRating } from '../../lib/signalVocab'
+import { RESULTANT_STATE_LABEL } from '../../lib/signalVocab'
 import {
   RESULTANT_STATE_CHIP_CLASS as STATE_COLOR, BROKER_DOT_CLASS,
   TONE_TEXT_CLASS, getChangeTone,
@@ -21,7 +20,9 @@ interface ByStockProps {
 }
 
 export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByStockProps) {
-  const [view, setView] = useState<StockView>('contested')
+  const [view, setView] = useState<StockView>('most-covered')
+  const [search, setSearch] = useState('')
+  const scrollRef = useRef<HTMLDivElement>(null)
   const { data, loading, error } = useByStockViewModel(filters, view)
 
   // Live CMP fetch — called unconditionally (hooks rule) with a null-safe
@@ -29,12 +30,19 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
   const cmpTickers = data?.rows.map((r) => r.ticker as string) ?? []
   const { prices, refetch: refetchCmp, lastFetchedAt } = useStockPrices(cmpTickers)
 
+  // Pull the matrix back to the top whenever the search query changes, so a
+  // stock surfaced to the top by the search is actually in view.
+  const query = search.trim().toLowerCase()
+  useEffect(() => {
+    if (query !== '') scrollRef.current?.scrollTo({ top: 0 })
+  }, [query])
+
   if (error) return <ViewMessage tone="error" text={`Error: ${error.message}`}/>
   if (loading || !data) return <ViewMessage tone="loading" text="Loading by-stock view…"/>
 
   // Rating filter — display-only. We apply it at the per-cell render gate
   // and the row-visibility gate, never at the closure-computation level.
-  // Street View (state badge, ARB, ConsensusRating, Avg target) is always
+  // Street View (state badge, Avg target) is always
   // full-Street: those derivations reflect every broker covering the
   // stock, not just the selected ratings. A tooltip on the state badge
   // makes the distinction explicit while a filter is active.
@@ -49,6 +57,16 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         }))
     : data.rows
 
+  // Stock search surfaces matches to the top without hiding the rest of the
+  // matrix — matches keep the active view's relative order, non-matches follow.
+  const isSearchMatch = (row: ByStockRowViewModel) =>
+    query !== '' &&
+    ((row.ticker as string).toLowerCase().includes(query) ||
+      row.stockName.toLowerCase().includes(query))
+  const displayRows = query === ''
+    ? visibleRows
+    : [...visibleRows.filter(isSearchMatch), ...visibleRows.filter((r) => !isSearchMatch(r))]
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-end justify-between flex-wrap gap-3">
@@ -59,11 +77,14 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
             disagrees. Click a stock for the full breakdown.
           </p>
         </div>
-        <ViewSelector view={view} setView={setView} showPortfolio={data.hasPortfolio}/>
+        <div className="flex flex-col items-end gap-2">
+          <StockSearch value={search} onChange={setSearch}/>
+          <ViewSelector view={view} setView={setView}/>
+        </div>
       </div>
 
-      <div className="panel overflow-auto max-h-[calc(100vh-220px)]">
-        <table className="w-full min-w-[1260px] text-[12px]">
+      <div ref={scrollRef} className="panel overflow-auto max-h-[calc(100vh-220px)]">
+        <table className="w-full min-w-[1080px] text-[12px]">
           <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10">Ticker</th>
@@ -75,7 +96,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
                 </div>
               </th>
               <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800">Avg target</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800">Disagreement</th>
               {data.brokers.map((b) => (
                 <th key={b.id} className="px-2 py-2 font-medium sticky top-0 z-20 bg-ink-800">
                   <div className="flex items-center gap-1.5">
@@ -87,11 +107,12 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
             </tr>
           </thead>
           <tbody>
-            {visibleRows.map((row, idx) => (
+            {displayRows.map((row, idx) => (
               <StockRow
                 key={row.ticker}
                 row={row}
                 zebra={idx % 2 === 1}
+                highlight={isSearchMatch(row)}
                 brokerColumnIds={data.brokers.map((b) => b.id)}
                 cmp={prices.get(row.ticker)}
                 ratingFilter={ratingFilterActive ? ratingFilter : null}
@@ -110,10 +131,6 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
         <div className="flex items-center gap-1.5"><StateBadge state="outlier_driven" strength="moderate" compact/> outlier-driven</div>
         <div className="flex items-center gap-1.5"><StateBadge state="unresolved" strength="weak" compact/> unresolved</div>
         <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-sm bg-amber-500/40"/> outlier target</div>
-        <span className="text-slate-700">·</span>
-        {(['high', 'moderate', 'low'] as const).map((b) => (
-          <span key={b} className={`chip border ${ARB_COLOR[b]} text-[9px]`}>{ARB_LABEL[b]}</span>
-        ))}
       </div>
 
     </div>
@@ -121,14 +138,12 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
 }
 
 // ─── View selector ────────────────────────────────────────────────────
-// Re-sorts the matrix only — no row is ever hidden. "My portfolio" appears
-// solely when a portfolio is loaded.
+// Re-sorts the matrix only — no row is ever hidden.
 
 const STOCK_VIEWS: readonly {
   readonly id: StockView
   readonly label: string
   readonly tooltip: string
-  readonly portfolioOnly?: boolean
 }[] = [
   {
     id: 'most-covered',
@@ -145,23 +160,16 @@ const STOCK_VIEWS: readonly {
     label: 'Most disagreement',
     tooltip: 'Stocks where brokers most disagree at the top — where the Street is split on rating or price target.',
   },
-  {
-    id: 'portfolio',
-    label: 'My portfolio',
-    tooltip: 'Only the stocks you hold — your positions first, ordered by position size.',
-    portfolioOnly: true,
-  },
 ]
 
-function ViewSelector({ view, setView, showPortfolio }: {
+function ViewSelector({ view, setView }: {
   view: StockView;
   setView: (v: StockView) => void;
-  showPortfolio: boolean;
 }) {
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="section-title mr-0.5">View</span>
-      {STOCK_VIEWS.filter((v) => showPortfolio || !v.portfolioOnly).map((v) => (
+      {STOCK_VIEWS.map((v) => (
         <button
           key={v.id}
           onClick={() => setView(v.id)}
@@ -177,9 +185,44 @@ function ViewSelector({ view, setView, showPortfolio }: {
   )
 }
 
-function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectReport, onSelectTicker }: {
+// ─── Stock search ─────────────────────────────────────────────────────
+// Surfaces a stock to the top of the matrix by ticker or name. Display-only:
+// it re-orders and highlights, never filters rows out (see displayRows).
+
+function StockSearch({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <svg
+        width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true"
+        className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-500"
+      >
+        <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4"/>
+        <path d="m11 11 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search ticker or name…"
+        aria-label="Search stocks by ticker or name"
+        className="w-60 bg-line/[0.03] border border-line/10 rounded pl-7 pr-7 py-1 text-[12px] text-slate-200 placeholder:text-slate-500 focus:outline-none focus:border-accent/40 focus:bg-line/[0.05] transition-colors"
+      />
+      {value !== '' && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Clear search"
+          className="absolute right-1.5 top-1/2 -translate-y-1/2 leading-none text-slate-500 hover:text-slate-200 text-[14px]"
+        >×</button>
+      )}
+    </div>
+  )
+}
+
+function StockRow({ row, zebra, highlight, brokerColumnIds, cmp, ratingFilter, onSelectReport, onSelectTicker }: {
   row: ByStockRowViewModel;
   zebra: boolean;
+  highlight: boolean;
   brokerColumnIds: readonly BrokerId[];
   cmp: PriceCell | undefined;
   ratingFilter: ReadonlySet<string> | null;
@@ -190,16 +233,16 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectRepo
     ? 'Street state reflects all brokers covering this stock, not the active rating filter.'
     : undefined
   return (
-    <tr className={`border-b border-line/5 ${zebra ? 'bg-line/[0.01]' : ''}`}>
+    <tr className={`border-b border-line/5 ${highlight ? 'bg-accent/[0.07]' : zebra ? 'bg-line/[0.01]' : ''}`}>
       <td
         role="button"
         tabIndex={0}
         onClick={() => onSelectTicker(row.ticker)}
         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectTicker(row.ticker) } }}
-        className="px-3 py-2 sticky left-0 z-10 bg-ink-800 border-r border-line/10 cursor-pointer hover:bg-line/[0.04] group transition-colors"
+        className={`px-3 py-2 sticky left-0 z-10 bg-ink-800 border-r border-line/10 border-l-2 cursor-pointer hover:bg-line/[0.04] group transition-colors ${highlight ? 'border-l-accent' : 'border-l-transparent'}`}
       >
         <div className="flex flex-col">
-          <span className="text-slate-100 font-semibold group-hover:text-accent transition-colors">{row.ticker}</span>
+          <span className={`font-semibold group-hover:text-accent transition-colors ${highlight ? 'text-accent' : 'text-slate-100'}`}>{row.ticker}</span>
           <span className="text-[10.5px] text-slate-500 truncate max-w-[140px]">{row.stockName}</span>
         </div>
       </td>
@@ -219,9 +262,6 @@ function StockRow({ row, zebra, brokerColumnIds, cmp, ratingFilter, onSelectRepo
       </td>
       <td className="px-3 py-2 num text-right text-slate-100" title={filterTooltip}>
         {formatPrice(row.avgTarget, row.currency, 0)}
-      </td>
-      <td className="px-3 py-2" title={filterTooltip}>
-        <ArbVerdictCell verdict={row.arbVerdict} consensusRating={row.consensusRating}/>
       </td>
       {brokerColumnIds.map((bid) => {
         // Per-cell rating filter — hide cells whose rating isn't selected.
@@ -307,36 +347,6 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
       <span className="num text-[9.5px] text-slate-500">{cell.lastUpdatedAt.slice(5, 10)}</span>
     </td>
   )
-}
-
-// ─── ARB verdict cell ─────────────────────────────────────────────────
-
-function ArbVerdictCell({ verdict, consensusRating }: {
-  verdict: ArbVerdict;
-  consensusRating: ConsensusRating;
-}) {
-  const isNone = verdict.band === 'none'
-  return (
-    <div className="flex flex-col gap-1">
-      <span
-        className={`chip border ${ARB_COLOR[verdict.band]} text-[10px] w-fit ${isNone ? '' : 'cursor-help'}`}
-        title={isNone ? undefined : ARB_TOOLTIP}
-      >{ARB_LABEL[verdict.band]}</span>
-      <ConsensusRatingLine cr={consensusRating}/>
-      <span className="text-[10px] text-slate-500 num">{verdict.subtext}</span>
-    </div>
-  )
-}
-
-function ConsensusRatingLine({ cr }: { cr: ConsensusRating }) {
-  // Text comes from the shared formatConsensusRating so every surface
-  // (Overview, By Stock, Stock Drawer, Report Drawer) reads the same:
-  //   "2 of 2 brokers rated Buy" / "Mixed ratings" / "No rating issued".
-  // Renderer only owns the tone wrapper.
-  const tone = cr.kind === 'tie' ? 'text-amber-300'
-    : cr.kind === 'none' ? 'text-slate-500'
-    : 'text-slate-300'
-  return <span className={`text-[10.5px] ${tone}`}>{formatConsensusRating(cr)}</span>
 }
 
 // ─── Shared state badge ───────────────────────────────────────────────

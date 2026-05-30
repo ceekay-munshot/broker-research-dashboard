@@ -14,6 +14,7 @@ import {
   deriveArbVerdict, deriveConsensusRating, targetExtremesFromMap, ARB_RANK,
   type ArbVerdict, type ConsensusRating,
 } from './arb'
+import { UNKNOWN_BROKER_ID, OTHER_SOURCES_BROKER_ID } from '../adapters/serverOutput/brokerResolver'
 
 /** Ordering lens for the By Stock matrix. Re-sorts only — never filters rows. */
 export type StockView = 'most-covered' | 'consensus' | 'contested' | 'portfolio'
@@ -82,6 +83,18 @@ interface Inputs {
   readonly view: StockView
   /** Per-ticker portfolio coverage. Empty map when no portfolio. */
   readonly coverageByTicker?: ReadonlyMap<string, PortfolioCoverageSummary>
+}
+
+// Synthetic catch-all broker buckets — Other Sources / Unknown Broker. These
+// are not real research houses, so their matrix columns always sort after every
+// named house, even when the bucket happens to carry more notes. Without this a
+// busy "Unknown" column elbows ahead of a real but sparsely-covering house.
+const SYNTHETIC_BROKER_COLUMN_RANK: Readonly<Record<string, number>> = {
+  [OTHER_SOURCES_BROKER_ID as string]: 1,
+  [UNKNOWN_BROKER_ID as string]: 2,
+}
+function brokerColumnRank(b: Broker): number {
+  return SYNTHETIC_BROKER_COLUMN_RANK[b.id as string] ?? 0
 }
 
 export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
@@ -175,8 +188,10 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
 
   // Column set: brokers with at least one opinion on screen.
   // Order by coverage density (descending) so brokers with the most data
-  // sit just after the Disagreement column — sparse / mostly-empty
-  // brokers slide to the right and don't dominate the user's first scan.
+  // sit just after the fixed columns — sparse / mostly-empty brokers slide
+  // to the right and don't dominate the user's first scan. Unattributed
+  // catch-all buckets (Other Sources, Unknown) always sort last (see
+  // brokerColumnRank), regardless of how much they happen to carry.
   const opinionCountByBroker = new Map<string, number>()
   for (const row of rows) {
     for (const bid of Object.keys(row.opinionsByBroker)) {
@@ -187,6 +202,9 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
   const shownBrokers = inputs.brokers
     .filter((b) => opinionCountByBroker.has(b.id as string))
     .sort((a, b) => {
+      const ra = brokerColumnRank(a)
+      const rb = brokerColumnRank(b)
+      if (ra !== rb) return ra - rb
       const ca = opinionCountByBroker.get(a.id as string) ?? 0
       const cb = opinionCountByBroker.get(b.id as string) ?? 0
       if (ca !== cb) return cb - ca
