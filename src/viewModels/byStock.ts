@@ -8,7 +8,7 @@ import type { ConflictClosure, ResultantState, StrengthBand } from '../engine/ty
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
 import { indexBy } from './shared'
 import type { FiltersState } from '../app/filters'
-import { filtersFingerprint } from '../app/filters'
+import { filtersFingerprint, resolveSince } from '../app/filters'
 import { buildPortfolioOverlay } from './portfolio'
 import {
   deriveArbVerdict, deriveConsensusRating, targetExtremesFromMap, ARB_RANK,
@@ -102,12 +102,28 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
   const tickerFilter = new Set<string>(inputs.filters.tickers as readonly string[])
   const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
 
+  // Date range: a stock shows when it has had broker activity within the
+  // window (its most-recent opinion is on/after `since`). Cells and closure
+  // stats are left intact — we gate which rows appear, never recompute the
+  // Street view from a partial set. Custom / no-bound → every covered stock.
+  const sinceMs = (() => {
+    const iso = resolveSince(inputs.filters.dateRange)
+    return iso ? Date.parse(iso) : null
+  })()
+  const lastActivityByTicker = new Map<string, number>()
+  for (const o of inputs.opinions) {
+    const t = o.ticker as string
+    const ms = Date.parse(o.lastUpdatedAt)
+    if (Number.isFinite(ms)) lastActivityByTicker.set(t, Math.max(lastActivityByTicker.get(t) ?? 0, ms))
+  }
+
   // Only stocks that have at least one opinion in this org.
   const tickersWithCoverage = new Set(inputs.opinions.map((o) => o.ticker as string))
   const filtered = inputs.stocks
     .filter((s) => tickersWithCoverage.has(s.ticker as string))
     .filter((s) => tickerFilter.size === 0 || tickerFilter.has(s.ticker as string))
     .filter((s) => sectorFilter.size === 0 || sectorFilter.has(s.sectorId as string))
+    .filter((s) => sinceMs === null || (lastActivityByTicker.get(s.ticker as string) ?? 0) >= sinceMs)
 
   const rows = filtered.map<ByStockRowViewModel>((stock) => {
     const tickerOpinions = inputs.opinions.filter((o) => o.ticker === stock.ticker)

@@ -110,6 +110,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
   const sectorById = indexBy(inputs.sectors, (s) => s.id as string)
   const tickerFilter = new Set<string>(inputs.filters.tickers as readonly string[])
   const sectorFilter = new Set<string>(inputs.filters.sectorIds as readonly string[])
+  const brokerFilter = new Set<string>(inputs.filters.brokerIds as readonly string[])
   const name = (id: string | null | undefined) =>
     id ? (brokerById.get(id)?.shortName ?? id.toUpperCase()) : '—'
   const ref = (id: string): BrokerRef => ({ id, name: name(id) })
@@ -121,6 +122,11 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
       const stock = stockByTicker.get(c.ticker as string)
       return stock !== undefined && sectorFilter.has(stock.sectorId as string)
     })
+    // Broker filter: keep a case only when at least one of its brokers is
+    // selected. The full broker set still renders inside the card so the
+    // disagreement stays legible — we gate which cases appear, not who shows.
+    .filter((c) => brokerFilter.size === 0
+      || c.brokerIds.some((b) => brokerFilter.has(b as unknown as string)))
     .filter(isMaterialStreetCase)
     .sort((a, b) =>
       (b.targetStats.spreadPct ?? 0) - (a.targetStats.spreadPct ?? 0)
@@ -185,6 +191,9 @@ export function useDivergenceViewModel(filters: FiltersState): QueryResult<Diver
       tickers: filters.tickers.length ? filters.tickers : undefined,
       sectorIds: filters.sectorIds.length ? filters.sectorIds : undefined,
     }),
+    // fp includes brokerIds/ratings/dateRange so the broker gate below re-runs
+    // when any filter changes, even though the closures query itself only
+    // narrows by ticker/sector.
     [fp],
   )
 

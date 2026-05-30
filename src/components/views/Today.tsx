@@ -13,6 +13,7 @@
 import { useMemo, useState } from 'react'
 import type { ReportId, StockTicker } from '../../domain'
 import type { FiltersState } from '../../app/filters'
+import { resolveSince } from '../../app/filters'
 import type { TabId } from '../../app/tabs'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
@@ -41,6 +42,13 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
     ratings: filters.ratings,
   })
 
+  // Apply the sidebar's Date range here. The worklog's own dateWindow only
+  // expresses today/last3/last7/all, so we fetch 'all' and bound by the
+  // resolved `since` for 1D/1W/1M/3M/YTD/1Y (Custom → no bound). This makes the
+  // Date range chips actually drive the feed, consistent with the other tabs.
+  const since = resolveSince(filters.dateRange)
+  const sinceMs = since ? Date.parse(since) : null
+
   // Drop backend extraction artifacts — tickerless "companies" whose name is
   // really a forwarded digest filename or the forwarding fund's own entity
   // (e.g. "01618 VIMANA CAPITAL MANAGEMENT LLP 23April2026 India Daily").
@@ -48,8 +56,10 @@ export default function Today({ filters, onSelectReport, onSelectTicker }: Today
   // are hidden, so a real resolved stock is never dropped. See
   // docs/api-field-mapping.md → "Known extraction gaps".
   const items = useMemo(
-    () => (worklog.data?.items ?? []).filter((i) => !looksLikeJunkCompany(i)),
-    [worklog.data],
+    () => (worklog.data?.items ?? [])
+      .filter((i) => !looksLikeJunkCompany(i))
+      .filter((i) => sinceMs === null || Date.parse(i.receivedAt) >= sinceMs),
+    [worklog.data, sinceMs],
   )
   const hiddenJunk = (worklog.data?.items.length ?? 0) - items.length
 
