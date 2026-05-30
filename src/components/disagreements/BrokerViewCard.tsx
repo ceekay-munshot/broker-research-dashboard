@@ -6,6 +6,7 @@
 import type { ReportId } from '../../domain'
 import type { BrokerDetail } from '../../viewModels/stockStreetView'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
+import BrokerGlyph from '../BrokerGlyph'
 
 export default function BrokerViewCard({ detail, onSelectReport }: {
   detail: BrokerDetail
@@ -18,10 +19,7 @@ export default function BrokerViewCard({ detail, onSelectReport }: {
     <li className="rounded border border-line/5 bg-line/[0.02] p-3 flex flex-col gap-2">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <span
-            className="w-6 h-6 rounded-sm flex items-center justify-center text-[10px] font-bold text-ink-950 shrink-0"
-            style={{ background: detail.brokerColor ?? '#94a3b8' }}
-          >{detail.brokerShortName.slice(0, 3).toUpperCase()}</span>
+          <BrokerGlyph shortName={detail.brokerShortName} color={detail.brokerColor} withName={false} size={6}/>
           <div className="flex flex-col min-w-0">
             <span className="text-slate-100 text-[12.5px] font-semibold truncate">{detail.brokerShortName}</span>
             {detail.author && <span className="text-[10.5px] text-slate-500 truncate">{detail.author}</span>}

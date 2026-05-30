@@ -19,6 +19,7 @@ import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 import { resolveSummaryNoteSignal } from '../../lib/signalPolicy'
+import BrokerGlyph from '../BrokerGlyph'
 
 interface TodayProps {
   readonly filters: FiltersState
@@ -246,25 +247,23 @@ function BrokerViewLine({ view, onSelect }: { view: BrokerView; onSelect: () => 
         onClick={onSelect}
         className="w-full text-left px-3.5 py-2 hover:bg-line/[0.03] transition-colors flex items-center gap-2.5"
       >
-        {/* broker tag */}
-        <span
-          className="shrink-0 text-[11px] font-semibold px-1.5 py-0.5 rounded bg-line/[0.06] text-slate-200 num"
-          style={view.color ? { color: view.color } : undefined}
-        >
-          {view.brokerShortName}
+        {/* broker — same brand-glyph + name language as Street views at a
+            glance. Fixed width so the calls line up into a column. */}
+        <span className="shrink-0 w-[104px] text-[12px] font-medium">
+          <BrokerGlyph shortName={view.brokerShortName} color={view.color} size={4}/>
         </span>
 
         {/* the call */}
         {view.rating ? (
-          <span className={`shrink-0 text-[12px] font-medium ${RATING_TEXT_COLOR[view.rating]}`}>{view.rating}</span>
+          <span className={`shrink-0 w-20 text-[12.5px] font-semibold ${RATING_TEXT_COLOR[view.rating]}`}>{view.rating}</span>
         ) : (
-          <span className={`shrink-0 text-[12px] ${STANCE_TEXT[view.stance]}`}>{STANCE_WORD[view.stance]}</span>
+          <span className={`shrink-0 w-20 text-[12.5px] font-semibold ${STANCE_TEXT[view.stance]}`}>{STANCE_WORD[view.stance]}</span>
         )}
 
         {/* target price (short) */}
         {view.targetPrice != null && (
-          <span className="shrink-0 text-[12px] text-slate-300 num">
-            TP {formatPrice(view.targetPrice, view.targetCurrency, 0)}
+          <span className="shrink-0 text-[12px] num text-slate-200">
+            <span className="text-slate-500">TP </span>{formatPrice(view.targetPrice, view.targetCurrency, 0)}
           </span>
         )}
 

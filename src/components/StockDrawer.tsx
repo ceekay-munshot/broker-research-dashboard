@@ -7,6 +7,7 @@ import {
   type StockStreetView,
 } from '../viewModels/stockStreetView'
 import { RATING_TEXT_COLOR, formatPrice } from '../viewModels/shared'
+import BrokerGlyph from './BrokerGlyph'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -275,13 +276,7 @@ function StreetAtAGlanceSection({ rows }: { rows: readonly BrokerSnapshotRow[] }
               {rows.map((r) => (
                 <tr key={r.brokerId as unknown as string} className="border-t border-line/5">
                   <td className="px-3 py-2 text-slate-200">
-                    <span className="inline-flex items-center gap-2">
-                      <span
-                        className="w-4 h-4 rounded-sm flex items-center justify-center text-[8.5px] font-bold text-ink-950"
-                        style={{ background: r.brokerColor ?? '#94a3b8' }}
-                      >{r.brokerShortName.slice(0, 3).toUpperCase()}</span>
-                      {r.brokerShortName}
-                    </span>
+                    <BrokerGlyph shortName={r.brokerShortName} color={r.brokerColor} size={4}/>
                   </td>
                   <td className="px-3 py-2">
                     {r.rating ? (
