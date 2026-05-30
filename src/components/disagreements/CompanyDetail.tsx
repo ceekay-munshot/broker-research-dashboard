@@ -6,7 +6,7 @@
 import type { StockTicker } from '../../domain'
 import type { DivergenceCardViewModel } from '../../viewModels/divergence'
 import type { BrokerTier } from '../../viewModels/disagreementInsight'
-import { CallBadge, ConfidenceMeter, StanceMix, OutlierRow, MoreDetail } from './shared'
+import { CallBadge, ConfidenceMeter, StanceMix, OutlierRow } from './shared'
 import TargetPriceScale from './TargetPriceScale'
 import StreetMatrix from './StreetMatrix'
 
@@ -56,49 +56,6 @@ export default function CompanyDetail({ c, tierFor, onSelectTicker }: Props) {
           </ul>
         </div>
       )}
-
-      {hasMoreDetail(c) && (
-        <MoreDetail>
-          {c.resultant.keyDrivers.length > 0 && (
-            <BulletList title="Key drivers" items={c.resultant.keyDrivers}/>
-          )}
-          {c.resultant.openQuestions.length > 0 && (
-            <BulletList title="Open questions" items={c.resultant.openQuestions}/>
-          )}
-          {c.confidence.rationale.length > 0 && (
-            <div className="flex flex-col gap-1">
-              <span className="section-title">How this confidence was scored</span>
-              {c.confidence.rationale.map((r, i) => (
-                <span key={i} className="text-[11px] text-slate-500 leading-snug">· {r}</span>
-              ))}
-            </div>
-          )}
-        </MoreDetail>
-      )}
-    </div>
-  )
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────
-
-function hasMoreDetail(c: DivergenceCardViewModel): boolean {
-  return c.resultant.keyDrivers.length > 0
-    || c.resultant.openQuestions.length > 0
-    || c.confidence.rationale.length > 0
-}
-
-function BulletList({ title, items }: { title: string; items: readonly string[] }) {
-  return (
-    <div className="flex flex-col gap-1.5">
-      <span className="section-title">{title}</span>
-      <ul className="flex flex-col gap-1">
-        {items.map((it, i) => (
-          <li key={i} className="text-[12px] text-slate-300 leading-snug flex gap-1.5">
-            <span className="text-slate-600 shrink-0">·</span>
-            <span>{it}</span>
-          </li>
-        ))}
-      </ul>
     </div>
   )
 }
