@@ -26,10 +26,15 @@ export default function ByBroker({ filters, onSelectBroker }: ByBrokerProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
-        {data.brokers.map((b) => (
-          <BrokerCard key={b.brokerId} b={b} onOpenBroker={onSelectBroker}/>
-        ))}
+      {/* Height-capped so the first row sits fully in view with the next row
+          peeking ~half underneath — a built-in "scroll for more" cue. The grid
+          shrinks to content when there are only a few brokers (no empty area). */}
+      <div className="overflow-y-auto scroll-smooth max-h-[25rem] -mr-1 pr-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-3">
+          {data.brokers.map((b) => (
+            <BrokerCard key={b.brokerId} b={b} onOpenBroker={onSelectBroker}/>
+          ))}
+        </div>
       </div>
     </div>
   )
@@ -42,28 +47,30 @@ function BrokerCard({ b, onOpenBroker }: {
   const open = () => onOpenBroker(b.brokerId)
   return (
     <div
-      className="panel panel-hover p-4 flex flex-col gap-3 cursor-pointer focus:outline-none focus:border-accent/40"
+      className="panel panel-hover p-3 flex flex-col gap-2 h-64 cursor-pointer focus:outline-none focus:border-accent/40"
       role="button"
       tabIndex={0}
       onClick={open}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } }}
     >
       {/* Header — who, and how much they cover */}
-      <div className="flex items-center gap-2.5">
-        <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-[11px] font-bold ${BROKER_GLYPH_CLASS}`}>
+      <div className="flex items-center gap-2 shrink-0">
+        <div className={`w-7 h-7 rounded-sm flex items-center justify-center text-[10px] font-bold ${BROKER_GLYPH_CLASS}`}>
           {b.shortName.slice(0, 3).toUpperCase()}
         </div>
-        <div className="flex flex-col">
-          <span className="text-slate-100 text-[13px] font-semibold">{b.name}</span>
-          <span className="text-[10.5px] uppercase tracking-widest text-slate-500">
+        <div className="flex flex-col min-w-0">
+          <span className="text-slate-100 text-[12.5px] font-semibold truncate">{b.name}</span>
+          <span className="text-[10px] uppercase tracking-widest text-slate-500">
             {b.calls.length} {b.calls.length === 1 ? 'call' : 'calls'}
             {b.latestReportAt && <> · latest {formatShortDate(b.latestReportAt)}</>}
           </span>
         </div>
       </div>
 
-      {/* The calls — what's the call, on what stock */}
-      <ul className="flex flex-col">
+      {/* The calls — what's the call, on what stock. Scrolls within the card
+          when the broker covers more names than fit, so every card stays the
+          same compact height and the grid's row rhythm is predictable. */}
+      <ul className="flex flex-col flex-1 min-h-0 overflow-y-auto -mr-1 pr-1">
         {b.calls.length === 0 ? (
           <li className="text-[11.5px] text-slate-500 py-1">No calls in the selected range.</li>
         ) : (
@@ -71,7 +78,7 @@ function BrokerCard({ b, onOpenBroker }: {
         )}
       </ul>
 
-      <div className="flex items-center justify-end text-[11px] pt-1 border-t border-line/5">
+      <div className="flex items-center justify-end text-[11px] pt-1.5 border-t border-line/5 shrink-0">
         <span className="text-accent">View timeline →</span>
       </div>
     </div>
@@ -84,8 +91,8 @@ function BrokerCard({ b, onOpenBroker }: {
  *  clickable — the timeline there carries the per-note detail. */
 function CallRow({ call }: { call: BrokerCall }) {
   return (
-    <li className="flex items-center gap-2 py-1.5 border-b border-line/5 last:border-0">
-      <span className="num text-[12px] font-semibold text-slate-100 w-24 shrink-0 truncate" title={call.stockName ?? undefined}>
+    <li className="flex items-center gap-2 py-1 border-b border-line/5 last:border-0">
+      <span className="num text-[11.5px] font-semibold text-slate-100 w-24 shrink-0 truncate" title={call.stockName ?? undefined}>
         {call.ticker}
       </span>
       {call.isNew && (
