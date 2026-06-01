@@ -103,6 +103,19 @@ export interface BrokerDetail {
   readonly publishedAt: Iso8601
 }
 
+/** A single broker call on the stock at a point in time — the unit the
+ *  calls-over-time chart plots (every call, not just the latest per broker). */
+export interface StockCall {
+  readonly reportId: ReportId
+  readonly publishedAt: Iso8601
+  readonly brokerId: BrokerId
+  readonly brokerShortName: string
+  readonly brokerColor: string | null
+  readonly rating: Rating | null
+  readonly targetPrice: number | null
+  readonly targetCurrency: string | null
+}
+
 export interface StockStreetView {
   readonly ticker: StockTicker
   readonly stockName: string | null
@@ -121,6 +134,9 @@ export interface StockStreetView {
   readonly targetOutliers: readonly OutlierVM[]
   readonly consensusEstimates: readonly EstimateRow[]
   readonly brokerSnapshot: readonly BrokerSnapshotRow[]
+  /** Every individual call over time (not just the latest per broker) — the
+   *  points on the calls-over-time chart. */
+  readonly calls: readonly StockCall[]
   readonly revisions: readonly RevisionEntry[]
   readonly divergences: readonly DivergenceCard[]
   readonly brokerDetails: readonly BrokerDetail[]
@@ -477,6 +493,23 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
     }
   }).sort((a, b) => b.publishedAt.localeCompare(a.publishedAt))
 
+  // Every call over time (all reports for the ticker, not deduped to the
+  // latest per broker) — the points the calls-over-time chart plots.
+  const calls: StockCall[] = ourReports.map((r) => {
+    const broker = brokerById.get(r.brokerId as unknown as string)
+    const sum = summaryByReport.get(r.id as string)
+    return {
+      reportId: r.id,
+      publishedAt: r.publishedAt,
+      brokerId: r.brokerId,
+      brokerShortName: broker?.shortName ?? '—',
+      brokerColor: broker?.brandColor ?? null,
+      rating: sum?.rating ?? null,
+      targetPrice: sum?.targetPrice ?? null,
+      targetCurrency: sum?.targetCurrency ?? currency,
+    }
+  })
+
   return {
     ticker: inp.ticker,
     stockName: inp.stockName,
@@ -489,6 +522,7 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
     targetOutliers,
     consensusEstimates,
     brokerSnapshot,
+    calls,
     revisions,
     divergences,
     brokerDetails,

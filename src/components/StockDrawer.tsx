@@ -2,13 +2,13 @@ import { useEffect } from 'react'
 import type { ReportId, StockTicker } from '../domain'
 import {
   useStockStreetView,
-  type BrokerSnapshotRow, type ConsensusTarget,
+  type ConsensusTarget,
   type EstimateRow, type RatingCounts, type RevisionEntry,
   type StockStreetView,
 } from '../viewModels/stockStreetView'
-import { RATING_TEXT_COLOR, formatPrice } from '../viewModels/shared'
-import BrokerGlyph from './BrokerGlyph'
+import { formatPrice } from '../viewModels/shared'
 import TargetPriceScale from './disagreements/TargetPriceScale'
+import StreetCallsChart from './StreetCallsChart'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -85,7 +85,14 @@ function Content({ vm, onClose, onSelectReport }: {
         <div className="px-5 py-4 flex flex-col gap-6">
           <HeaderSection vm={vm}/>
           <ConsensusEstimatesSection rows={vm.consensusEstimates}/>
-          <StreetAtAGlanceSection rows={vm.brokerSnapshot} onSelectReport={onSelectReport}/>
+          <Section title="Calls over time · target vs price">
+            <StreetCallsChart
+              calls={vm.calls}
+              ticker={vm.ticker}
+              currency={vm.consensusTarget.currency ?? 'INR'}
+              onSelectReport={onSelectReport}
+            />
+          </Section>
           <RevisionsSection entries={vm.revisions}/>
         </div>
       </div>
@@ -242,81 +249,6 @@ function EstimateTable({ rows }: { rows: readonly EstimateRow[] }) {
         </tbody>
       </table>
     </div>
-  )
-}
-
-// ── C · Street views at a glance ────────────────────────────────────────
-
-const QUARTER_VIEW_LABEL = { positive: 'Positive', mixed: 'Mixed', negative: 'Negative', in_line: 'In-line' } as const
-const QUARTER_VIEW_TONE  = { positive: 'text-emerald-300', mixed: 'text-amber-300', negative: 'text-rose-300', in_line: 'text-slate-400' } as const
-const FORWARD_LABEL = { bullish: 'Bullish', cautiously_optimistic: 'Caut. optimistic', neutral: 'Neutral', cautious: 'Cautious', bearish: 'Bearish' } as const
-const FORWARD_TONE  = { bullish: 'text-emerald-300', cautiously_optimistic: 'text-emerald-400/80', neutral: 'text-slate-400', cautious: 'text-amber-300', bearish: 'text-rose-300' } as const
-
-function StreetAtAGlanceSection({ rows, onSelectReport }: {
-  rows: readonly BrokerSnapshotRow[]
-  onSelectReport: (id: ReportId) => void
-}) {
-  return (
-    <Section title="Street views at a glance">
-      {rows.length === 0 ? (
-        <Placeholder>No broker coverage in this window.</Placeholder>
-      ) : (
-        <div className="overflow-x-auto rounded border border-line/5">
-          <table className="w-full text-[12px]">
-            <thead className="bg-line/[0.02]">
-              <tr className="text-left text-slate-400 text-[10.5px] uppercase tracking-wider">
-                <th className="px-3 py-2 font-medium">Broker</th>
-                <th className="px-3 py-2 font-medium">Rating</th>
-                <th className="px-3 py-2 font-medium text-right">TP</th>
-                <th className="px-3 py-2 font-medium">Quarter view</th>
-                <th className="px-3 py-2 font-medium">Forward outlook</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => (
-                <tr
-                  key={r.brokerId as unknown as string}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => onSelectReport(r.reportId)}
-                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(r.reportId) } }}
-                  title={`Open ${r.brokerShortName}'s note`}
-                  className="border-t border-line/5 cursor-pointer hover:bg-line/[0.04] transition-colors"
-                >
-                  <td className="px-3 py-2 text-slate-200">
-                    <BrokerGlyph shortName={r.brokerShortName} color={r.brokerColor} size={4}/>
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.rating ? (
-                      <span className={`chip border border-line/10 bg-line/[0.04] ${RATING_TEXT_COLOR[r.rating]} text-[10px]`}>{r.rating}</span>
-                    ) : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-3 py-2 text-right num text-slate-100">
-                    {r.targetPrice != null ? formatPrice(r.targetPrice, r.targetCurrency, 0) : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.quarterView ? (
-                      <span className={`inline-flex items-center gap-1.5 text-[11.5px] ${QUARTER_VIEW_TONE[r.quarterView]}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current"/>
-                        {QUARTER_VIEW_LABEL[r.quarterView]}
-                      </span>
-                    ) : <span className="text-slate-600">—</span>}
-                  </td>
-                  <td className="px-3 py-2">
-                    {r.forwardOutlook ? (
-                      <span className={`inline-flex items-center gap-1.5 text-[11.5px] ${FORWARD_TONE[r.forwardOutlook]}`}>
-                        <span className="w-1.5 h-1.5 rounded-full bg-current"/>
-                        {FORWARD_LABEL[r.forwardOutlook]}
-                      </span>
-                    ) : <span className="text-slate-600">—</span>}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Section>
   )
 }
 
