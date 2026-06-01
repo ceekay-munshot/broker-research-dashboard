@@ -237,9 +237,14 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
         {closes.length === 0 && <span className="text-slate-500">· price history loads in live</span>}
       </div>
 
-      {/* chart + call overlay */}
+      {/* chart + call overlay.
+          z-10 lifts the overlay above lightweight-charts' canvas (which it
+          appends to this box after React mounts the svg, so it would otherwise
+          paint on top and swallow the dots' mouse events). The svg stays
+          pointer-events-none so crosshair moves pass through to the canvas;
+          only the dots opt back in (pointerEvents:auto) to catch hover. */}
       <div ref={boxRef} className="relative w-full" style={{ height: HEIGHT }}>
-        <svg className="absolute inset-0 pointer-events-none" width={size.w || undefined} height={size.h}>
+        <svg className="absolute inset-0 z-10 pointer-events-none" width={size.w || undefined} height={size.h}>
           {trails.map((t) => (
             <path key={t.id} d={t.d} fill="none" stroke={t.color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinejoin="round"/>
           ))}
