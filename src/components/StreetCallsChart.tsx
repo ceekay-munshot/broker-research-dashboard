@@ -1,22 +1,27 @@
-// Calls-over-time chart for the stock drawer. X = date, Y = price. Each broker
-// call is a dot at (date it was made, its target price), coloured by the call
-// (Buy/Hold/Sell). The stock's actual price is drawn as a line so you can see,
-// at a glance, what each broker called and where the stock actually went — the
-// vertical gap between a dot and the line is the upside that broker saw.
+// Calls-over-time chart for the stock drawer, built on lightweight-charts.
 //
-// A broker selector below the chart filters the dots to specific houses; with a
-// broker picked, its calls are joined by a line so you can read its target
-// trajectory (the raises and cuts) straight off the chart.
+// lightweight-charts draws the price line, the time/price axes and the hover
+// crosshair (so moving the mouse reads the price off the line natively). On
+// top of it we sync an SVG overlay of the broker calls: a dot at (date a call
+// was made, its target price), coloured by the call — Buy/Hold/Sell. The gap
+// between a dot and the price line is the upside that broker saw.
 //
-// Price line comes from daily closes (seeded in mock; populates in live once
-// the server exposes price history). When there's no history we fall back to a
-// single current-price (CMP) reference line. Calls always render.
+// A broker selector below filters the dots; with brokers picked, each one's
+// calls are joined by a line in its brand colour so the target trajectory (the
+// raises and cuts) reads straight off the chart.
+//
+// Price history comes from /api/stock-history (live) or the adapter's mock
+// closes (dev). Dots always render; the price line appears once there's data.
 
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import {
+  createChart, LineSeries, ColorType, CrosshairMode, LineStyle,
+  type IChartApi, type ISeriesApi, type IPriceLine, type Time,
+} from 'lightweight-charts'
 import type { ReportId, StockTicker } from '../domain'
 import type { StockCall } from '../viewModels/stockStreetView'
 import { useDailyCloses } from '../hooks/useDailyCloses'
-import { useStockPrices } from '../hooks/useStockPrices'
+import { useStockHistory } from '../hooks/useStockHistory'
 import { formatPrice } from '../viewModels/shared'
 
 type CallTone = 'buy' | 'hold' | 'sell' | 'none'
@@ -26,24 +31,13 @@ function callTone(rating: string | null): CallTone {
   if (rating === 'Sell' || rating === 'Underweight') return 'sell'
   return 'none'
 }
-const TONE_FILL: Record<CallTone, string> = {
-  buy: 'fill-emerald-400', hold: 'fill-slate-300', sell: 'fill-rose-400', none: 'fill-slate-500',
-}
-const TONE_DOT: Record<CallTone, string> = {
-  buy: 'bg-emerald-400', hold: 'bg-slate-300', sell: 'bg-rose-400', none: 'bg-slate-500',
-}
+const TONE_HEX: Record<CallTone, string> = { buy: '#34d399', hold: '#cbd5e1', sell: '#fb7185', none: '#64748b' }
+const TONE_DOT: Record<CallTone, string> = { buy: 'bg-emerald-400', hold: 'bg-slate-300', sell: 'bg-rose-400', none: 'bg-slate-500' }
 
-const W = 580, H = 250
-const PAD = { top: 14, right: 52, bottom: 26, left: 52 }
-const PLOT_W = W - PAD.left - PAD.right
-const PLOT_H = H - PAD.top - PAD.bottom
+const HEIGHT = 248
 
-const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-function fmtDate(ms: number): string {
-  const d = new Date(ms)
-  return `${MONTHS[d.getUTCMonth()]} ${String(d.getUTCDate()).padStart(2, '0')}`
-}
+interface DotCoord { readonly id: string; readonly call: StockCall; readonly x: number; readonly y: number; readonly color: string }
+interface Trail { readonly id: string; readonly d: string; readonly color: string }
 
 export default function StreetCallsChart({ calls, ticker, currency, onSelectReport }: {
   calls: readonly StockCall[]
@@ -51,29 +45,39 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
   currency: string | null
   onSelectReport: (id: ReportId) => void
 }) {
-  const { data: closesData } = useDailyCloses(ticker)
-  const { prices } = useStockPrices([ticker as unknown as string])
+  const boxRef = useRef<HTMLDivElement>(null)
+  const chartRef = useRef<IChartApi | null>(null)
+  const seriesRef = useRef<ISeriesApi<'Line'> | null>(null)
+  const cmpLineRef = useRef<IPriceLine | null>(null)
+  const recomputeRef = useRef<() => void>(() => {})
+
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
-  const [priceIdx, setPriceIdx] = useState<number | null>(null)
+  const [coords, setCoords] = useState<readonly DotCoord[]>([])
+  const [trails, setTrails] = useState<readonly Trail[]>([])
+  const [size, setSize] = useState({ w: 0, h: HEIGHT })
 
-  const points = calls.filter((c) => c.targetPrice !== null)
-  const closes = closesData ?? []
-  const cell = prices.get(ticker as unknown as string)
-  const liveCmp = cell && cell.status === 'success' ? cell.price : null
-  const cmp = closes.length > 0 ? closes[closes.length - 1]!.close : liveCmp
+  const mockCloses = useDailyCloses(ticker).data ?? []
+  const apiHistory = useStockHistory(ticker)
+  // Prefer live history; fall back to mock seeded closes (dev). De-dupe + sort.
+  const closes = useMemo(() => {
+    const src = apiHistory.length > 0 ? apiHistory : mockCloses.map((c) => ({ date: c.date, close: c.close }))
+    const m = new Map<string, number>()
+    for (const c of src) m.set(c.date, c.close)
+    return [...m.entries()].map(([date, close]) => ({ date, close })).sort((a, b) => a.date.localeCompare(b.date))
+  }, [apiHistory, mockCloses])
+  const closesKey = `${closes.length}:${closes[0]?.date ?? ''}:${closes[closes.length - 1]?.date ?? ''}`
+  const cmp = closes.length ? closes[closes.length - 1]!.close : null
 
-  if (points.length === 0) {
-    return <div className="text-[12px] text-slate-500 px-1 py-6 text-center">No price targets to chart on this name yet.</div>
-  }
-
-  // Brokers covering the stock (for the selector), de-duped and name-sorted.
-  const brokerMap = new Map<string, { id: string; name: string; color: string | null }>()
-  for (const c of points) {
-    const id = c.brokerId as unknown as string
-    if (!brokerMap.has(id)) brokerMap.set(id, { id, name: c.brokerShortName, color: c.brokerColor })
-  }
-  const brokers = [...brokerMap.values()].sort((a, b) => a.name.localeCompare(b.name))
+  const points = useMemo(() => calls.filter((c) => c.targetPrice !== null), [calls])
+  const brokers = useMemo(() => {
+    const m = new Map<string, { id: string; name: string; color: string | null }>()
+    for (const c of points) {
+      const id = c.brokerId as unknown as string
+      if (!m.has(id)) m.set(id, { id, name: c.brokerShortName, color: c.brokerColor })
+    }
+    return [...m.values()].sort((a, b) => a.name.localeCompare(b.name))
+  }, [points])
 
   const filtering = selected.size > 0
   const shown = filtering ? points.filter((c) => selected.has(c.brokerId as unknown as string)) : points
@@ -83,44 +87,110 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
     return next
   })
 
-  // ── Scales (always from the full set, so filtering never rescales) ───────
-  const times = [...points.map((c) => Date.parse(c.publishedAt)), ...closes.map((p) => Date.parse(p.date))]
-  const tMin = Math.min(...times)
-  const tMax = Math.max(...times)
-  const tSpan = Math.max(1, tMax - tMin)
-  const x = (t: number) => PAD.left + ((t - tMin) / tSpan) * PLOT_W
+  // Snap a call's date to the nearest trading day in `closes`, so its
+  // x-coordinate always lands on a real point on the time scale.
+  const snap = useMemo(() => {
+    const times = closes.map((c) => Date.parse(c.date))
+    return (iso: string): string | null => {
+      if (closes.length === 0) return null
+      const t = Date.parse(iso)
+      let best = 0, bd = Infinity
+      for (let i = 0; i < times.length; i++) { const d = Math.abs(times[i]! - t); if (d < bd) { bd = d; best = i } }
+      return closes[best]!.date
+    }
+  }, [closesKey])
 
-  const allPrices = [
-    ...points.map((c) => c.targetPrice as number),
-    ...closes.map((p) => p.close),
-    ...(cmp != null ? [cmp] : []),
-  ]
-  let pMin = Math.min(...allPrices)
-  let pMax = Math.max(...allPrices)
-  const padP = (pMax - pMin) * 0.1 || pMax * 0.05 || 1
-  pMin -= padP; pMax += padP
-  const pSpan = Math.max(1, pMax - pMin)
-  const y = (p: number) => PAD.top + (1 - (p - pMin) / pSpan) * PLOT_H
-
-  const yTicks = Array.from({ length: 4 }, (_, i) => pMin + (pSpan * (i + 0.5)) / 4)
-  const xTicks = Array.from({ length: 4 }, (_, i) => tMin + (tSpan * i) / 3)
-  const pricePath = closes.length >= 2
-    ? closes.map((p, i) => `${i === 0 ? 'M' : 'L'} ${x(Date.parse(p.date)).toFixed(1)} ${y(p.close).toFixed(1)}`).join(' ')
-    : null
-
-  // One target-trajectory line per selected broker (their raises/cuts over time).
-  const trails = filtering
-    ? [...selected].map((id) => {
-        const pts = points
+  // Latest recompute closure (chart events call this through the ref).
+  recomputeRef.current = () => {
+    const chart = chartRef.current, series = seriesRef.current
+    if (!chart || !series || closes.length === 0) { setCoords([]); setTrails([]); return }
+    const ts = chart.timeScale()
+    const at = (iso: string, price: number): { x: number; y: number } | null => {
+      const sd = snap(iso); if (sd === null) return null
+      const x = ts.timeToCoordinate(sd as Time)
+      const y = series.priceToCoordinate(price)
+      return x != null && y != null ? { x, y } : null
+    }
+    const next: DotCoord[] = []
+    for (const c of shown) {
+      const xy = at(c.publishedAt, c.targetPrice as number)
+      if (xy) next.push({ id: c.reportId as unknown as string, call: c, x: xy.x, y: xy.y, color: TONE_HEX[callTone(c.rating)] })
+    }
+    setCoords(next)
+    if (filtering) {
+      const tr: Trail[] = []
+      for (const id of selected) {
+        const xs = points
           .filter((c) => (c.brokerId as unknown as string) === id)
           .sort((a, b) => a.publishedAt.localeCompare(b.publishedAt))
-        if (pts.length < 2) return null
-        const d = pts.map((c, i) => `${i === 0 ? 'M' : 'L'} ${x(Date.parse(c.publishedAt)).toFixed(1)} ${y(c.targetPrice as number).toFixed(1)}`).join(' ')
-        return { id, d, color: brokerMap.get(id)?.color ?? '#94a3b8' }
-      }).filter((t): t is { id: string; d: string; color: string } => t !== null)
-    : []
+          .map((c) => at(c.publishedAt, c.targetPrice as number))
+          .filter((q): q is { x: number; y: number } => q !== null)
+        if (xs.length < 2) continue
+        const broker = brokers.find((b) => b.id === id)
+        tr.push({ id, d: xs.map((q, i) => `${i === 0 ? 'M' : 'L'} ${q.x.toFixed(1)} ${q.y.toFixed(1)}`).join(' '), color: broker?.color ?? '#94a3b8' })
+      }
+      setTrails(tr)
+    } else setTrails([])
+  }
 
-  const hovered = hoveredId ? shown.find((c) => (c.reportId as unknown as string) === hoveredId) ?? null : null
+  // Create the chart once.
+  useEffect(() => {
+    const el = boxRef.current
+    if (!el) return
+    const chart = createChart(el, {
+      width: el.clientWidth,
+      height: HEIGHT,
+      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#94a3b8', fontSize: 10, attributionLogo: false },
+      grid: { vertLines: { visible: false }, horzLines: { color: 'rgba(148,163,184,0.08)' } },
+      rightPriceScale: { borderVisible: false, scaleMargins: { top: 0.12, bottom: 0.12 } },
+      timeScale: { borderVisible: false, fixLeftEdge: true, fixRightEdge: true },
+      crosshair: {
+        mode: CrosshairMode.Magnet,
+        vertLine: { color: 'rgba(148,163,184,0.4)', width: 1, style: LineStyle.Dashed, labelBackgroundColor: '#1e293b' },
+        horzLine: { color: 'rgba(148,163,184,0.4)', width: 1, style: LineStyle.Dashed, labelBackgroundColor: '#1e293b' },
+      },
+    })
+    const series = chart.addSeries(LineSeries, {
+      color: '#cbd5e1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
+      priceFormat: { type: 'price', precision: 0, minMove: 1 },
+    })
+    chartRef.current = chart
+    seriesRef.current = series
+
+    const ro = new ResizeObserver(() => {
+      const w = el.clientWidth
+      chart.applyOptions({ width: w })
+      setSize({ w, h: HEIGHT })
+      recomputeRef.current()
+    })
+    ro.observe(el)
+    setSize({ w: el.clientWidth, h: HEIGHT })
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => recomputeRef.current())
+
+    return () => { ro.disconnect(); chart.remove(); chartRef.current = null; seriesRef.current = null }
+  }, [])
+
+  // Feed price data + CMP reference line when the closes change.
+  useEffect(() => {
+    const series = seriesRef.current, chart = chartRef.current
+    if (!series || !chart) return
+    series.setData(closes.map((c) => ({ time: c.date as Time, value: c.close })))
+    if (cmpLineRef.current) { series.removePriceLine(cmpLineRef.current); cmpLineRef.current = null }
+    if (cmp != null) {
+      cmpLineRef.current = series.createPriceLine({
+        price: cmp, color: '#fbbf24', lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true, title: 'CMP',
+      })
+    }
+    chart.timeScale().fitContent()
+    recomputeRef.current()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closesKey])
+
+  // Recompute the overlay when the filter or call set changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { recomputeRef.current() }, [selected, points, closesKey, size.w])
+
+  const hovered = hoveredId ? coords.find((c) => c.id === hoveredId) ?? null : null
 
   return (
     <div className="flex flex-col gap-2.5">
@@ -129,117 +199,50 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
         <LegendDot cls={TONE_DOT.buy} label="Buy / Overweight"/>
         <LegendDot cls={TONE_DOT.hold} label="Hold"/>
         <LegendDot cls={TONE_DOT.sell} label="Sell / Underweight"/>
-        {pricePath && (
-          <span className="inline-flex items-center gap-1.5"><span className="inline-block w-4 h-0.5 bg-slate-400 rounded"/>Price</span>
-        )}
-        {cmp != null && (
-          <span className="inline-flex items-center gap-1.5 text-amber-300"><span className="inline-block w-4 border-t border-dashed border-amber-400"/>CMP {formatPrice(cmp, currency, 0)}</span>
-        )}
+        {closes.length > 1 && <span className="inline-flex items-center gap-1.5"><span className="inline-block w-4 h-0.5 bg-slate-300 rounded"/>Price</span>}
+        {cmp != null && <span className="inline-flex items-center gap-1.5 text-amber-300"><span className="inline-block w-4 border-t border-dashed border-amber-400"/>CMP {formatPrice(cmp, currency, 0)}</span>}
+        {closes.length === 0 && <span className="text-slate-500">· price history loads in live</span>}
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label="Broker calls over time vs the stock price">
-        {yTicks.map((p, i) => (
-          <g key={`y${i}`}>
-            <line x1={PAD.left} y1={y(p)} x2={W - PAD.right} y2={y(p)} className="stroke-line/10" strokeWidth={1}/>
-            <text x={PAD.left - 6} y={y(p) + 3} textAnchor="end" className="fill-slate-500" fontSize={9}>{formatPrice(p, currency, 0)}</text>
-          </g>
-        ))}
-        {xTicks.map((t, i) => (
-          <text key={`x${i}`} x={x(t)} y={H - PAD.bottom + 15} textAnchor="middle" className="fill-slate-500" fontSize={9}>{fmtDate(t)}</text>
-        ))}
-
-        {pricePath && <path d={pricePath} fill="none" className="stroke-slate-400/70" strokeWidth={1.5} strokeLinejoin="round"/>}
-
-        {cmp != null && (
-          <line x1={PAD.left} y1={y(cmp)} x2={W - PAD.right} y2={y(cmp)} className="stroke-amber-400/70" strokeWidth={1} strokeDasharray="3 3"/>
-        )}
-
-        {/* selected brokers' target trajectories */}
-        {trails.map((t) => (
-          <path key={t.id} d={t.d} fill="none" stroke={t.color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinejoin="round"/>
-        ))}
-
-        {/* invisible hit-area so hovering anywhere reads the price off the line */}
-        {closes.length >= 2 && (
-          <rect
-            x={PAD.left} y={PAD.top} width={PLOT_W} height={PLOT_H}
-            className="fill-transparent"
-            onMouseMove={(e) => {
-              const svg = (e.currentTarget as SVGRectElement).ownerSVGElement
-              if (!svg) return
-              const r = svg.getBoundingClientRect()
-              const svgX = ((e.clientX - r.left) / r.width) * W
-              let best = 0, bestD = Infinity
-              for (let i = 0; i < closes.length; i++) {
-                const dx = Math.abs(x(Date.parse(closes[i]!.date)) - svgX)
-                if (dx < bestD) { bestD = dx; best = i }
-              }
-              setPriceIdx(best)
-            }}
-            onMouseLeave={() => setPriceIdx(null)}
-          />
-        )}
-
-        {/* one dot per shown call */}
-        {shown.map((c) => {
-          const cx = x(Date.parse(c.publishedAt))
-          const cy = y(c.targetPrice as number)
-          const id = c.reportId as unknown as string
-          const active = hoveredId === id
-          return (
+      {/* chart + call overlay */}
+      <div ref={boxRef} className="relative w-full" style={{ height: HEIGHT }}>
+        <svg className="absolute inset-0 pointer-events-none" width={size.w || undefined} height={size.h}>
+          {trails.map((t) => (
+            <path key={t.id} d={t.d} fill="none" stroke={t.color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinejoin="round"/>
+          ))}
+          {coords.map((c) => (
             <circle
-              key={id}
-              cx={cx} cy={cy} r={active ? 6 : 4.5}
-              className={`${TONE_FILL[callTone(c.rating)]} stroke-ink-900 cursor-pointer`}
-              strokeWidth={1.5}
-              onMouseEnter={() => setHoveredId(id)}
-              onMouseLeave={() => setHoveredId((h) => (h === id ? null : h))}
-              onClick={() => onSelectReport(c.reportId)}
+              key={c.id}
+              cx={c.x} cy={c.y} r={hoveredId === c.id ? 6 : 4.5}
+              fill={c.color} stroke="#0b0f16" strokeWidth={1.5}
+              className="cursor-pointer"
+              style={{ pointerEvents: 'auto' }}
+              onMouseEnter={() => setHoveredId(c.id)}
+              onMouseLeave={() => setHoveredId((h) => (h === c.id ? null : h))}
+              onClick={() => onSelectReport(c.call.reportId)}
             />
-          )
-        })}
+          ))}
+          {hovered && (() => {
+            const tw = 138, th = 46
+            const tx = Math.max(2, Math.min((size.w || tw) - tw - 2, hovered.x - tw / 2))
+            const ty = hovered.y - th - 9 < 0 ? hovered.y + 10 : hovered.y - th - 9
+            const c = hovered.call
+            return (
+              <g pointerEvents="none">
+                <rect x={tx} y={ty} width={tw} height={th} rx={4} fill="#0f172a" stroke="rgba(148,163,184,0.25)" strokeWidth={1}/>
+                <text x={tx + 9} y={ty + 16} fill="#f1f5f9" fontSize={10.5} fontWeight={600}>{c.brokerShortName}</text>
+                <text x={tx + 9} y={ty + 29} fontSize={10}>
+                  <tspan fill={hovered.color} fontWeight={600}>{c.rating ?? '—'}</tspan>
+                  <tspan fill="#cbd5e1"> · target {formatPrice(c.targetPrice, c.targetCurrency ?? currency, 0)}</tspan>
+                </text>
+                <text x={tx + 9} y={ty + 41} fill="#64748b" fontSize={9}>{c.publishedAt.slice(0, 10)}</text>
+              </g>
+            )
+          })()}
+        </svg>
+      </div>
 
-        {/* hover tooltip (in-SVG so it scales with the chart) */}
-        {hovered && (() => {
-          const cx = x(Date.parse(hovered.publishedAt))
-          const cy = y(hovered.targetPrice as number)
-          const tw = 138, th = 46
-          const tx = clamp(cx - tw / 2, 2, W - tw - 2)
-          const ty = cy - th - 9 < 0 ? cy + 10 : cy - th - 9
-          return (
-            <g pointerEvents="none">
-              <rect x={tx} y={ty} width={tw} height={th} rx={4} className="fill-slate-900 stroke-line/20" strokeWidth={1}/>
-              <text x={tx + 9} y={ty + 16} className="fill-slate-100" fontSize={10.5} fontWeight={600}>{hovered.brokerShortName}</text>
-              <text x={tx + 9} y={ty + 29} fontSize={10}>
-                <tspan className={TONE_FILL[callTone(hovered.rating)]} fontWeight={600}>{hovered.rating ?? '—'}</tspan>
-                <tspan className="fill-slate-300"> · target {formatPrice(hovered.targetPrice, hovered.targetCurrency ?? currency, 0)}</tspan>
-              </text>
-              <text x={tx + 9} y={ty + 41} className="fill-slate-500" fontSize={9}>{fmtDate(Date.parse(hovered.publishedAt))}</text>
-            </g>
-          )
-        })()}
-
-        {/* price crosshair — read the price off the line at the hovered date */}
-        {priceIdx !== null && closes[priceIdx] && (() => {
-          const p = closes[priceIdx]!
-          const px = x(Date.parse(p.date))
-          const py = y(p.close)
-          const tw = 92, th = 30
-          const tx = clamp(px - tw / 2, 2, W - tw - 2)
-          const ty = clamp(py - th - 9, 2, H - th - 2)
-          return (
-            <g pointerEvents="none">
-              <line x1={px} y1={PAD.top} x2={px} y2={H - PAD.bottom} className="stroke-slate-400/30" strokeWidth={1} strokeDasharray="3 3"/>
-              <circle cx={px} cy={py} r={3.5} className="fill-slate-100 stroke-ink-900" strokeWidth={1.5}/>
-              <rect x={tx} y={ty} width={tw} height={th} rx={4} className="fill-slate-900 stroke-line/20" strokeWidth={1}/>
-              <text x={tx + 9} y={ty + 13} className="fill-slate-100" fontSize={11} fontWeight={600}>{formatPrice(p.close, currency, 0)}</text>
-              <text x={tx + 9} y={ty + 24} className="fill-slate-500" fontSize={9}>{fmtDate(Date.parse(p.date))}</text>
-            </g>
-          )
-        })()}
-      </svg>
-
-      {/* broker selector — filter the dots to specific houses */}
+      {/* broker selector */}
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-[9.5px] text-slate-500 uppercase tracking-widest mr-0.5">Broker</span>
         {brokers.map((b) => {
@@ -249,11 +252,9 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
               key={b.id}
               onClick={() => toggle(b.id)}
               className={`chip border text-[10.5px] transition-colors ${
-                on
-                  ? 'border-accent/50 text-accent bg-accent/10'
-                  : filtering
-                    ? 'border-line/10 text-slate-500 hover:text-slate-300'
-                    : 'border-line/10 text-slate-300 hover:border-line/25'
+                on ? 'border-accent/50 text-accent bg-accent/10'
+                : filtering ? 'border-line/10 text-slate-500 hover:text-slate-300'
+                : 'border-line/10 text-slate-300 hover:border-line/25'
               }`}
             >
               {b.name}
@@ -261,9 +262,7 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
           )
         })}
         {filtering && (
-          <button onClick={() => setSelected(new Set())} className="text-[10.5px] text-slate-500 hover:text-slate-300 ml-0.5">
-            Show all
-          </button>
+          <button onClick={() => setSelected(new Set())} className="text-[10.5px] text-slate-500 hover:text-slate-300 ml-0.5">Show all</button>
         )}
       </div>
     </div>
