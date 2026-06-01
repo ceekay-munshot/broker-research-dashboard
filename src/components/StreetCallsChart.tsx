@@ -16,7 +16,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   createChart, LineSeries, ColorType, CrosshairMode, LineStyle,
-  type IChartApi, type ISeriesApi, type IPriceLine, type Time,
+  type IChartApi, type ISeriesApi, type IPriceLine, type Time, type AutoscaleInfo,
 } from 'lightweight-charts'
 import type { ReportId, StockTicker } from '../domain'
 import type { StockCall } from '../viewModels/stockStreetView'
@@ -50,6 +50,7 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
   const seriesRef = useRef<ISeriesApi<'Line'> | null>(null)
   const cmpLineRef = useRef<IPriceLine | null>(null)
   const recomputeRef = useRef<() => void>(() => {})
+  const targetRangeRef = useRef<{ min: number; max: number } | null>(null)
 
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
@@ -70,6 +71,18 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
   const cmp = closes.length ? closes[closes.length - 1]!.close : null
 
   const points = useMemo(() => calls.filter((c) => c.targetPrice !== null), [calls])
+  // The Y-axis must span the call targets, not just the price line — otherwise
+  // a target above the price range is positioned above the top of the chart and
+  // its dot never shows (the price line and targets can sit on very different
+  // levels). Fed to the series' autoscaleInfoProvider below.
+  const targetRange = useMemo(() => {
+    if (points.length === 0) return null
+    let min = Infinity, max = -Infinity
+    for (const p of points) { const t = p.targetPrice as number; if (t < min) min = t; if (t > max) max = t }
+    return { min, max }
+  }, [points])
+  targetRangeRef.current = targetRange
+
   const brokers = useMemo(() => {
     const m = new Map<string, { id: string; name: string; color: string | null }>()
     for (const c of points) {
@@ -153,6 +166,20 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
     const series = chart.addSeries(LineSeries, {
       color: '#cbd5e1', lineWidth: 2, priceLineVisible: false, lastValueVisible: true,
       priceFormat: { type: 'price', precision: 0, minMove: 1 },
+      // Stretch the auto-scale to cover the broker targets so their dots are
+      // always on-screen, even when targets sit well above/below the price.
+      autoscaleInfoProvider: (baseImpl: () => AutoscaleInfo | null) => {
+        const base = baseImpl()
+        const tr = targetRangeRef.current
+        if (!base || !base.priceRange || !tr) return base
+        return {
+          priceRange: {
+            minValue: Math.min(base.priceRange.minValue, tr.min),
+            maxValue: Math.max(base.priceRange.maxValue, tr.max),
+          },
+          margins: base.margins ?? undefined,
+        }
+      },
     })
     chartRef.current = chart
     seriesRef.current = series
