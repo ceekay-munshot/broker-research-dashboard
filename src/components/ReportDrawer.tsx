@@ -11,7 +11,8 @@ import {
 import { NOTE_SIGNAL_LABEL, NOTE_SIGNAL_SOURCE_BLURB, REPORT_TYPE_LABEL } from '../lib/signalVocab'
 import { resolveSummaryNoteSignal, type NoteSignalInput } from '../lib/signalPolicy'
 import { cleanDisplayKeyPoints, isBoilerplateKeyPoint } from '../lib/researchTextCleaners'
-import { useStockPrices, type PriceCell } from '../hooks/useStockPrices'
+import { type PriceCell } from '../hooks/useStockPrices'
+import { useCmpPrices } from '../hooks/useCmpPrices'
 
 interface ReportDrawerProps {
   readonly reportId: ReportId | null
@@ -115,13 +116,13 @@ function DrawerContent({ vm, onClose, onSelectTicker }: {
     },
     vm.rating,
   )
-  // Live CMP for the report's primary ticker. The hook is called
-  // unconditionally (hooks rule) with an empty array when there's no
-  // ticker — a true no-op inside the hook. The module-scoped cache in
-  // `useStockPrices` means the same fetch is shared with the By Stock
-  // matrix; opening a drawer for a ticker already shown there is free.
+  // CMP for the report's primary ticker. The hook is called unconditionally
+  // (hooks rule) with an empty array when there's no ticker — a true no-op
+  // inside the hook. In Live mode the module-scoped cache in `useStockPrices`
+  // means the same fetch is shared with the By Stock matrix; in Mock mode the
+  // CMP comes from the seeded mock closes so it matches the rest of the view.
   const cmpTickers = primaryTicker ? [primaryTicker as string] : []
-  const { prices: cmpPrices } = useStockPrices(cmpTickers)
+  const { prices: cmpPrices } = useCmpPrices(cmpTickers)
   const cmpCell = primaryTicker ? cmpPrices.get(primaryTicker as string) : undefined
 
   return (

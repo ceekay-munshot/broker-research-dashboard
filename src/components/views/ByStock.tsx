@@ -4,7 +4,8 @@ import type { FiltersState } from '../../app/filters'
 import type { OpinionCell, ByStockRowViewModel } from '../../viewModels/byStock'
 import { useByStockViewModel } from '../../viewModels/byStock'
 import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
-import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
+import { type PriceCell } from '../../hooks/useStockPrices'
+import { useCmpPrices } from '../../hooks/useCmpPrices'
 import CmpCell from '../cells/CmpCell'
 import {
   BROKER_DOT_CLASS, TONE_TEXT_CLASS, TONE_CHIP_CLASS, getChangeTone,
@@ -25,7 +26,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
   // Live CMP fetch — called unconditionally (hooks rule) with a null-safe
   // ticker list. Empty list = no-op inside the hook.
   const cmpTickers = data?.rows.map((r) => r.ticker as string) ?? []
-  const { prices, refetch: refetchCmp, lastFetchedAt } = useStockPrices(cmpTickers)
+  const { prices, refetch: refetchCmp, lastFetchedAt } = useCmpPrices(cmpTickers)
 
   // Pull the matrix back to the top whenever the search query changes, so a
   // stock surfaced to the top by the search is actually in view.

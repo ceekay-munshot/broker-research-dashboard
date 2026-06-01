@@ -12,7 +12,7 @@ import {
   type AnalystHitRateRow, type CallRow, type CallRowInput,
 } from '../../viewModels/hitRate'
 import { useDailyCloses } from '../../hooks/useDailyCloses'
-import { useStockPrices } from '../../hooks/useStockPrices'
+import { useCmpPrices } from '../../hooks/useCmpPrices'
 import { RATING_TEXT_COLOR, formatPrice, formatShortDate } from '../../viewModels/shared'
 import { TONE_TEXT_CLASS } from '../../lib/semanticColor'
 import BrokerGlyph from '../BrokerGlyph'
@@ -46,7 +46,7 @@ export default function AnalystDetail({ row, filters, onSelectReport, onSelectTi
   }, [stocks, selectedTicker])
 
   const closesQ = useDailyCloses((selectedTicker as unknown as StockTicker) ?? null)
-  const priceRes = useStockPrices(selectedTicker ? [selectedTicker] : [])
+  const priceRes = useCmpPrices(selectedTicker ? [selectedTicker] : [])
 
   const entries = useMemo(
     () => (selectedTicker && vm ? vm.timelineByTicker.get(selectedTicker) ?? [] : []),
