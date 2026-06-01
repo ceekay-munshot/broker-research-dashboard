@@ -44,6 +44,8 @@ export interface ByStockRowViewModel {
   readonly arbVerdict: ArbVerdict
   /** The Street's consensus rating, or a tie / no-rating result. */
   readonly consensusRating: ConsensusRating
+  /** How the covering brokers' calls split by stance — drives the Call bar. */
+  readonly ratingCounts: { readonly buy: number; readonly hold: number; readonly sell: number }
   /** Broker(s) holding the highest / lowest published target (ties → many). */
   readonly highTargetBrokerIds: readonly BrokerId[]
   readonly lowTargetBrokerIds: readonly BrokerId[]
@@ -158,6 +160,15 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
     const consensusRating: ConsensusRating = closure
       ? deriveConsensusRating(closure)
       : { kind: 'none' }
+
+    // Call distribution across every covering broker, bucketed by stance:
+    // bullish → Buy, bearish → Sell, everything else (incl. no rating) → Hold.
+    let buyCount = 0, holdCount = 0, sellCount = 0
+    for (const o of tickerOpinions) {
+      if (o.stance === 'bullish') buyCount++
+      else if (o.stance === 'bearish') sellCount++
+      else holdCount++
+    }
     const targetByBroker = new Map<string, number>()
     for (const o of tickerOpinions) {
       if (o.targetPrice !== null) targetByBroker.set(o.brokerId as string, o.targetPrice)
@@ -187,6 +198,7 @@ export function buildByStockViewModel(inputs: Inputs): ByStockViewModel {
       spreadPct,
       arbVerdict,
       consensusRating,
+      ratingCounts: { buy: buyCount, hold: holdCount, sell: sellCount },
       highTargetBrokerIds: targetExtremes.highIds,
       lowTargetBrokerIds: targetExtremes.lowIds,
       brokerCount,

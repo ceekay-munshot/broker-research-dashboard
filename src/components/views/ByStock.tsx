@@ -7,7 +7,7 @@ import { RATING_TEXT_COLOR, formatPrice } from '../../viewModels/shared'
 import { useStockPrices, type PriceCell } from '../../hooks/useStockPrices'
 import CmpCell from '../cells/CmpCell'
 import {
-  BROKER_DOT_CLASS, TONE_TEXT_CLASS, getChangeTone,
+  BROKER_DOT_CLASS, TONE_TEXT_CLASS, TONE_CHIP_CLASS, getChangeTone,
 } from '../../lib/semanticColor'
 
 interface ByStockProps {
@@ -82,7 +82,7 @@ export default function ByStock({ filters, onSelectReport, onSelectTicker }: ByS
           <thead className="border-b border-line/5">
             <tr className="text-left text-slate-400">
               <th className="px-3 py-2 font-medium sticky left-0 top-0 z-30 bg-ink-800 border-r border-line/10 w-[180px]">Ticker</th>
-              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800 w-[150px]">Call</th>
+              <th className="px-3 py-2 font-medium sticky top-0 z-20 bg-ink-800 w-[184px]">Call</th>
               <th className="px-3 py-2 font-medium text-right sticky top-0 z-20 bg-ink-800 w-[96px]">
                 <div className="flex items-center justify-end gap-1.5">
                   <span>CMP</span>
@@ -279,41 +279,31 @@ function TargetCell({ cell, onSelectReport }: { cell: OpinionCell | undefined; o
 }
 
 // ─── Call cell ────────────────────────────────────────────────────────
-// The Street's call on a stock, in plain words: the consensus rating with how
-// many brokers back it (e.g. "Buy · 5 of 8"), "Mixed" when brokers are split,
-// or "No rating yet". Replaces the old jargon Street-state badge.
+// How the Street's calls split on a stock, at a glance: a stacked Buy / Hold /
+// Sell bar over the covering brokers, with the counts beside it (e.g.
+// "3 Buy · 5 Hold · 1 Sell"). One look tells you where the Street stands.
 
 function CallCell({ row }: { row: ByStockRowViewModel }) {
-  const cr = row.consensusRating
-  const brokerLine = (
-    <span className="text-[10px] text-slate-500 num">
-      {row.brokerCount} broker{row.brokerCount === 1 ? '' : 's'} covering
-    </span>
-  )
+  const { buy, hold, sell } = row.ratingCounts
+  const total = buy + hold + sell
 
-  if (cr.kind === 'clear') {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="flex items-baseline gap-1.5 whitespace-nowrap">
-          <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[cr.rating]}`}>{cr.rating}</span>
-          <span className="text-[10px] text-slate-500 num shrink-0">{cr.agree} of {cr.total}</span>
-        </span>
-        {brokerLine}
-      </div>
-    )
+  if (total === 0) {
+    return <span className="text-[12px] font-medium text-slate-400 whitespace-nowrap">No rating yet</span>
   }
-  if (cr.kind === 'tie') {
-    return (
-      <div className="flex flex-col gap-0.5">
-        <span className="text-[13px] font-semibold text-amber-500 dark:text-amber-400 whitespace-nowrap">Mixed</span>
-        {brokerLine}
-      </div>
-    )
-  }
+
+  const pct = (n: number) => (100 * n) / total
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="text-[13px] font-medium text-slate-400 whitespace-nowrap">No rating yet</span>
-      {brokerLine}
+    <div className="flex flex-col gap-1.5 min-w-[150px]" title={`${buy} Buy · ${hold} Hold · ${sell} Sell — ${total} broker${total === 1 ? '' : 's'} covering`}>
+      <div className="flex h-2 rounded-full overflow-hidden bg-line/10">
+        {buy > 0 && <div className="bg-emerald-500/80" style={{ width: `${pct(buy)}%` }}/>}
+        {hold > 0 && <div className="bg-slate-500/60" style={{ width: `${pct(hold)}%` }}/>}
+        {sell > 0 && <div className="bg-rose-500/80" style={{ width: `${pct(sell)}%` }}/>}
+      </div>
+      <div className="flex flex-wrap items-center gap-1">
+        {buy > 0 && <span className={`chip text-[9.5px] border ${TONE_CHIP_CLASS.positive}`}>{buy} Buy</span>}
+        {hold > 0 && <span className={`chip text-[9.5px] border ${TONE_CHIP_CLASS.neutral}`}>{hold} Hold</span>}
+        {sell > 0 && <span className={`chip text-[9.5px] border ${TONE_CHIP_CLASS.negative}`}>{sell} Sell</span>}
+      </div>
     </div>
   )
 }
