@@ -37,6 +37,9 @@ export interface BrokerTimelineEntry {
   readonly stance: Stance
   readonly targetPrice: number | null
   readonly targetCurrency: string | null
+  /** Broker's stated upside at publication (raw, not the ≥15%-gated chip) —
+   *  used to back out the current price (cmp = target ÷ (1 + upside)). */
+  readonly upsidePct: number | null
   readonly thesis: string
   /** Pre-built one-liner from the change-set (e.g. "Rating Buy → Hold · Target cut 12.5%"). */
   readonly headline: string
@@ -110,6 +113,7 @@ export function buildBrokerDetailViewModel(inp: BrokerDetailInputs): BrokerDetai
         stance: summary?.stance ?? c.stanceAfter ?? 'neutral',
         targetPrice: summary?.targetPrice ?? c.targetAfter,
         targetCurrency: summary?.targetCurrency ?? null,
+        upsidePct: summary?.upsidePct ?? null,
         thesis: summary?.thesis ?? '',
         headline: c.headline,
         change: c,

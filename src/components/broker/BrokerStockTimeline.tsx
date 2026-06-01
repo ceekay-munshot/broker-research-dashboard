@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { ReportId, Stance } from '../../domain'
 import type { BrokerTimelineEntry } from '../../viewModels/brokerDetail'
 import type { ReportChangeSet } from '../../viewModels/brokerMemory/types'
@@ -6,13 +5,10 @@ import {
   RATING_TEXT_COLOR, formatPrice, formatShortDate,
 } from '../../viewModels/shared'
 
-// A broker's notes on one stock, newest first. Each row answers four things a
-// reader actually wants — in this order:
-//   1. the stance   (rating + target)
-//   2. why          (the one-line thesis)
-//   3. did it change (Upgraded / Cut target / Reiterated …)
-//   4. why it changed (the themes / risks that moved)
-// Everything else from the raw note lives one click away, in the report.
+// A broker's notes on one stock, newest first. Each entry is a single clean
+// line — the same shape as the Overview feed row: the call, current price →
+// target, the gain left to target, and whether they raised or cut their
+// target since last time. The full write-up is one click away in the report.
 
 interface Props {
   readonly ticker: string
@@ -52,7 +48,6 @@ export default function BrokerStockTimeline({ ticker, stockName, entries, onSele
           <TimelineRow
             key={e.reportId as unknown as string}
             entry={e}
-            stockName={stockName}
             isLast={i === entries.length - 1}
             onSelectReport={onSelectReport}
           />
@@ -62,19 +57,18 @@ export default function BrokerStockTimeline({ ticker, stockName, entries, onSele
   )
 }
 
-function TimelineRow({ entry, stockName, isLast, onSelectReport }: {
+function TimelineRow({ entry, isLast, onSelectReport }: {
   entry: BrokerTimelineEntry
-  stockName: string | null
   isLast: boolean
   onSelectReport: (id: ReportId) => void
 }) {
-  const [open, setOpen] = useState(false)
   const c = entry.change
-  const tag = changeTag(c)
-  const why = whyText(entry.thesis, stockName)
-  const tgt = c.targetChangePct
-  const tgtMoved = tgt !== null && Math.abs(tgt) >= 0.5
-  const drivers = driverChips(c)
+  const badge = tpBadge(c, entry.targetCurrency)
+  // Current price backed out from the target and the broker's stated upside
+  // (cmp = target ÷ (1 + upside)). No live quote needed.
+  const cmp = entry.targetPrice !== null && entry.upsidePct !== null && entry.upsidePct > -100
+    ? entry.targetPrice / (1 + entry.upsidePct / 100)
+    : null
 
   return (
     <li className="flex gap-3 relative">
@@ -88,81 +82,59 @@ function TimelineRow({ entry, stockName, isLast, onSelectReport }: {
         {!isLast && <span className="flex-1 w-px bg-line/10 mt-1 mb-1"/>}
       </div>
 
-      {/* Body */}
+      {/* One clean line: call · CMP → TP · % to target · target change · View report */}
       <div className="flex-1 min-w-0 pb-4">
         <div
           role="button"
           tabIndex={0}
           onClick={() => onSelectReport(entry.reportId)}
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectReport(entry.reportId) } }}
-          className="group w-full text-left rounded-md border border-line/5 hover:border-line/15 hover:bg-line/[0.02] focus:outline-none focus:border-accent/40 transition-colors p-2.5 flex flex-col gap-1.5 cursor-pointer"
+          className="group w-full text-left rounded-md border border-line/5 hover:border-line/15 hover:bg-line/[0.02] focus:outline-none focus:border-accent/40 transition-colors p-2.5 flex items-center gap-x-2.5 gap-y-1 flex-wrap cursor-pointer"
         >
-          {/* 1 — stance, and 3 — did it change */}
-          <div className="flex items-baseline gap-x-2 gap-y-1 flex-wrap">
-            {entry.rating && (
-              <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[entry.rating]}`}>{entry.rating}</span>
-            )}
-            {entry.targetPrice !== null && (
-              <span className="text-[12px] text-slate-300 num">
-                {formatPrice(entry.targetPrice, entry.targetCurrency, 0)}
-                {tgtMoved && (
-                  <span className={`ml-1 ${tgt! > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                    {tgt! > 0 ? '▲' : '▼'} {Math.abs(tgt!).toFixed(1)}%
-                  </span>
-                )}
+          {/* the call */}
+          {entry.rating && (
+            <span className={`text-[13px] font-semibold ${RATING_TEXT_COLOR[entry.rating]}`}>{entry.rating}</span>
+          )}
+
+          {/* current price → target */}
+          <span className="num text-[12px] flex items-baseline gap-x-1.5">
+            {cmp !== null && (
+              <span className="text-slate-300 whitespace-nowrap">
+                <span className="text-slate-500 text-[10px] mr-1">CMP</span>
+                {formatPrice(cmp, entry.targetCurrency, 0)}
               </span>
             )}
-            {tag && (
-              <span className={`text-[10.5px] font-medium ${TAG_TONE[tag.tone]}`}>{tag.label}</span>
+            {cmp !== null && entry.targetPrice !== null && <span className="text-slate-600">→</span>}
+            {entry.targetPrice !== null && (
+              <span className="text-slate-100 font-semibold whitespace-nowrap">
+                <span className="text-slate-500 text-[10px] font-normal mr-1">TP</span>
+                {formatPrice(entry.targetPrice, entry.targetCurrency, 0)}
+              </span>
             )}
-            <span className="ml-auto text-[9.5px] text-slate-600 group-hover:text-slate-400 shrink-0">View report →</span>
-          </div>
+          </span>
 
-          {/* 2 — why */}
-          {why && (
-            <WhyLine
-              text={why}
-              open={open}
-              onToggle={(e) => { e.stopPropagation(); e.preventDefault(); setOpen(!open) }}
-            />
+          {/* gain left to the target */}
+          {entry.upsidePct !== null && (
+            <span className={`num text-[11.5px] whitespace-nowrap ${entry.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {entry.upsidePct >= 0 ? '+' : ''}{Math.round(entry.upsidePct)}%
+              <span className="text-slate-500 text-[10px] font-normal ml-1">to target</span>
+            </span>
           )}
 
-          {/* 4 — why it changed */}
-          {drivers.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {drivers.map((d) => (
-                <span
-                  key={d.key}
-                  title={d.title}
-                  className={`chip text-[9px] border max-w-[180px] truncate ${d.cls}`}
-                >
-                  {d.label}
-                </span>
-              ))}
-            </div>
+          {/* did they raise or cut their target since last time? */}
+          {badge && (
+            <span
+              className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${badge.cls}`}
+              title={badge.tooltip}
+            >
+              {badge.label}
+            </span>
           )}
+
+          <span className="ml-auto text-[9.5px] text-slate-600 group-hover:text-slate-400 shrink-0">View report →</span>
         </div>
       </div>
     </li>
-  )
-}
-
-function WhyLine({ text, open, onToggle }: {
-  text: string
-  open: boolean
-  onToggle: (e: React.MouseEvent) => void
-}) {
-  const truncated = text.length > 150
-  return (
-    <div className="text-[11.5px] text-slate-400 leading-relaxed">
-      <span className={open ? '' : 'line-clamp-2'}>{text}</span>
-      {truncated && (
-        <button
-          onClick={onToggle}
-          className="ml-1 text-slate-500 hover:text-slate-300 text-[10.5px]"
-        >{open ? 'less' : 'more'}</button>
-      )}
-    </div>
   )
 }
 
@@ -193,74 +165,30 @@ function isChange(c: ReportChangeSet): boolean {
   return b === 'major' || b === 'moderate' || b === 'first_coverage'
 }
 
-type TagTone = 'up' | 'down' | 'new' | 'muted'
-const TAG_TONE: Readonly<Record<TagTone, string>> = {
-  up: 'text-emerald-400',
-  down: 'text-rose-400',
-  new: 'text-accent',
-  muted: 'text-slate-500',
-}
-
-/** The "did it change?" answer, in plain words. The target move is shown
- *  inline on the price, so this focuses on the rating/coverage story. */
-function changeTag(c: ReportChangeSet): { label: string; tone: TagTone } | null {
-  if (c.significance.bucket === 'first_coverage') return { label: 'Initiated coverage', tone: 'new' }
-  if (c.ratingChanged && c.ratingBefore) {
-    const dir = moveDirection(c)
-    if (dir === 'up') return { label: `Upgraded · was ${c.ratingBefore}`, tone: 'up' }
-    if (dir === 'down') return { label: `Downgraded · was ${c.ratingBefore}`, tone: 'down' }
-    return { label: `Rating changed · was ${c.ratingBefore}`, tone: 'muted' }
+/** Did this note raise or cut the broker's target vs their prior note —
+ *  "Initiated" on first coverage, null when the target held. Mirrors the
+ *  Overview feed row's target-change badge. */
+function tpBadge(c: ReportChangeSet, currency: string | null): { label: string; cls: string; tooltip: string } | null {
+  if (c.significance.bucket === 'first_coverage') {
+    return { label: 'Initiated', cls: 'border-sky-400/40 text-sky-300 bg-sky-400/[0.08]', tooltip: 'First note from this broker on this stock' }
   }
-  const moved =
-    (c.targetChangePct !== null && Math.abs(c.targetChangePct) >= 0.5)
-    || c.stanceChanged
-    || c.themesAdded.length > 0 || c.themesDropped.length > 0
-    || c.risksAdded.length > 0 || c.risksDropped.length > 0
-  // Nothing of substance moved — say so plainly, quietly.
-  return moved ? null : { label: 'Reiterated', tone: 'muted' }
-}
-
-/** Why the view changed — the themes that came on / dropped off the table and
- *  any risk that appeared or cleared. Risk text is long and lives in the
- *  report, so we surface it as a count, not a wall of caps. */
-function driverChips(c: ReportChangeSet): ReadonlyArray<{ key: string; label: string; title?: string; cls: string }> {
-  const out: Array<{ key: string; label: string; title?: string; cls: string }> = []
-  for (const t of c.themesAdded.slice(0, 2)) {
-    out.push({ key: `a-${t}`, label: `↑ ${t}`, title: 'Theme now in focus', cls: 'border-emerald-500/30 text-emerald-300 bg-emerald-500/[0.04]' })
+  const pct = c.targetChangePct
+  const prior = c.targetBefore != null ? formatPrice(c.targetBefore, currency, 0) : null
+  if (pct != null && pct >= 0.5) {
+    return {
+      label: '▲ Target raised',
+      cls: 'border-emerald-400/40 text-emerald-300 bg-emerald-400/[0.08]',
+      tooltip: prior ? `Target raised from ${prior}` : 'Target raised vs the prior note',
+    }
   }
-  for (const t of c.themesDropped.slice(0, 2)) {
-    out.push({ key: `d-${t}`, label: `↓ ${t}`, title: 'Theme dropped', cls: 'border-slate-500/30 text-slate-400' })
+  if (pct != null && pct <= -0.5) {
+    return {
+      label: '▼ Target cut',
+      cls: 'border-rose-400/40 text-rose-300 bg-rose-400/[0.08]',
+      tooltip: prior ? `Target cut from ${prior}` : 'Target cut vs the prior note',
+    }
   }
-  if (c.risksAdded.length > 0) {
-    out.push({
-      key: 'risk-add',
-      label: `⚠ ${c.risksAdded.length} new risk${c.risksAdded.length === 1 ? '' : 's'}`,
-      title: c.risksAdded.join('\n'),
-      cls: 'border-rose-500/30 text-rose-300 bg-rose-500/[0.04]',
-    })
-  }
-  if (c.risksDropped.length > 0) {
-    out.push({
-      key: 'risk-drop',
-      label: `✓ ${c.risksDropped.length} risk${c.risksDropped.length === 1 ? '' : 's'} cleared`,
-      title: c.risksDropped.join('\n'),
-      cls: 'border-emerald-500/30 text-emerald-300 bg-emerald-500/[0.04]',
-    })
-  }
-  return out
-}
-
-/** The thesis, minus the boilerplate that just restates the stance the card
- *  already shows ("HDFC Bank: we rate the stock Hold with a ₹1,840 target
- *  (+3% upside)."). Conservative — only strips that exact opener and a leading
- *  "<Stock>: " label, and falls back to the full text if neither is present. */
-function whyText(thesis: string, stockName: string | null): string {
-  let t = (thesis ?? '').trim()
-  if (stockName && t.toLowerCase().startsWith(`${stockName.toLowerCase()}:`)) {
-    t = t.slice(stockName.length + 1).trim()
-  }
-  const stripped = t.replace(/^we rate\b.*?\.\s+/i, '').trim()
-  return stripped.length > 0 ? stripped : t
+  return null
 }
 
 function markerDot(c: ReportChangeSet): string {
