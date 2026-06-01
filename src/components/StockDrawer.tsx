@@ -8,6 +8,7 @@ import {
 } from '../viewModels/stockStreetView'
 import { RATING_TEXT_COLOR, formatPrice } from '../viewModels/shared'
 import BrokerGlyph from './BrokerGlyph'
+import TargetPriceScale from './disagreements/TargetPriceScale'
 
 interface StockDrawerProps {
   readonly ticker: StockTicker | null
@@ -111,6 +112,19 @@ function HeaderSection({ vm }: { vm: StockStreetView }) {
         <RatingDistribution counts={vm.ratingCounts}/>
         <ConsensusTargetBlock target={vm.consensusTarget}/>
       </div>
+
+      {/* The Street on one line — every covering broker as a dot at its real
+          target, coloured by its call (Buy / Hold / Sell), outliers flagged.
+          Hover a dot to see who, their call, and their target. */}
+      <div className="panel p-3.5">
+        <TargetPriceScale
+          stats={vm.targetStats}
+          currency={vm.consensusTarget.currency ?? 'INR'}
+          outliers={vm.targetOutliers}
+          brokerTargets={vm.brokerTargets}
+          dotColorMode="rating"
+        />
+      </div>
     </section>
   )
 }
@@ -155,32 +169,15 @@ function ConsensusTargetBlock({ target }: { target: ConsensusTarget }) {
       </div>
     )
   }
-  const hasRange = target.min !== null && target.max !== null && target.min !== target.max
-  const pos = (() => {
-    if (!hasRange || target.median == null) return null
-    const span = target.max! - target.min!
-    return span === 0 ? 0.5 : (target.median - target.min!) / span
-  })()
+  // The min–max range used to render as a mini-slider here; the full
+  // target-price line below the header now owns that visual, so this block
+  // stays the single headline number.
   return (
     <div className="flex flex-col gap-1 items-end">
       <span className="section-title">Consensus target price</span>
       <span className="text-slate-100 font-semibold num text-[20px] leading-tight">
         {formatPrice(target.median, target.currency, 0)}
       </span>
-      {hasRange && (
-        <div className="flex items-center gap-2 text-[10.5px] text-slate-500 num">
-          <span>{formatPrice(target.min, target.currency, 0)}</span>
-          <span className="relative w-32 h-1 rounded-full bg-line/10">
-            {pos !== null && (
-              <span
-                className="absolute -top-1 w-1 h-3 rounded-sm bg-slate-100"
-                style={{ left: `calc(${(pos * 100).toFixed(1)}% - 2px)` }}
-              />
-            )}
-          </span>
-          <span>{formatPrice(target.max, target.currency, 0)}</span>
-        </div>
-      )}
     </div>
   )
 }

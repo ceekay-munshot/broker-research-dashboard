@@ -15,7 +15,11 @@ import type {
   Stance, StockTicker,
 } from '../domain'
 import { useAdapterQuery, type QueryResult } from '../hooks/useAdapterQuery'
+import type { TargetStats } from '../engine/types'
+import { computeTargetStats } from '../engine/stats'
+import { OUTLIER_Z_THRESHOLD } from '../engine/conflictClosure'
 import { indexBy } from './shared'
+import type { BrokerTargetVM, OutlierVM } from './divergence'
 import { useStockDetailViewModel } from './stockDetail'
 import { REVISIONS_BY_TICKER } from '../mocks/consensusEstimates'
 import { BROKER_ESTIMATES_BY_BROKER_TICKER, type BrokerKpiEstimate } from '../mocks/brokerEstimates'
@@ -106,6 +110,15 @@ export interface StockStreetView {
   readonly brokerCount: number
   readonly ratingCounts: RatingCounts
   readonly consensusTarget: ConsensusTarget
+  /** True-scale spread of the Street's price targets — feeds the interactive
+   *  target-price line in the drawer header. */
+  readonly targetStats: TargetStats
+  /** One entry per covering broker that issued a target, carrying its call —
+   *  the dots the target-price line plots, coloured by Buy / Hold / Sell. */
+  readonly brokerTargets: readonly BrokerTargetVM[]
+  /** Brokers whose target sits far from the Street (z-score), so the line can
+   *  flag them. Same threshold the disagreements engine uses. */
+  readonly targetOutliers: readonly OutlierVM[]
   readonly consensusEstimates: readonly EstimateRow[]
   readonly brokerSnapshot: readonly BrokerSnapshotRow[]
   readonly revisions: readonly RevisionEntry[]
@@ -163,6 +176,34 @@ function median(xs: readonly number[]): number | null {
   return sorted.length % 2 === 0
     ? (sorted[mid - 1]! + sorted[mid]!) / 2
     : sorted[mid]!
+}
+
+/** Target-price outliers for the drawer's line — mirrors the disagreements
+ *  engine's `target_price_z` rule: only meaningful with ≥3 brokers and a real
+ *  spread; a broker more than OUTLIER_Z_THRESHOLD standard deviations from the
+ *  mean target is flagged. Returns the minimal `OutlierVM` the scale reads
+ *  (brokerId, brokerName, signed z-score). */
+function detectTargetOutliers(
+  brokerTargets: readonly BrokerTargetVM[],
+  stats: TargetStats,
+): OutlierVM[] {
+  if (brokerTargets.length < 3 || stats.mean === null || stats.stdev === null || stats.stdev <= 0) {
+    return []
+  }
+  const out: OutlierVM[] = []
+  for (const b of brokerTargets) {
+    const z = (b.targetPrice - stats.mean) / stats.stdev
+    if (Math.abs(z) <= OUTLIER_Z_THRESHOLD) continue
+    out.push({
+      brokerId: b.brokerId,
+      brokerName: b.brokerName,
+      direction: z > 0 ? 'bullish' : 'bearish',
+      reasons: ['Target far from the consensus'],
+      targetZScore: z,
+      notes: '',
+    })
+  }
+  return out
 }
 
 function quarterViewFromStance(s: Stance): QuarterView {
@@ -353,6 +394,21 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
     }
   }).sort((a, b) => a.brokerShortName.localeCompare(b.brokerShortName))
 
+  // Section A (cont.) — target-price line. One dot per broker that issued a
+  // target, carrying its call so the line can colour Buy / Hold / Sell. Stats
+  // and outliers come off the SAME targets that drive the consensus number
+  // above, so the rail and the headline always agree.
+  const brokerTargets: BrokerTargetVM[] = brokerSnapshot
+    .filter((r) => r.targetPrice != null)
+    .map((r) => ({
+      brokerId: r.brokerId as unknown as string,
+      brokerName: r.brokerShortName,
+      targetPrice: r.targetPrice as number,
+      rating: r.rating,
+    }))
+  const targetStats = computeTargetStats(brokerTargets.map((b) => b.targetPrice))
+  const targetOutliers = detectTargetOutliers(brokerTargets, targetStats)
+
   // Section D — revisions. Prefer the structured per-broker fixture when
   // available (same shape the backend will emit). Fall back to a single
   // "TP" delta derived from priorTargetPrice on the summary.
@@ -428,6 +484,9 @@ export function buildStockStreetView(inp: StockStreetViewInputs): StockStreetVie
     brokerCount,
     ratingCounts,
     consensusTarget,
+    targetStats,
+    brokerTargets,
+    targetOutliers,
     consensusEstimates,
     brokerSnapshot,
     revisions,

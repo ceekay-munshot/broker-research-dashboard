@@ -1,5 +1,5 @@
 import type {
-  Broker, StockTicker, Stock, Sector, BrokerStockOpinion,
+  Broker, StockTicker, Stock, Sector, BrokerStockOpinion, Rating,
 } from '../domain'
 import type {
   ConflictClosure, ConsensusPoint, DisagreementPoint, OutlierClassification,
@@ -45,11 +45,14 @@ export interface BrokerRef {
 }
 
 /** One broker's published price target on a stock — the unit the target-
- *  price scale plots as a single dot the reader can hover to identify. */
+ *  price scale plots as a single dot the reader can hover to identify. The
+ *  rating rides along so the scale can colour each dot by the broker's call
+ *  (Buy / Hold / Sell) and name it on hover. */
 export interface BrokerTargetVM {
   readonly brokerId: string
   readonly brokerName: string
   readonly targetPrice: number
+  readonly rating: Rating | null
 }
 
 export interface ConsensusPointVM {
@@ -182,6 +185,7 @@ export function buildDivergenceViewModel(inputs: Inputs): DivergenceViewModel {
             brokerId: o.brokerId as unknown as string,
             brokerName: name(o.brokerId as unknown as string),
             targetPrice: o.targetPrice as number,
+            rating: o.rating,
           })),
         resultant: c.resultant,
         confidence: c.confidence,

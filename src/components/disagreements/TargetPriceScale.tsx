@@ -8,21 +8,48 @@
 
 import { useState } from 'react'
 import type { TargetStats } from '../../engine/types'
+import type { Rating } from '../../domain'
 import type { OutlierVM, BrokerTargetVM } from '../../viewModels/divergence'
-import { formatPrice } from '../../viewModels/shared'
+import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
 
 interface Props {
   readonly stats: TargetStats
   readonly currency: string
   readonly outliers: readonly OutlierVM[]
   readonly brokerTargets?: readonly BrokerTargetVM[]
+  /** How to colour the per-broker dots. 'position' (default) tints by where
+   *  the target sits vs the median (low = red, high = green) — the original
+   *  disagreements-tab behaviour. 'rating' tints by the broker's call so the
+   *  line shows every broker AND its Buy / Hold / Sell at a glance. */
+  readonly dotColorMode?: 'position' | 'rating'
 }
 
 type DotTone = 'outlier' | 'low' | 'high'
+type CallBucket = 'buy' | 'hold' | 'sell'
+
+// Call → dot fill / hover-ring, matching the emerald/slate/rose rating palette
+// used by the rating-distribution bar so the colours read as one legend.
+const CALL_DOT_FILL: Record<CallBucket, string> = {
+  buy:  'bg-emerald-400',
+  hold: 'bg-slate-300',
+  sell: 'bg-rose-400',
+}
+const CALL_DOT_RING: Record<CallBucket, string> = {
+  buy:  'ring-emerald-300/60',
+  hold: 'ring-slate-300/60',
+  sell: 'ring-rose-300/60',
+}
+
+function callBucket(rating: Rating | null): CallBucket | null {
+  if (rating === 'Buy' || rating === 'Overweight') return 'buy'
+  if (rating === 'Hold') return 'hold'
+  if (rating === 'Sell' || rating === 'Underweight') return 'sell'
+  return null
+}
 
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v))
 
-export default function TargetPriceScale({ stats, currency, outliers, brokerTargets = [] }: Props) {
+export default function TargetPriceScale({ stats, currency, outliers, brokerTargets = [], dotColorMode = 'position' }: Props) {
   const { low, high, median, count, spreadPct } = stats
   const price = (n: number | null) => formatPrice(n, currency, 0)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -64,18 +91,34 @@ export default function TargetPriceScale({ stats, currency, outliers, brokerTarg
   // closure's low/high (the two can come from slightly different snapshots).
   const dots = [...brokerTargets]
     .sort((a, b) => a.targetPrice - b.targetPrice)
-    .map((b) => ({
-      brokerId: b.brokerId,
-      name: b.brokerName,
-      price: b.targetPrice,
-      pos: clamp(posOf(b.targetPrice), 0, 100),
-      outlier: targetOutlierIds.has(b.brokerId),
-      tone: (targetOutlierIds.has(b.brokerId)
-        ? 'outlier'
-        : b.targetPrice < median
-          ? 'low'
-          : 'high') as DotTone,
-    }))
+    .map((b) => {
+      const outlier = targetOutlierIds.has(b.brokerId)
+      const tone: DotTone = outlier ? 'outlier' : b.targetPrice < median ? 'low' : 'high'
+      const bucket = callBucket(b.rating)
+      // Outliers keep the amber fill (same signal the endpoints use). Otherwise
+      // 'rating' mode tints by the broker's call; 'position' mode (or an
+      // un-rated broker) falls back to the low/high tint.
+      const fill =
+        outlier                                ? 'bg-amber-400'
+        : dotColorMode === 'rating' && bucket  ? CALL_DOT_FILL[bucket]
+        : tone === 'low'                       ? 'bg-rose-400'
+        :                                        'bg-emerald-400'
+      const ring =
+        outlier                                ? 'ring-amber-300/60'
+        : dotColorMode === 'rating' && bucket  ? CALL_DOT_RING[bucket]
+        : tone === 'low'                       ? 'ring-rose-300/60'
+        :                                        'ring-emerald-300/60'
+      return {
+        brokerId: b.brokerId,
+        name: b.brokerName,
+        price: b.targetPrice,
+        rating: b.rating,
+        pos: clamp(posOf(b.targetPrice), 0, 100),
+        outlier,
+        fill,
+        ring,
+      }
+    })
   const hasDots = dots.length >= 2
   const active = hoveredId === null ? null : dots.find((d) => d.brokerId === hoveredId) ?? null
 
@@ -106,7 +149,8 @@ export default function TargetPriceScale({ stats, currency, outliers, brokerTarg
               <BrokerDot
                 key={d.brokerId}
                 pos={d.pos}
-                tone={d.tone}
+                fill={d.fill}
+                ring={d.ring}
                 active={hoveredId === d.brokerId}
                 onEnter={() => setHoveredId(d.brokerId)}
                 onLeave={() => setHoveredId((cur) => (cur === d.brokerId ? null : cur))}
@@ -130,6 +174,7 @@ export default function TargetPriceScale({ stats, currency, outliers, brokerTarg
             <BrokerTip
               pos={active.pos}
               name={active.name}
+              rating={active.rating}
               price={price(active.price)}
               delta={consensusDelta(active.price, median)}
               outlier={active.outlier}
@@ -145,7 +190,9 @@ export default function TargetPriceScale({ stats, currency, outliers, brokerTarg
 
         {hasDots && (
           <p className="text-[10px] text-slate-500 mt-1.5">
-            Each dot is one broker — hover to see who and their target.
+            {dotColorMode === 'rating'
+              ? 'Each dot is one broker — colour is their call, position is their target. Hover to see who.'
+              : 'Each dot is one broker — hover to see who and their target.'}
           </p>
         )}
       </div>
@@ -211,23 +258,18 @@ function Dot({ pos, tone }: { pos: number; tone: 'low' | 'high' | 'median' | 'ou
 }
 
 // One broker's dot. A generous transparent hit-area wraps the small visible
-// dot so it's easy to hover; hovering grows the dot and rings it in its tone.
-function BrokerDot({ pos, tone, active, onEnter, onLeave, title }: {
+// dot so it's easy to hover; hovering grows the dot and rings it in its hue.
+// Fill + ring classes are resolved by the caller (by call in 'rating' mode,
+// by position otherwise) so this stays a dumb renderer.
+function BrokerDot({ pos, fill, ring, active, onEnter, onLeave, title }: {
   pos: number
-  tone: DotTone
+  fill: string
+  ring: string
   active: boolean
   onEnter: () => void
   onLeave: () => void
   title: string
 }) {
-  const dotCls =
-    tone === 'outlier' ? 'bg-amber-400'
-    : tone === 'low'   ? 'bg-rose-400'
-    :                    'bg-emerald-400'
-  const ringCls =
-    tone === 'outlier' ? 'ring-amber-300/60'
-    : tone === 'low'   ? 'ring-rose-300/60'
-    :                    'ring-emerald-300/60'
   return (
     <span
       className="absolute top-1/2 z-10 flex items-center justify-center -translate-x-1/2 -translate-y-1/2 cursor-default"
@@ -237,8 +279,8 @@ function BrokerDot({ pos, tone, active, onEnter, onLeave, title }: {
       title={title}
     >
       <span
-        className={`rounded-full transition-all duration-100 ${dotCls} ${
-          active ? `w-3.5 h-3.5 ring-2 ${ringCls}` : 'w-2.5 h-2.5 ring-1 ring-slate-950/50'
+        className={`rounded-full transition-all duration-100 ${fill} ${
+          active ? `w-3.5 h-3.5 ring-2 ${ring}` : 'w-2.5 h-2.5 ring-1 ring-slate-950/50'
         }`}
       />
     </span>
@@ -247,13 +289,15 @@ function BrokerDot({ pos, tone, active, onEnter, onLeave, title }: {
 
 // Floating label for the hovered broker. Clamped horizontally so it never
 // runs off the rail; a small caret ties it back to the dot.
-function BrokerTip({ pos, name, price, delta, outlier }: {
+function BrokerTip({ pos, name, rating, price, delta, outlier }: {
   pos: number
   name: string
+  rating: Rating | null
   price: string
   delta: string
   outlier: boolean
 }) {
+  const showRating = rating !== null && rating !== 'Not Rated'
   return (
     <div
       className="absolute bottom-full mb-2 z-30 -translate-x-1/2 pointer-events-none"
@@ -264,6 +308,9 @@ function BrokerTip({ pos, name, price, delta, outlier }: {
           {name}
           {outlier && <span className="text-amber-400"> · outlier</span>}
         </span>
+        {showRating && (
+          <span className={`text-[10.5px] font-semibold ${RATING_TEXT_COLOR[rating]}`}>{rating}</span>
+        )}
         <span className="num text-[12px] text-slate-100">{price}</span>
         {delta && <span className="text-[10px] text-slate-400">{delta}</span>}
         <span className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 w-2 h-2 rotate-45 bg-slate-900 border-r border-b border-line/15"/>

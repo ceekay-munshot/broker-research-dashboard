@@ -12,7 +12,7 @@ import { computeTargetStats, clamp, unique } from './stats'
 
 // ─── Tuneable thresholds (all documented in docs/closure-logic.md) ────
 
-const OUTLIER_Z_THRESHOLD         = 1.25
+export const OUTLIER_Z_THRESHOLD  = 1.25
 const STANCE_CONSENSUS_PCT        = 0.75  // ≥75% of brokers aligned
 const STANCE_MAJORITY_PCT         = 0.66  // ≥66% is a stance majority
 const RATING_MAJORITY_PCT         = 0.66
