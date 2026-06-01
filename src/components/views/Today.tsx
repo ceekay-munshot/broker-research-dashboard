@@ -18,7 +18,6 @@ import type { TabId } from '../../app/tabs'
 import { useDailyWorklogViewModel } from '../../hooks/useWorklogViewModel'
 import { DEFAULT_WORKLOG_FILTERS, type WorklogItem } from '../../viewModels/worklog'
 import { formatPrice, RATING_TEXT_COLOR } from '../../viewModels/shared'
-import { resolveSummaryNoteSignal } from '../../lib/signalPolicy'
 import BrokerGlyph from '../BrokerGlyph'
 
 interface TodayProps {
@@ -238,51 +237,68 @@ function StockCard({ card, onSelectReport, onSelectTicker }: {
   )
 }
 
-/** A single broker's view on the company: short broker tag, their call, the
- *  target, optional upside, and a "what's new" marker (new coverage / upgrade /
- *  downgrade) only when it adds information. Opens that broker's report. */
+/** A single broker's view on the company, read left-to-right like a sentence:
+ *  who · their call · the price story (current price → target, and the gain
+ *  left to reach it) · whether they raised or cut their target since last time.
+ *  Opens that broker's full report on click. */
 function BrokerViewLine({ view, onSelect }: { view: BrokerView; onSelect: () => void }) {
+  // Current price backed out from the target and the broker's stated upside
+  // (cmp = target ÷ (1 + upside)). Always available from the note's own
+  // numbers — no live quote needed.
+  const cmp = view.targetPrice != null && view.upsidePct != null && view.upsidePct > -100
+    ? view.targetPrice / (1 + view.upsidePct / 100)
+    : null
   return (
     <li className="border-b border-line/5 last:border-0">
       <button
         onClick={onSelect}
-        className="w-full text-left px-3.5 py-2 hover:bg-line/[0.03] transition-colors flex items-center gap-2.5"
+        className="w-full text-left px-3.5 py-2 hover:bg-line/[0.03] transition-colors grid grid-cols-[104px_88px_1fr_auto] items-center gap-x-3"
       >
-        {/* broker — same brand-glyph + name language as Street views at a
-            glance. Fixed width so the calls line up into a column. */}
-        <span className="shrink-0 w-[104px] text-[12px] font-medium">
+        {/* who — brand-glyph + name, fixed width so the calls line up */}
+        <span className="min-w-0 text-[12px] font-medium">
           <BrokerGlyph shortName={view.brokerShortName} color={view.color} size={4}/>
         </span>
 
-        {/* the call */}
-        {view.rating ? (
-          <span className={`shrink-0 w-20 text-[12.5px] font-semibold ${RATING_TEXT_COLOR[view.rating]}`}>{view.rating}</span>
-        ) : (
-          <span className={`shrink-0 w-20 text-[12.5px] font-semibold ${STANCE_TEXT[view.stance]}`}>{STANCE_WORD[view.stance]}</span>
-        )}
+        {/* their call */}
+        <span className={`text-[12.5px] font-semibold truncate ${view.rating ? RATING_TEXT_COLOR[view.rating] : STANCE_TEXT[view.stance]}`}>
+          {view.rating ?? STANCE_WORD[view.stance]}
+        </span>
 
-        {/* target price (short) */}
-        {view.targetPrice != null && (
-          <span className="shrink-0 text-[12px] num text-slate-200">
-            <span className="text-slate-500">TP </span>{formatPrice(view.targetPrice, view.targetCurrency, 0)}
-          </span>
-        )}
+        {/* the price story: current price → target · gain left to it */}
+        <span className="num text-[12px] flex items-baseline gap-x-2 gap-y-0.5 flex-wrap min-w-0">
+          {cmp != null && (
+            <span className="text-slate-300 whitespace-nowrap">
+              <span className="text-slate-500 text-[10px] mr-1">CMP</span>
+              {formatPrice(cmp, view.targetCurrency, 0)}
+            </span>
+          )}
+          {cmp != null && view.targetPrice != null && <span className="text-slate-600">→</span>}
+          {view.targetPrice != null && (
+            <span className="text-slate-100 font-semibold whitespace-nowrap">
+              <span className="text-slate-500 text-[10px] font-normal mr-1">TP</span>
+              {formatPrice(view.targetPrice, view.targetCurrency, 0)}
+            </span>
+          )}
+          {view.upsidePct != null && (
+            <span className={`whitespace-nowrap ${view.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+              {view.upsidePct >= 0 ? '+' : ''}{Math.round(view.upsidePct)}%
+              <span className="text-slate-500 text-[10px] font-normal ml-1">to target</span>
+            </span>
+          )}
+        </span>
 
-        {/* upside */}
-        {view.upsidePct != null && (
-          <span className={`shrink-0 text-[11.5px] num ${view.upsidePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-            {view.upsidePct >= 0 ? '+' : ''}{Math.round(view.upsidePct)}%
-          </span>
-        )}
-
-        {/* what's new — only the informative signals */}
-        {view.marker && (
-          <span className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${view.marker.cls}`}>
-            {view.marker.label}
-          </span>
-        )}
-
-        <span className="ml-auto shrink-0 text-[10.5px] text-slate-500 num pl-2">{shortTime(view.receivedAt)}</span>
+        {/* did they raise or cut their target since last time? · when */}
+        <span className="flex items-center gap-2 justify-self-end">
+          {view.tpChange && (
+            <span
+              className={`shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${view.tpChange.cls}`}
+              title={view.tpChange.tooltip}
+            >
+              {view.tpChange.label}
+            </span>
+          )}
+          <span className="shrink-0 text-[10.5px] text-slate-500 num">{shortTime(view.receivedAt)}</span>
+        </span>
       </button>
     </li>
   )
@@ -312,7 +328,7 @@ interface BrokerView {
   readonly upsidePct: number | null
   readonly reportId: ReportId
   readonly receivedAt: string
-  readonly marker: { label: string; cls: string } | null
+  readonly tpChange: { label: string; cls: string; tooltip: string } | null
 }
 
 interface StockCardData {
@@ -355,20 +371,34 @@ function stockKey(i: WorklogItem): string {
   return `r:${i.reportId as unknown as string}`
 }
 
-/** "What's new" marker — only the signals that add information beyond the
- *  rating column. The shared signal policy already suppresses a signal that
- *  merely mirrors the formal rating (e.g. Bullish signal + Buy). */
-function markerFor(item: WorklogItem): { label: string; cls: string } | null {
-  const resolved = resolveSummaryNoteSignal(
-    { noteSignalKind: item.noteSignalKind, noteSignalSource: item.noteSignalSource, actionLabel: item.actionLabel },
-    item.rating,
-  )
-  switch (resolved?.noteSignalKind) {
-    case 'new_coverage': return { label: 'New coverage', cls: 'border-sky-400/40 text-sky-300 bg-sky-400/[0.08]' }
-    case 'upgrade':      return { label: '▲ Upgrade',     cls: 'border-emerald-400/40 text-emerald-300 bg-emerald-400/[0.08]' }
-    case 'downgrade':    return { label: '▼ Downgrade',   cls: 'border-rose-400/40 text-rose-300 bg-rose-400/[0.08]' }
-    default:             return null
+/** Did this note raise or cut the broker's target vs their previous note on
+ *  the stock — the one change a reader scans for. "New" when it's the broker's
+ *  first target here (nothing to compare against). Null when the target held. */
+function tpChangeFor(item: WorklogItem): { label: string; cls: string; tooltip: string } | null {
+  const pct = item.targetChangePct
+  const prior = item.priorTargetPrice != null ? formatPrice(item.priorTargetPrice, item.targetCurrency, 0) : null
+  if (pct != null && pct >= 0.5) {
+    return {
+      label: '▲ Target raised',
+      cls: 'border-emerald-400/40 text-emerald-300 bg-emerald-400/[0.08]',
+      tooltip: prior ? `Target raised from ${prior}` : 'Target raised vs the broker’s last note',
+    }
   }
+  if (pct != null && pct <= -0.5) {
+    return {
+      label: '▼ Target cut',
+      cls: 'border-rose-400/40 text-rose-300 bg-rose-400/[0.08]',
+      tooltip: prior ? `Target cut from ${prior}` : 'Target cut vs the broker’s last note',
+    }
+  }
+  if (item.priorTargetPrice == null && item.targetPrice != null) {
+    return {
+      label: 'New',
+      cls: 'border-sky-400/40 text-sky-300 bg-sky-400/[0.08]',
+      tooltip: 'First target from this broker on this stock',
+    }
+  }
+  return null
 }
 
 /** Build day → company cards. Items are grouped by UTC day, then by stock
@@ -423,7 +453,7 @@ function buildDays(items: readonly WorklogItem[]): DayCards[] {
           upsidePct: it.upsidePct,
           reportId: it.reportId,
           receivedAt: it.receivedAt,
-          marker: markerFor(it),
+          tpChange: tpChangeFor(it),
         }))
 
       const top = group.reduce((a, b) => (b.receivedAt > a.receivedAt ? b : a))
