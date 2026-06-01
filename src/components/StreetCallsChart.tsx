@@ -55,6 +55,7 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
   const { prices } = useStockPrices([ticker as unknown as string])
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
+  const [priceIdx, setPriceIdx] = useState<number | null>(null)
 
   const points = calls.filter((c) => c.targetPrice !== null)
   const closes = closesData ?? []
@@ -158,6 +159,27 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
           <path key={t.id} d={t.d} fill="none" stroke={t.color} strokeWidth={1.5} strokeOpacity={0.5} strokeLinejoin="round"/>
         ))}
 
+        {/* invisible hit-area so hovering anywhere reads the price off the line */}
+        {closes.length >= 2 && (
+          <rect
+            x={PAD.left} y={PAD.top} width={PLOT_W} height={PLOT_H}
+            className="fill-transparent"
+            onMouseMove={(e) => {
+              const svg = (e.currentTarget as SVGRectElement).ownerSVGElement
+              if (!svg) return
+              const r = svg.getBoundingClientRect()
+              const svgX = ((e.clientX - r.left) / r.width) * W
+              let best = 0, bestD = Infinity
+              for (let i = 0; i < closes.length; i++) {
+                const dx = Math.abs(x(Date.parse(closes[i]!.date)) - svgX)
+                if (dx < bestD) { bestD = dx; best = i }
+              }
+              setPriceIdx(best)
+            }}
+            onMouseLeave={() => setPriceIdx(null)}
+          />
+        )}
+
         {/* one dot per shown call */}
         {shown.map((c) => {
           const cx = x(Date.parse(c.publishedAt))
@@ -193,6 +215,25 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
                 <tspan className="fill-slate-300"> · target {formatPrice(hovered.targetPrice, hovered.targetCurrency ?? currency, 0)}</tspan>
               </text>
               <text x={tx + 9} y={ty + 41} className="fill-slate-500" fontSize={9}>{fmtDate(Date.parse(hovered.publishedAt))}</text>
+            </g>
+          )
+        })()}
+
+        {/* price crosshair — read the price off the line at the hovered date */}
+        {priceIdx !== null && closes[priceIdx] && (() => {
+          const p = closes[priceIdx]!
+          const px = x(Date.parse(p.date))
+          const py = y(p.close)
+          const tw = 92, th = 30
+          const tx = clamp(px - tw / 2, 2, W - tw - 2)
+          const ty = clamp(py - th - 9, 2, H - th - 2)
+          return (
+            <g pointerEvents="none">
+              <line x1={px} y1={PAD.top} x2={px} y2={H - PAD.bottom} className="stroke-slate-400/30" strokeWidth={1} strokeDasharray="3 3"/>
+              <circle cx={px} cy={py} r={3.5} className="fill-slate-100 stroke-ink-900" strokeWidth={1.5}/>
+              <rect x={tx} y={ty} width={tw} height={th} rx={4} className="fill-slate-900 stroke-line/20" strokeWidth={1}/>
+              <text x={tx + 9} y={ty + 13} className="fill-slate-100" fontSize={11} fontWeight={600}>{formatPrice(p.close, currency, 0)}</text>
+              <text x={tx + 9} y={ty + 24} className="fill-slate-500" fontSize={9}>{fmtDate(Date.parse(p.date))}</text>
             </g>
           )
         })()}
