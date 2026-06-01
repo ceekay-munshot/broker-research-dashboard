@@ -10,8 +10,9 @@
 // calls are joined by a line in its brand colour so the target trajectory (the
 // raises and cuts) reads straight off the chart.
 //
-// Price history comes from /api/stock-history (live) or the adapter's mock
-// closes (dev). Dots always render; the price line appears once there's data.
+// Price history comes from /api/stock-history (Live data source) or the
+// adapter's seeded mock closes (Mock data source). Dots always render; the
+// price line appears once there's data.
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -22,6 +23,7 @@ import type { ReportId, StockTicker } from '../domain'
 import type { StockCall } from '../viewModels/stockStreetView'
 import { useDailyCloses } from '../hooks/useDailyCloses'
 import { useStockHistory } from '../hooks/useStockHistory'
+import { useDataSource } from '../app/ScopeContext'
 import { formatPrice } from '../viewModels/shared'
 
 type CallTone = 'buy' | 'hold' | 'sell' | 'none'
@@ -58,9 +60,13 @@ export default function StreetCallsChart({ calls, ticker, currency, onSelectRepo
   const [trails, setTrails] = useState<readonly Trail[]>([])
   const [size, setSize] = useState({ w: 0, h: HEIGHT })
 
+  const { dataSource } = useDataSource()
   const mockCloses = useDailyCloses(ticker).data ?? []
-  const apiHistory = useStockHistory(ticker)
-  // Prefer live history; fall back to mock seeded closes (dev). De-dupe + sort.
+  // Live view → real history from Yahoo. Mock view → seeded mock closes that are
+  // anchored to each stock's reference price, so the price line stays coherent
+  // with the mock broker targets instead of being overridden by a live quote.
+  const apiHistory = useStockHistory(ticker, dataSource !== 'mock')
+  // Prefer live history; fall back to mock seeded closes. De-dupe + sort.
   const closes = useMemo(() => {
     const src = apiHistory.length > 0 ? apiHistory : mockCloses.map((c) => ({ date: c.date, close: c.close }))
     const m = new Map<string, number>()

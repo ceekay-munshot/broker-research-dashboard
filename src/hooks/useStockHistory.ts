@@ -18,8 +18,12 @@ const HISTORY_URL =
 // re-hit the edge for every mount.
 const memCache = new Map<string, readonly HistoryPoint[]>()
 
-export function useStockHistory(ticker: StockTicker | null): readonly HistoryPoint[] {
-  const key = ticker ? (ticker as unknown as string) : ''
+export function useStockHistory(ticker: StockTicker | null, enabled = true): readonly HistoryPoint[] {
+  // `enabled` is false under the Mock data source: the demo must stay self-
+  // contained (mock targets against mock closes), never pulling the live Yahoo
+  // feed — which is both a real network call and, for some tickers, simply
+  // wrong (e.g. HDFCBANK quotes ~₹742 where the real price is ~₹1,800).
+  const key = enabled && ticker ? (ticker as unknown as string) : ''
   const [points, setPoints] = useState<readonly HistoryPoint[]>(() => memCache.get(key) ?? [])
 
   useEffect(() => {
