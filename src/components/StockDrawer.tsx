@@ -3,7 +3,7 @@ import type { ReportId, StockTicker } from '../domain'
 import {
   useStockStreetView,
   type ConsensusTarget,
-  type EstimateRow, type RatingCounts, type RevisionEntry,
+  type EstimateRow, type RatingCounts,
   type StockStreetView,
 } from '../viewModels/stockStreetView'
 import { formatPrice } from '../viewModels/shared'
@@ -93,7 +93,6 @@ function Content({ vm, onClose, onSelectReport }: {
               onSelectReport={onSelectReport}
             />
           </Section>
-          <RevisionsSection entries={vm.revisions}/>
         </div>
       </div>
     </>
@@ -249,44 +248,6 @@ function EstimateTable({ rows }: { rows: readonly EstimateRow[] }) {
         </tbody>
       </table>
     </div>
-  )
-}
-
-// ── D · Estimate revisions ──────────────────────────────────────────────
-
-function RevisionsSection({ entries }: { entries: readonly RevisionEntry[] }) {
-  return (
-    <Section title="Estimate revisions vs previous">
-      {entries.length === 0 ? (
-        <Placeholder>No comparable revisions yet — most brokers don't have a prior comparable note to diff against.</Placeholder>
-      ) : (
-        <ul className="flex flex-col divide-y divide-line/5 rounded border border-line/5">
-          {entries.map((e) => (
-            <li key={e.brokerId as unknown as string} className="flex items-center gap-3 px-3 py-2">
-              <span className="text-slate-200 text-[12.5px] font-medium min-w-[110px]">{e.brokerShortName}</span>
-              <div className="flex flex-wrap gap-1.5 flex-1">
-                {e.deltas.map((d, i) => (
-                  <DeltaChip key={i} delta={d}/>
-                ))}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-    </Section>
-  )
-}
-
-function DeltaChip({ delta }: { delta: RevisionEntry['deltas'][number] }) {
-  const cls = delta.direction === 'up'
-    ? 'border-emerald-500/30 bg-emerald-500/[0.06] text-emerald-300'
-    : delta.direction === 'down'
-      ? 'border-rose-500/30 bg-rose-500/[0.06] text-rose-300'
-      : 'border-line/10 bg-line/[0.04] text-slate-400'
-  return (
-    <span className={`chip border ${cls} text-[10px]`}>
-      {delta.pctText ? `${delta.metric} ${delta.pctText}` : `${delta.metric} unch`}
-    </span>
   )
 }
 
